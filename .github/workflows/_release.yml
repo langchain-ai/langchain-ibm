@@ -12,7 +12,7 @@ on:
       working-directory:
         required: true
         type: string
-        default: 'libs/'
+        default: 'libs/ibm'
 
 env:
   PYTHON_VERSION: "3.11"
@@ -158,7 +158,8 @@ jobs:
 
       - name: Run integration tests
         env:
-          PARTNER_API_KEY: ${{ secrets.PARTNER_API_KEY }}
+          WATSONX_APIKEY: ${{ secrets.WATSONX_APIKEY }}
+          WATSONX_PROJECT_ID: ${{ secrets.WATSONX_PROJECT_ID }}
         run: make integration_tests
         working-directory: ${{ inputs.working-directory }}
 
