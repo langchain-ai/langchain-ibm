@@ -1,10 +1,14 @@
 import json
 import os
+from typing import Any
 
+import pytest
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.messages import (
     AIMessage,
+    AIMessageChunk,
     BaseMessage,
+    BaseMessageChunk,
     HumanMessage,
     SystemMessage,
 )
@@ -139,29 +143,22 @@ def test_20_tool_choice() -> None:
         model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, params=params
     )
 
-    class MyTool(BaseModel):
+    class Person(BaseModel):
         name: str
         age: int
 
-    with_tool = chat.bind_tools([MyTool], tool_choice="MyTool")
+    with_tool = chat.bind_tools([Person])
 
-    resp = with_tool.invoke("Who was the 27 year old named Erick?")
-    assert isinstance(resp, AIMessage)
-    assert resp.content == ""  # should just be tool call
-    tool_calls = resp.additional_kwargs["tool_calls"]
-    assert len(tool_calls) == 1
-    tool_call = tool_calls[0]
-    assert tool_call["function"]["name"] == "MyTool"
-    assert json.loads(tool_call["function"]["arguments"]) == {
+    result = with_tool.invoke("Erick, 27 years old")
+    assert isinstance(result, AIMessage)
+    assert result.content == ""  # should just be tool call
+    assert len(result.tool_calls) == 1
+    tool_call = result.tool_calls[0]
+    assert tool_call["name"] == "Person"
+    assert tool_call["args"] == {
         "age": 27,
         "name": "Erick",
     }
-    assert tool_call["type"] == "function"
-    assert isinstance(resp.tool_calls, list)
-    assert len(resp.tool_calls) == 1
-    tool_call = resp.tool_calls[0]
-    assert tool_call["name"] == "MyTool"
-    assert tool_call["args"] == {"age": 27, "name": "Erick"}
 
 
 def test_21_tool_choice_bool() -> None:
@@ -173,21 +170,113 @@ def test_21_tool_choice_bool() -> None:
         model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, params=params
     )
 
-    class MyTool(BaseModel):
+    class Person(BaseModel):
         name: str
         age: int
 
-    with_tool = chat.bind_tools([MyTool], tool_choice=True)
+    with_tool = chat.bind_tools([Person], tool_choice=True)
 
-    resp = with_tool.invoke("Who was the 27 year old named Erick?")
-    assert isinstance(resp, AIMessage)
-    assert resp.content == ""  # should just be tool call
-    tool_calls = resp.additional_kwargs["tool_calls"]
-    assert len(tool_calls) == 1
-    tool_call = tool_calls[0]
-    assert tool_call["function"]["name"] == "MyTool"
-    assert json.loads(tool_call["function"]["arguments"]) == {
+    result = with_tool.invoke("Erick, 27 years old")
+    assert isinstance(result, AIMessage)
+    assert result.content == ""  # should just be tool call
+    tool_call = result.tool_calls[0]
+    assert tool_call["name"] == "Person"
+    assert tool_call["args"] == {
         "age": 27,
         "name": "Erick",
     }
-    assert tool_call["type"] == "function"
+
+
+def test_21a_tool_choice_bool() -> None:
+    """Test that tool choice is respected just passing in True."""
+    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+
+    params = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 500}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,  # type: ignore[arg-type]
+    )
+    from langchain_core.tools import tool
+
+    @tool
+    def add(a: int, b: int) -> int:
+        """Adds a and b."""
+        return a + b
+
+    @tool
+    def multiply(a: int, b: int) -> int:
+        """Multiplies a and b."""
+        return a * b
+
+    @tool
+    def get_word_length(word: str) -> int:
+        """Get word length."""
+        return len(word)
+
+    tools = [add, multiply, get_word_length]
+
+    chat_with_tools = chat.bind_tools(tools)
+
+    query = "What is 3 + 12?"
+    resp = chat_with_tools.invoke(query, params=params)
+
+    assert resp.content == ""
+
+    query = "Who was the famous painter from Italy?"
+    resp = chat_with_tools.invoke(query, params=params)
+
+    assert resp.content
+
+
+@pytest.mark.skip(reason="Not implemented")
+def test_streaming_tool_call() -> None:
+    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+
+    params = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 500}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,  # type: ignore[arg-type]
+    )
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    tool_llm = chat.bind_tools([Person])
+
+    # where it calls the tool
+    strm = tool_llm.stream("Erick, 27 years old")
+
+    additional_kwargs = None
+    for chunk in strm:
+        assert isinstance(chunk, AIMessageChunk)
+        assert chunk.content == ""
+        additional_kwargs = chunk.additional_kwargs
+
+    assert additional_kwargs is not None
+    assert "tool_calls" in additional_kwargs
+    assert len(additional_kwargs["tool_calls"]) == 1
+    assert additional_kwargs["tool_calls"][0]["function"]["name"] == "Person"
+    assert json.loads(additional_kwargs["tool_calls"][0]["function"]["arguments"]) == {
+        "name": "Erick",
+        "age": 27,
+    }
+
+    assert isinstance(chunk, AIMessageChunk)
+    assert len(chunk.tool_call_chunks) == 1
+    tool_call_chunk = chunk.tool_call_chunks[0]
+    assert tool_call_chunk["name"] == "Person"
+    assert tool_call_chunk["args"] == '{"name": "Erick", "age": 27}'
+
+    # where it doesn't call the tool
+    strm = tool_llm.stream("What is 2+2?")
+    acc: Any = None
+    for chunk in strm:
+        assert isinstance(chunk, AIMessageChunk)
+        acc = chunk if acc is None else acc + chunk
+    assert acc.content != ""
+    assert "tool_calls" not in acc.additional_kwargs

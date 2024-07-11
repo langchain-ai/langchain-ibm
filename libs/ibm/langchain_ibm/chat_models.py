@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import re
 from operator import itemgetter
 from typing import (
     Any,
@@ -26,6 +25,7 @@ from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.chat_models import (
     BaseChatModel,
+    LangSmithParams,
     generate_from_stream,
 )
 from langchain_core.messages import (
@@ -50,8 +50,6 @@ from langchain_core.output_parsers.base import OutputParserLike
 from langchain_core.output_parsers.openai_tools import (
     JsonOutputKeyToolsParser,
     PydanticToolsParser,
-    make_invalid_tool_call,
-    parse_tool_call,
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.prompt_values import ChatPromptValue
@@ -87,28 +85,29 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
             content = ""
 
             raw_tool_calls = _dict.get("generated_text")
+            split_raw_tool_calls = raw_tool_calls.split("\n\n")
             if raw_tool_calls:
-                json_parts = re.split(r"\n\n(?:<blank line>\n\n)?", raw_tool_calls)
-                parsed_raw_tool_calls = [
-                    json.loads(part) for part in json_parts if part.strip()
-                ]
-                additional_kwargs["tool_calls"] = parsed_raw_tool_calls
-                additional_kwargs["function_call"] = dict(parsed_raw_tool_calls)
+                for raw_tool_call in split_raw_tool_calls:
+                    if raw_tool_call:
+                        json_parts = JsonOutputParser().parse(raw_tool_call)
 
-                for obj in parsed_raw_tool_calls:
-                    b = json.dumps(obj["function"]["arguments"])
-                    obj["function"]["arguments"] = b
+                        if json_parts["function"]["name"] == "Final Answer":
+                            content = json_parts["function"]["arguments"]["output"]
+                            return AIMessage(
+                                content=content,
+                                additional_kwargs=additional_kwargs,
+                                tool_calls=tool_calls,
+                                invalid_tool_calls=invalid_tool_calls,
+                            )
 
-                for raw_tool_call in parsed_raw_tool_calls:
-                    try:
-                        raw_tool_call["id"] = "None"
-                        tool_calls.append(
-                            parse_tool_call(raw_tool_call, return_id=True)
-                        )
-                    except Exception as e:
-                        invalid_tool_calls.append(
-                            dict(make_invalid_tool_call(raw_tool_call, str(e)))
-                        )
+                        additional_kwargs["tool_calls"] = json_parts
+
+                        parsed = {
+                            "name": json_parts["function"]["name"] or "",
+                            "args": json_parts["function"]["arguments"] or {},
+                            "id": "sample_id",
+                        }
+                        tool_calls.append(parsed)
         except:  # noqa: E722
             content = _dict.get("generated_text", "") or ""
 
@@ -201,7 +200,7 @@ def _convert_delta_to_message_chunk(
         return AIMessageChunk(
             content=content,
             additional_kwargs=additional_kwargs,
-            tool_call_chunks=tool_call_chunks,
+            tool_call_chunks=tool_call_chunks,  # type: ignore[arg-type]
         )
     elif role == "system" or default_class == SystemMessageChunk:
         return SystemMessageChunk(content=content)
@@ -310,7 +309,17 @@ class ChatWatsonx(BaseChatModel):
 
     @property
     def _llm_type(self) -> str:
+        """Return type of chat model."""
         return "watsonx-chat"
+
+    def _get_ls_params(
+        self, stop: Optional[List[str]] = None, **kwargs: Any
+    ) -> LangSmithParams:
+        """Get standard params for tracing."""
+        params = super()._get_ls_params(stop=stop, **kwargs)
+        params["ls_provider"] = "together"
+        params["ls_model_name"] = self.model_id
+        return params
 
     @property
     def lc_secrets(self) -> Dict[str, str]:
@@ -434,34 +443,53 @@ class ChatWatsonx(BaseChatModel):
         tools = kwargs.get("tools")
 
         if tools:
-            chat_prompt = f"""[AVAILABLE_TOOLS]
+            chat_prompt = f"""
+You are Mixtral Chat function calling, an AI language model developed by Mistral AI. You are a cautious assistant. You carefully follow instructions. You are helpful and harmless and you follow ethical guidelines and promote positive behavior. Here are a few of the tools available to you:
+[AVAILABLE_TOOLS]
 {json.dumps(tools[0], indent=2)}
 [/AVAILABLE_TOOLS]
-[INST]<<SYS>>You are Mixtral Chat function calling, an AI language model developed by 
-Mistral AI. You are a cautious assistant. You carefully follow instructions. You are 
-helpful and harmless and you follow ethical guidelines and promote positive behavior.
-<</SYS>>
+To use these tools you must always respond in JSON format containing `"type"` and `"function"` key-value pairs. Also `"function"` key-value pair always containing `"name"` and `"arguments"` key-value pairs. For example, to answer the question, "What is a length of word think?" you must use the get_word_length tool like so:
 
-To use these tools you must always respond in JSON format containing `"type"` and 
-`"function"` key-value pairs. Also `"function"` key-value pair always containing 
-`"name"` and `"arguments"` key-value pairs.
+```json
+{{
+    "type": "function",
+    "function": {{
+        "name": "get_word_length",
+        "arguments": {{
+            "word": "think"
+        }}
+    }}
+}}
+```
+</endoftext>
 
-Between subsequent JSONs should be one blank line.
+Remember, even when answering to the user, you must still use this JSON format! If you'd like to ask how the user is doing you must write:
 
-Remember, even when answering to the user, you must still use this only JSON format!
+```json
+{{
+    "type": "function",
+    "function": {{
+        "name": "Final Answer",
+        "arguments": {{
+            "output": "How are you today?"
+        }}
+    }}
+}}
+```
+</endoftext>
 
-{chat_prompt}[/INST]"""
+Remember to end your response with '</endoftext>'
+
+{chat_prompt[:-5]}(reminder to respond in a JSON blob no matter what and use tools only if necessary)"""
 
             if "tools" in kwargs:
                 del kwargs["tools"]
             if "tool_choice" in kwargs:
                 del kwargs["tool_choice"]
-
-        if "params" in kwargs:
-            del kwargs["params"]
+            params = params | {"stop_sequences": ["</endoftext>"]}
 
         response = self.watsonx_model.generate(
-            prompt=chat_prompt, params=params, **kwargs
+            prompt=chat_prompt, **(kwargs | {"params": params})
         )
         return self._create_chat_result(response)
 
@@ -472,11 +500,59 @@ Remember, even when answering to the user, you must still use this only JSON for
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
-        message_dicts, params = self._create_message_dicts(messages, stop)
+        message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         chat_prompt = self._create_chat_prompt(message_dicts)
 
+        tools = kwargs.get("tools")
+
+        if tools:
+            chat_prompt = f"""
+You are Mixtral Chat function calling, an AI language model developed by Mistral AI. You are a cautious assistant. You carefully follow instructions. You are helpful and harmless and you follow ethical guidelines and promote positive behavior. Here are a few of the tools available to you:
+[AVAILABLE_TOOLS]
+{json.dumps(tools[0], indent=2)}
+[/AVAILABLE_TOOLS]
+To use these tools you must always respond in JSON format containing `"type"` and `"function"` key-value pairs. Also `"function"` key-value pair always containing `"name"` and `"arguments"` key-value pairs. For example, to answer the question, "What is a length of word think?" you must use the get_word_length tool like so:
+
+```json
+{{
+    "type": "function",
+    "function": {{
+        "name": "get_word_length",
+        "arguments": {{
+            "word": "think"
+        }}
+    }}
+}}
+```
+</endoftext>
+
+Remember, even when answering to the user, you must still use this JSON format! If you'd like to ask how the user is doing you must write:
+
+```json
+{{
+    "type": "function",
+    "function": {{
+        "name": "Final Answer",
+        "arguments": {{
+            "output": "How are you today?"
+        }}
+    }}
+}}
+```
+</endoftext>
+
+Remember to end your response with '</endoftext>'
+
+{chat_prompt[:-5]}(reminder to respond in a JSON blob no matter what and use tools only if necessary)"""
+
+            if "tools" in kwargs:
+                del kwargs["tools"]
+            if "tool_choice" in kwargs:
+                del kwargs["tool_choice"]
+            params = params | {"stop_sequences": ["</endoftext>"]}
+
         for chunk in self.watsonx_model.generate_text_stream(
-            prompt=chat_prompt, raw_response=True, params=params, **kwargs
+            prompt=chat_prompt, raw_response=True, **(kwargs | {"params": params})
         ):
             if not isinstance(chunk, dict):
                 chunk = chunk.dict()
@@ -497,7 +573,9 @@ Remember, even when answering to the user, you must still use this only JSON for
                 message=chunk, generation_info=generation_info or None
             )
             if run_manager:
-                run_manager.on_llm_new_token(chunk.text, chunk=chunk, logprobs=logprobs)
+                run_manager.on_llm_new_token(
+                    chunk.content, chunk=chunk, logprobs=logprobs
+                )
 
             yield chunk
 
@@ -532,7 +610,9 @@ Remember, even when answering to the user, you must still use this only JSON for
                     prompt += message["content"] + "\n[/INST]\n"
 
         else:
-            prompt = ChatPromptValue(messages=convert_to_messages(messages)).to_string()
+            prompt = ChatPromptValue(
+                messages=convert_to_messages(messages) + [AIMessage(content="")]
+            ).to_string()
 
         return prompt
 
@@ -567,6 +647,13 @@ Remember, even when answering to the user, you must still use this only JSON for
                 sum_of_total_generated_tokens += res["generated_token_count"]
             if "input_token_count" in res:
                 sum_of_total_input_tokens += res["input_token_count"]
+            total_token = sum_of_total_generated_tokens + sum_of_total_input_tokens
+            if total_token and isinstance(message, AIMessage):
+                message.usage_metadata = {
+                    "input_tokens": sum_of_total_input_tokens,
+                    "output_tokens": sum_of_total_generated_tokens,
+                    "total_tokens": total_token,
+                }
             gen = ChatGeneration(
                 message=message,
                 generation_info=generation_info,
@@ -832,7 +919,8 @@ Remember, even when answering to the user, you must still use this only JSON for
             llm = self.bind_tools([schema], tool_choice=True)
             if is_pydantic_schema:
                 output_parser: OutputParserLike = PydanticToolsParser(
-                    tools=[schema], first_tool_only=True
+                    tools=[schema],  # type: ignore[list-item]
+                    first_tool_only=True,  # type: ignore[list-item]
                 )
             else:
                 key_name = convert_to_openai_tool(schema)["function"]["name"]
@@ -842,7 +930,7 @@ Remember, even when answering to the user, you must still use this only JSON for
         elif method == "json_mode":
             llm = self.bind(response_format={"type": "json_object"})
             output_parser = (
-                PydanticOutputParser(pydantic_object=schema)
+                PydanticOutputParser(pydantic_object=schema)  # type: ignore[type-var, arg-type]
                 if is_pydantic_schema
                 else JsonOutputParser()
             )
