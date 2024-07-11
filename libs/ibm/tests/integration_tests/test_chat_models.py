@@ -8,7 +8,6 @@ from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
     BaseMessage,
-    BaseMessageChunk,
     HumanMessage,
     SystemMessage,
 )
@@ -35,6 +34,7 @@ def test_01_generate_chat() -> None:
     ]
     response = chat.invoke(messages)
     assert response
+    assert response.content
 
 
 def test_01a_generate_chat_with_invoke_params() -> None:
@@ -54,6 +54,7 @@ def test_01a_generate_chat_with_invoke_params() -> None:
     ]
     response = chat.invoke(messages, params=params)
     assert response
+    assert response.content
 
 
 def test_02_generate_chat_with_few_inputs() -> None:
@@ -61,6 +62,8 @@ def test_02_generate_chat_with_few_inputs() -> None:
     message = HumanMessage(content="Hello")
     response = chat.generate([[message], [message]])
     assert response
+    for generation in response.generations:
+        assert generation[0].text
 
 
 def test_03_generate_chat_with_few_various_inputs() -> None:
@@ -68,7 +71,9 @@ def test_03_generate_chat_with_few_various_inputs() -> None:
     system_message = SystemMessage(content="You are to chat with the user.")
     human_message = HumanMessage(content="Hello")
     response = chat.invoke([system_message, human_message])
+    assert response
     assert isinstance(response, BaseMessage)
+    assert response.content
     assert isinstance(response.content, str)
 
 
@@ -77,6 +82,24 @@ def test_05_generate_chat_with_stream() -> None:
     response = chat.stream("What's the weather in san francisco")
     for chunk in response:
         assert isinstance(chunk.content, str)
+
+
+def test_06_chain_invoke() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+
+    system = "You are a helpful assistant."
+    human = "{text}"
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+
+    chain = prompt | chat
+    response = chain.invoke({"text": "Explain the importance of low latency for LLMs."})
+
+    assert response
+    assert response.content
 
 
 def test_10_chaining() -> None:
@@ -101,6 +124,7 @@ def test_10_chaining() -> None:
         }
     )
     assert response
+    assert response.content
 
 
 def test_11_chaining_with_params() -> None:
@@ -132,6 +156,7 @@ def test_11_chaining_with_params() -> None:
         }
     )
     assert response
+    assert response.content
 
 
 def test_20_tool_choice() -> None:
@@ -220,12 +245,12 @@ def test_22_tool_invoke() -> None:
     chat_with_tools = chat.bind_tools(tools)
 
     query = "What is 3 + 12? What is 3 + 10?"
-    resp = chat_with_tools.invoke(query, params=params)
+    resp = chat_with_tools.invoke(query)
 
     assert resp.content == ""
 
     query = "Who was the famous painter from Italy?"
-    resp = chat_with_tools.invoke(query, params=params)
+    resp = chat_with_tools.invoke(query)
 
     assert resp.content
 

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import datetime
 from operator import itemgetter
 from typing import (
     Any,
@@ -39,6 +40,7 @@ from langchain_core.messages import (
     FunctionMessageChunk,
     HumanMessage,
     HumanMessageChunk,
+    InvalidToolCall,
     SystemMessage,
     SystemMessageChunk,
     ToolMessage,
@@ -65,11 +67,14 @@ from langchain_core.utils.function_calling import (
 logger = logging.getLogger(__name__)
 
 
-def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
+def _convert_dict_to_message(
+    _dict: Mapping[str, Any], timestamp_id: str
+) -> BaseMessage:
     """Convert a dictionary to a LangChain message.
 
     Args:
         _dict: The dictionary.
+        timestamp_id: timestamp id
 
     Returns:
         The LangChain message.
@@ -80,35 +85,35 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
     else:
         additional_kwargs: Dict = {}
         tool_calls = []
-        invalid_tool_calls = []
-        try:
-            content = ""
+        invalid_tool_calls: List[InvalidToolCall] = []
+        content = ""
 
-            raw_tool_calls = _dict.get("generated_text")
-            split_raw_tool_calls = raw_tool_calls.split("\n\n")
-            if raw_tool_calls:
+        raw_tool_calls = _dict.get("generated_text", "")
+
+        if "json" in raw_tool_calls:
+            try:
+                split_raw_tool_calls = raw_tool_calls.split("\n\n")
                 for raw_tool_call in split_raw_tool_calls:
                     if "json" in raw_tool_call:
                         json_parts = JsonOutputParser().parse(raw_tool_call)
 
                         if json_parts["function"]["name"] == "Final Answer":
                             content = json_parts["function"]["arguments"]["output"]
-                            return AIMessage(
-                                content=content,
-                                additional_kwargs=additional_kwargs,
-                                tool_calls=tool_calls,
-                                invalid_tool_calls=invalid_tool_calls,
-                            )
+                            break
 
                         additional_kwargs["tool_calls"] = json_parts
 
                         parsed = {
                             "name": json_parts["function"]["name"] or "",
                             "args": json_parts["function"]["arguments"] or {},
-                            "id": "sample_id",
+                            "id": timestamp_id,
                         }
                         tool_calls.append(parsed)
-        except:  # noqa: E722
+
+            except:  # noqa: E722
+                content = _dict.get("generated_text", "") or ""
+
+        else:
             content = _dict.get("generated_text", "") or ""
 
         return AIMessage(
@@ -169,6 +174,7 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
 def _convert_delta_to_message_chunk(
     _dict: Mapping[str, Any], default_class: Type[BaseMessageChunk]
 ) -> BaseMessageChunk:
+    id_ = _dict.get("id")
     role = cast(str, _dict.get("role"))
     content = cast(str, _dict.get("content") or "")
     additional_kwargs: Dict = {}
@@ -177,6 +183,7 @@ def _convert_delta_to_message_chunk(
         if "name" in function_call and function_call["name"] is None:
             function_call["name"] = ""
         additional_kwargs["function_call"] = function_call
+    tool_call_chunks = []
     if raw_tool_calls := _dict.get("tool_calls"):
         additional_kwargs["tool_calls"] = raw_tool_calls
         try:
@@ -191,27 +198,28 @@ def _convert_delta_to_message_chunk(
             ]
         except KeyError:
             pass
-    else:
-        tool_call_chunks = []
 
     if role == "user" or default_class == HumanMessageChunk:
-        return HumanMessageChunk(content=content)
+        return HumanMessageChunk(content=content, id=id_)
     elif role == "assistant" or default_class == AIMessageChunk:
         return AIMessageChunk(
             content=content,
             additional_kwargs=additional_kwargs,
+            id=id_,
             tool_call_chunks=tool_call_chunks,  # type: ignore[arg-type]
         )
     elif role == "system" or default_class == SystemMessageChunk:
-        return SystemMessageChunk(content=content)
+        return SystemMessageChunk(content=content, id=id_)
     elif role == "function" or default_class == FunctionMessageChunk:
-        return FunctionMessageChunk(content=content, name=_dict["name"])
+        return FunctionMessageChunk(content=content, name=_dict["name"], id=id_)
     elif role == "tool" or default_class == ToolMessageChunk:
-        return ToolMessageChunk(content=content, tool_call_id=_dict["tool_call_id"])
+        return ToolMessageChunk(
+            content=content, tool_call_id=_dict["tool_call_id"], id=id_
+        )
     elif role or default_class == ChatMessageChunk:
-        return ChatMessageChunk(content=content, role=role)
+        return ChatMessageChunk(content=content, role=role, id=id_)
     else:
-        return default_class(content=content)  # type: ignore
+        return default_class(content=content, id=id_)  # type: ignore
 
 
 class _FunctionCall(TypedDict):
@@ -444,11 +452,17 @@ class ChatWatsonx(BaseChatModel):
 
         if tools:
             chat_prompt = f"""
-You are Mixtral Chat function calling, an AI language model developed by Mistral AI. You are a cautious assistant. You carefully follow instructions. You are helpful and harmless and you follow ethical guidelines and promote positive behavior. Here are a few of the tools available to you:
+You are Mixtral Chat function calling, an AI language model developed by Mistral AI. 
+You are a cautious assistant. You carefully follow instructions. You are helpful and 
+harmless and you follow ethical guidelines and promote positive behavior. Here are a 
+few of the tools available to you:
 [AVAILABLE_TOOLS]
 {json.dumps(tools[0], indent=2)}
 [/AVAILABLE_TOOLS]
-To use these tools you must always respond in JSON format containing `"type"` and `"function"` key-value pairs. Also `"function"` key-value pair always containing `"name"` and `"arguments"` key-value pairs. For example, to answer the question, "What is a length of word think?" you must use the get_word_length tool like so:
+To use these tools you must always respond in JSON format containing `"type"` and 
+`"function"` key-value pairs. Also `"function"` key-value pair always containing 
+`"name"` and `"arguments"` key-value pairs. For example, to answer the question, 
+"What is a length of word think?" you must use the get_word_length tool like so:
 
 ```json
 {{
@@ -463,7 +477,8 @@ To use these tools you must always respond in JSON format containing `"type"` an
 ```
 </endoftext>
 
-Remember, even when answering to the user, you must still use this JSON format! If you'd like to ask how the user is doing you must write:
+Remember, even when answering to the user, you must still use this JSON format! 
+If you'd like to ask how the user is doing you must write:
 
 ```json
 {{
@@ -480,7 +495,8 @@ Remember, even when answering to the user, you must still use this JSON format! 
 
 Remember to end your response with '</endoftext>'
 
-{chat_prompt[:-5]}(reminder to respond in a JSON blob no matter what and use tools only if necessary)"""
+{chat_prompt[:-5]}
+(reminder to respond in a JSON blob no matter what and use tools only if necessary)"""
 
             if "tools" in kwargs:
                 del kwargs["tools"]
@@ -507,11 +523,17 @@ Remember to end your response with '</endoftext>'
 
         if tools:
             chat_prompt = f"""
-You are Mixtral Chat function calling, an AI language model developed by Mistral AI. You are a cautious assistant. You carefully follow instructions. You are helpful and harmless and you follow ethical guidelines and promote positive behavior. Here are a few of the tools available to you:
+You are Mixtral Chat function calling, an AI language model developed by Mistral AI. 
+You are a cautious assistant. You carefully follow instructions. You are helpful and 
+harmless and you follow ethical guidelines and promote positive behavior. Here are a 
+few of the tools available to you:
 [AVAILABLE_TOOLS]
 {json.dumps(tools[0], indent=2)}
 [/AVAILABLE_TOOLS]
-To use these tools you must always respond in JSON format containing `"type"` and `"function"` key-value pairs. Also `"function"` key-value pair always containing `"name"` and `"arguments"` key-value pairs. For example, to answer the question, "What is a length of word think?" you must use the get_word_length tool like so:
+To use these tools you must always respond in JSON format containing `"type"` and 
+`"function"` key-value pairs. Also `"function"` key-value pair always containing 
+`"name"` and `"arguments"` key-value pairs. For example, to answer the question, 
+"What is a length of word think?" you must use the get_word_length tool like so:
 
 ```json
 {{
@@ -526,7 +548,8 @@ To use these tools you must always respond in JSON format containing `"type"` an
 ```
 </endoftext>
 
-Remember, even when answering to the user, you must still use this JSON format! If you'd like to ask how the user is doing you must write:
+Remember, even when answering to the user, you must still use this JSON format! 
+If you'd like to ask how the user is doing you must write:
 
 ```json
 {{
@@ -543,7 +566,8 @@ Remember, even when answering to the user, you must still use this JSON format! 
 
 Remember to end your response with '</endoftext>'
 
-{chat_prompt[:-5]}(reminder to respond in a JSON blob no matter what and use tools only if necessary)"""
+{chat_prompt[:-5]}
+(reminder to respond in a JSON blob no matter what and use tools only if necessary)"""
 
             if "tools" in kwargs:
                 del kwargs["tools"]
@@ -634,12 +658,17 @@ Remember to end your response with '</endoftext>'
         generations = []
         sum_of_total_generated_tokens = 0
         sum_of_total_input_tokens = 0
+        timestamp_id = ""
+        date_string = response.get("created_at")
+        if date_string:
+            date_object = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
+            timestamp_id = str(date_object.timestamp())
 
         if response.get("error"):
             raise ValueError(response.get("error"))
 
         for res in response["results"]:
-            message = _convert_dict_to_message(res)
+            message = _convert_dict_to_message(res, timestamp_id)
             generation_info = dict(finish_reason=res.get("stop_reason"))
             if "logprobs" in res:
                 generation_info["logprobs"] = res["logprobs"]
