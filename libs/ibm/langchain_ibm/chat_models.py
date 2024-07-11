@@ -88,7 +88,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
             split_raw_tool_calls = raw_tool_calls.split("\n\n")
             if raw_tool_calls:
                 for raw_tool_call in split_raw_tool_calls:
-                    if raw_tool_call:
+                    if "json" in raw_tool_call:
                         json_parts = JsonOutputParser().parse(raw_tool_call)
 
                         if json_parts["function"]["name"] == "Final Answer":

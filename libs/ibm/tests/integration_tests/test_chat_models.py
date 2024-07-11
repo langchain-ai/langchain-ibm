@@ -187,7 +187,7 @@ def test_21_tool_choice_bool() -> None:
     }
 
 
-def test_21a_tool_choice_bool() -> None:
+def test_22_tool_invoke() -> None:
     """Test that tool choice is respected just passing in True."""
     from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 
@@ -219,7 +219,7 @@ def test_21a_tool_choice_bool() -> None:
 
     chat_with_tools = chat.bind_tools(tools)
 
-    query = "What is 3 + 12?"
+    query = "What is 3 + 12? What is 3 + 10?"
     resp = chat_with_tools.invoke(query, params=params)
 
     assert resp.content == ""
