@@ -650,6 +650,7 @@ Remember to end your response with '</endoftext>'
 (reminder to respond in a JSON blob no matter what and use tools only if necessary)"""
 
             params = params | {"stop_sequences": ["</endoftext>"]}
+
         if "tools" in kwargs:
             del kwargs["tools"]
         if "tool_choice" in kwargs:
