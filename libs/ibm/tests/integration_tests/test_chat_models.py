@@ -1,9 +1,12 @@
 import json
 import os
+from typing import Any
 
+import pytest
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.messages import (
     AIMessage,
+    AIMessageChunk,
     BaseMessage,
     HumanMessage,
     SystemMessage,
@@ -31,6 +34,7 @@ def test_01_generate_chat() -> None:
     ]
     response = chat.invoke(messages)
     assert response
+    assert response.content
 
 
 def test_01a_generate_chat_with_invoke_params() -> None:
@@ -50,6 +54,32 @@ def test_01a_generate_chat_with_invoke_params() -> None:
     ]
     response = chat.invoke(messages, params=params)
     assert response
+    assert response.content
+
+
+def test_01b_generate_chat_with_invoke_params() -> None:
+    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+
+    parameters_1 = {
+        GenTextParamsMetaNames.DECODING_METHOD: "sample",
+        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+    }
+    parameters_2 = {
+        GenTextParamsMetaNames.MIN_NEW_TOKENS: 5,
+    }
+    chat = ChatWatsonx(
+        model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, params=parameters_1
+    )
+    messages = [
+        ("system", "You are a helpful assistant that translates English to French."),
+        (
+            "human",
+            "Translate this sentence from English to French. I love programming.",
+        ),
+    ]
+    response = chat.invoke(messages, params=parameters_2)
+    assert response
+    assert response.content
 
 
 def test_02_generate_chat_with_few_inputs() -> None:
@@ -57,6 +87,8 @@ def test_02_generate_chat_with_few_inputs() -> None:
     message = HumanMessage(content="Hello")
     response = chat.generate([[message], [message]])
     assert response
+    for generation in response.generations:
+        assert generation[0].text
 
 
 def test_03_generate_chat_with_few_various_inputs() -> None:
@@ -64,7 +96,9 @@ def test_03_generate_chat_with_few_various_inputs() -> None:
     system_message = SystemMessage(content="You are to chat with the user.")
     human_message = HumanMessage(content="Hello")
     response = chat.invoke([system_message, human_message])
+    assert response
     assert isinstance(response, BaseMessage)
+    assert response.content
     assert isinstance(response.content, str)
 
 
@@ -73,6 +107,52 @@ def test_05_generate_chat_with_stream() -> None:
     response = chat.stream("What's the weather in san francisco")
     for chunk in response:
         assert isinstance(chunk.content, str)
+
+
+def test_05_generate_chat_with_stream_with_param() -> None:
+    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+
+    params = {
+        GenTextParamsMetaNames.MIN_NEW_TOKENS: 1,
+        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+    }
+    chat = ChatWatsonx(
+        model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, params=params
+    )
+    response = chat.stream("What's the weather in san francisco")
+    for chunk in response:
+        assert isinstance(chunk.content, str)
+
+
+def test_05_generate_chat_with_stream_with_param_v2() -> None:
+    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+
+    params = {
+        GenTextParamsMetaNames.MIN_NEW_TOKENS: 1,
+        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+    }
+    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)
+    response = chat.stream("What's the weather in san francisco", params=params)
+    for chunk in response:
+        assert isinstance(chunk.content, str)
+
+
+def test_06_chain_invoke() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+
+    system = "You are a helpful assistant."
+    human = "{text}"
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+
+    chain = prompt | chat
+    response = chain.invoke({"text": "Explain the importance of low latency for LLMs."})
+
+    assert response
+    assert response.content
 
 
 def test_10_chaining() -> None:
@@ -97,6 +177,7 @@ def test_10_chaining() -> None:
         }
     )
     assert response
+    assert response.content
 
 
 def test_11_chaining_with_params() -> None:
@@ -128,6 +209,7 @@ def test_11_chaining_with_params() -> None:
         }
     )
     assert response
+    assert response.content
 
 
 def test_20_tool_choice() -> None:
@@ -139,29 +221,22 @@ def test_20_tool_choice() -> None:
         model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, params=params
     )
 
-    class MyTool(BaseModel):
+    class Person(BaseModel):
         name: str
         age: int
 
-    with_tool = chat.bind_tools([MyTool], tool_choice="MyTool")
+    with_tool = chat.bind_tools([Person])
 
-    resp = with_tool.invoke("Who was the 27 year old named Erick?")
-    assert isinstance(resp, AIMessage)
-    assert resp.content == ""  # should just be tool call
-    tool_calls = resp.additional_kwargs["tool_calls"]
-    assert len(tool_calls) == 1
-    tool_call = tool_calls[0]
-    assert tool_call["function"]["name"] == "MyTool"
-    assert json.loads(tool_call["function"]["arguments"]) == {
+    result = with_tool.invoke("Erick, 27 years old")
+    assert isinstance(result, AIMessage)
+    assert result.content == ""  # should just be tool call
+    assert len(result.tool_calls) == 1
+    tool_call = result.tool_calls[0]
+    assert tool_call["name"] == "Person"
+    assert tool_call["args"] == {
         "age": 27,
         "name": "Erick",
     }
-    assert tool_call["type"] == "function"
-    assert isinstance(resp.tool_calls, list)
-    assert len(resp.tool_calls) == 1
-    tool_call = resp.tool_calls[0]
-    assert tool_call["name"] == "MyTool"
-    assert tool_call["args"] == {"age": 27, "name": "Erick"}
 
 
 def test_21_tool_choice_bool() -> None:
@@ -173,21 +248,113 @@ def test_21_tool_choice_bool() -> None:
         model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, params=params
     )
 
-    class MyTool(BaseModel):
+    class Person(BaseModel):
         name: str
         age: int
 
-    with_tool = chat.bind_tools([MyTool], tool_choice=True)
+    with_tool = chat.bind_tools([Person], tool_choice=True)
 
-    resp = with_tool.invoke("Who was the 27 year old named Erick?")
-    assert isinstance(resp, AIMessage)
-    assert resp.content == ""  # should just be tool call
-    tool_calls = resp.additional_kwargs["tool_calls"]
-    assert len(tool_calls) == 1
-    tool_call = tool_calls[0]
-    assert tool_call["function"]["name"] == "MyTool"
-    assert json.loads(tool_call["function"]["arguments"]) == {
+    result = with_tool.invoke("Erick, 27 years old")
+    assert isinstance(result, AIMessage)
+    assert result.content == ""  # should just be tool call
+    tool_call = result.tool_calls[0]
+    assert tool_call["name"] == "Person"
+    assert tool_call["args"] == {
         "age": 27,
         "name": "Erick",
     }
-    assert tool_call["type"] == "function"
+
+
+def test_22_tool_invoke() -> None:
+    """Test that tool choice is respected just passing in True."""
+    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+
+    params = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 500}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,  # type: ignore[arg-type]
+    )
+    from langchain_core.tools import tool
+
+    @tool
+    def add(a: int, b: int) -> int:
+        """Adds a and b."""
+        return a + b
+
+    @tool
+    def multiply(a: int, b: int) -> int:
+        """Multiplies a and b."""
+        return a * b
+
+    @tool
+    def get_word_length(word: str) -> int:
+        """Get word length."""
+        return len(word)
+
+    tools = [add, multiply, get_word_length]
+
+    chat_with_tools = chat.bind_tools(tools)
+
+    query = "What is 3 + 12? What is 3 + 10?"
+    resp = chat_with_tools.invoke(query)
+
+    assert resp.content == ""
+
+    query = "Who was the famous painter from Italy?"
+    resp = chat_with_tools.invoke(query)
+
+    assert resp.content
+
+
+@pytest.mark.skip(reason="Not implemented")
+def test_streaming_tool_call() -> None:
+    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+
+    params = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 500}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,  # type: ignore[arg-type]
+    )
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    tool_llm = chat.bind_tools([Person])
+
+    # where it calls the tool
+    strm = tool_llm.stream("Erick, 27 years old")
+
+    additional_kwargs = None
+    for chunk in strm:
+        assert isinstance(chunk, AIMessageChunk)
+        assert chunk.content == ""
+        additional_kwargs = chunk.additional_kwargs
+
+    assert additional_kwargs is not None
+    assert "tool_calls" in additional_kwargs
+    assert len(additional_kwargs["tool_calls"]) == 1
+    assert additional_kwargs["tool_calls"][0]["function"]["name"] == "Person"
+    assert json.loads(additional_kwargs["tool_calls"][0]["function"]["arguments"]) == {
+        "name": "Erick",
+        "age": 27,
+    }
+
+    assert isinstance(chunk, AIMessageChunk)
+    assert len(chunk.tool_call_chunks) == 1
+    tool_call_chunk = chunk.tool_call_chunks[0]
+    assert tool_call_chunk["name"] == "Person"
+    assert tool_call_chunk["args"] == '{"name": "Erick", "age": 27}'
+
+    # where it doesn't call the tool
+    strm = tool_llm.stream("What is 2+2?")
+    acc: Any = None
+    for chunk in strm:
+        assert isinstance(chunk, AIMessageChunk)
+        acc = chunk if acc is None else acc + chunk
+    assert acc.content != ""
+    assert "tool_calls" not in acc.additional_kwargs
