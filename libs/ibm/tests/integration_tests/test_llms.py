@@ -91,7 +91,7 @@ def test_watsonxllm_invoke_with_params_3() -> None:
     assert len(response) > 0
 
 
-def test_watsonxllm_invoke_with_params_5() -> None:
+def test_watsonxllm_invoke_with_params_4() -> None:
     parameters_1 = {
         GenTextParamsMetaNames.DECODING_METHOD: "sample",
         GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
