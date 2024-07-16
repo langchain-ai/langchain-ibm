@@ -91,6 +91,27 @@ def test_watsonxllm_invoke_with_params_3() -> None:
     assert len(response) > 0
 
 
+def test_watsonxllm_invoke_with_params_5() -> None:
+    parameters_1 = {
+        GenTextParamsMetaNames.DECODING_METHOD: "sample",
+        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+    }
+    parameters_2 = {
+        'temperature': 0.6,
+    }
+
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=parameters_1,
+    )
+    response = watsonxllm.invoke("What color sunflower is?", **parameters_2)
+    print(f"\nResponse: {response}")
+    assert isinstance(response, str)
+    assert len(response) > 0
+
+
 def test_watsonxllm_generate() -> None:
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
