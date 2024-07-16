@@ -1,7 +1,9 @@
 import logging
 import os
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Union
+import warnings
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Union, Tuple
 
+from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 from ibm_watsonx_ai import Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -11,6 +13,7 @@ from langchain_core.pydantic_v1 import Extra, Field, SecretStr, root_validator
 from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
 
 logger = logging.getLogger(__name__)
+textgen_valid_params = [value for key, value in GenTextParamsMetaNames.__dict__.items() if key.isupper()]
 
 
 class WatsonxLLM(BaseLLM):
@@ -265,18 +268,52 @@ class WatsonxLLM(BaseLLM):
             "input_token_count": input_token_count,
         }
 
+    @staticmethod
+    def _validate_chat_params(
+            params: Optional[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        """Validate and fix the chat parameters
+        Notes:
+        ------
+        - Currently, only the 'temperature' parameter is validated."""
+        for param in params.keys():
+            if param.lower() not in textgen_valid_params:
+                raise Exception(f"Parameter {param} is not valid. Valid parameters are: {textgen_valid_params}")
+            if param.lower() == 'temperature':  # Change to switch with more cases
+                if 0.05 > params['temperature'] > 0:
+                    params['temperature'] = 0.05
+                    warnings.warn("The minimum 'temperature' parameter is 0.05"
+                                  " (if greater than 0). Adjusting it to 0.05.")
+        return params
+
+    @staticmethod
+    def _override_chat_params(
+            params: Optional[Dict[str, Any]], **kwargs: Any
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """
+        Override class parameters with those provided in the invoke method.
+        Merges the 'params' dictionary with any 'params' found in kwargs,
+        then updates 'params' with matching keys from kwargs and removes
+        those keys from kwargs.
+        """
+        params = params | {**kwargs.pop("params", {})}
+        for key in list(kwargs.keys()):
+            if key.lower() in textgen_valid_params:
+                params[key] = kwargs.pop(key)
+        return params, kwargs
+
     def _get_chat_params(
         self, stop: Optional[List[str]] = None, **kwargs: Any
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         params = {**self.params} if self.params else {}
-        params = params | {**kwargs.get("params", {})}
+        params, kwargs = self._override_chat_params(params, **kwargs)
         if stop is not None:
             if params and "stop_sequences" in params:
                 raise ValueError(
                     "`stop_sequences` found in both the input and default params."
                 )
             params = (params or {}) | {"stop_sequences": stop}
-        return params
+        return params, kwargs
 
     def _create_llm_result(self, response: List[dict]) -> LLMResult:
         """Create the LLMResult from the choices and prompts."""
@@ -360,7 +397,8 @@ class WatsonxLLM(BaseLLM):
 
                 response = watsonx_llm.generate(["What is a molecule"])
         """
-        params = self._get_chat_params(stop=stop, **kwargs)
+        params, kwargs = self._get_chat_params(stop=stop, **kwargs)
+        params = self._validate_chat_params(params)
         should_stream = stream if stream is not None else self.streaming
         if should_stream:
             if len(prompts) > 1:
