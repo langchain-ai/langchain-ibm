@@ -30,15 +30,17 @@ os.environ["WATSONX_APIKEY"] = watsonx_api_key
 In alternative, you can set the environment variable in your terminal.
 
 - **Linux/macOS:** Open your terminal and execute the following command:
-     ```bash
-     export WATSONX_APIKEY='your_ibm_api_key'
-     ```
-     To make this environment variable persistent across terminal sessions, add the above line to your `~/.bashrc`, `~/.bash_profile`, or `~/.zshrc` file.
+
+  ```bash
+  export WATSONX_APIKEY='your_ibm_api_key'
+  ```
+
+  To make this environment variable persistent across terminal sessions, add the above line to your `~/.bashrc`, `~/.bash_profile`, or `~/.zshrc` file.
 
 - **Windows:** For Command Prompt, use:
-    ```cmd
-    set WATSONX_APIKEY=your_ibm_api_key
-    ```
+  ```cmd
+  set WATSONX_APIKEY=your_ibm_api_key
+  ```
 
 ### Loading the model
 
@@ -69,10 +71,10 @@ watsonx_llm = WatsonxLLM(
 ```
 
 **Note:**
+
 - You must provide a `project_id` or `space_id`. For more information refer to IBM's [documentation](https://www.ibm.com/docs/en/watsonx-as-a-service?topic=projects).
 - Depending on the region of your provisioned service instance, use one of the urls described [here](https://ibm.github.io/watsonx-ai-python-sdk/setup_cloud.html#authentication).
 - You need to specify the model you want to use for inferencing through `model_id`. You can find the list of available models [here](https://ibm.github.io/watsonx-ai-python-sdk/fm_model.html#ibm_watsonx_ai.foundation_models.utils.enums.ModelTypes).
-
 
 Alternatively you can use Cloud Pak for Data credentials. For more details, refer to IBM's [documentation](https://ibm.github.io/watsonx-ai-python-sdk/setup_cpd.html).
 
@@ -94,7 +96,7 @@ watsonx_llm = WatsonxLLM(
 Create `PromptTemplate` objects which will be responsible for creating a random question.
 
 ```python
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 template = "Generate a random question about {topic}: Question: "
 prompt = PromptTemplate.from_template(template)
@@ -103,14 +105,17 @@ prompt = PromptTemplate.from_template(template)
 Provide a topic and run the LLMChain.
 
 ```python
-from langchain.chains import LLMChain
+from langchain_core.output_parsers import StrOutputParser
 
-llm_chain = LLMChain(prompt=prompt, llm=watsonx_llm)
-response = llm_chain.invoke("dog")
+llm_chain = prompt | watsonx_llm | StrOutputParser()
+topic = "dog"
+llm_chain.invoke(topic)
+
 print(response)
 ```
 
 ### Calling the Model Directly
+
 To obtain completions, you can call the model directly using a string prompt.
 
 ```python
