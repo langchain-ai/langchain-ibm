@@ -145,5 +145,5 @@ You can stream the model output.
 for chunk in watsonx_llm.stream(
     "Describe your favorite breed of dog and why it is your favorite."
 ):
-    print(chunk, end="")
+    print(chunk, end="", flush=True)
 ```
