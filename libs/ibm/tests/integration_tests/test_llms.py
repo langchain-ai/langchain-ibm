@@ -91,6 +91,27 @@ def test_watsonxllm_invoke_with_params_3() -> None:
     assert len(response) > 0
 
 
+def test_watsonxllm_invoke_with_params_4() -> None:
+    parameters_1 = {
+        GenTextParamsMetaNames.DECODING_METHOD: "sample",
+        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+    }
+    parameters_2 = {
+        "temperature": 0.6,
+    }
+
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=parameters_1,
+    )
+    response = watsonxllm.invoke("What color sunflower is?", **parameters_2)  # type: ignore[arg-type]
+    print(f"\nResponse: {response}")
+    assert isinstance(response, str)
+    assert len(response) > 0
+
+
 def test_watsonxllm_generate() -> None:
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
@@ -140,6 +161,18 @@ def test_watsonxllm_generate_with_multiple_prompts() -> None:
     assert len(response_text) > 0
 
 
+def test_watsonxllm_invoke_with_guardrails() -> None:
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    response = watsonxllm.invoke("What color sunflower is?", guardrails=True)
+    print(f"\nResponse: {response}")
+    assert isinstance(response, str)
+    assert len(response) > 0
+
+
 def test_watsonxllm_generate_stream() -> None:
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
@@ -175,6 +208,115 @@ def test_watsonxllm_stream() -> None:
     assert (
         response == linked_text_stream
     ), "Linked text stream are not the same as generated text"
+
+
+def test_watsonxllm_stream_with_kwargs() -> None:
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    stream_response = watsonxllm.stream("What color sunflower is?", raw_response=True)
+
+    for chunk in stream_response:
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
+
+
+def test_watsonxllm_stream_with_params() -> None:
+    parameters = {
+        GenTextParamsMetaNames.DECODING_METHOD: "greedy",
+        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+        GenTextParamsMetaNames.MIN_NEW_TOKENS: 5,
+    }
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=parameters,
+    )
+    response = watsonxllm.invoke("What color sunflower is?")
+    print(f"\nResponse: {response}")
+
+    stream_response = watsonxllm.stream("What color sunflower is?")
+
+    linked_text_stream = ""
+    for chunk in stream_response:
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
+        linked_text_stream += chunk
+    print(f"Linked text stream: {linked_text_stream}")
+    assert (
+        response == linked_text_stream
+    ), "Linked text stream are not the same as generated text"
+
+
+def test_watsonxllm_stream_with_params_2() -> None:
+    parameters = {
+        GenTextParamsMetaNames.DECODING_METHOD: "greedy",
+        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+        GenTextParamsMetaNames.MIN_NEW_TOKENS: 5,
+    }
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    stream_response = watsonxllm.stream("What color sunflower is?", params=parameters)
+
+    for chunk in stream_response:
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
+        print(chunk)
+
+
+def test_watsonxllm_stream_with_params_3() -> None:
+    parameters_1 = {
+        GenTextParamsMetaNames.DECODING_METHOD: "sample",
+        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+    }
+    parameters_2 = {
+        GenTextParamsMetaNames.MIN_NEW_TOKENS: 5,
+    }
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=parameters_1,
+    )
+    stream_response = watsonxllm.stream("What color sunflower is?", params=parameters_2)
+
+    for chunk in stream_response:
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
+        print(chunk)
+
+
+def test_watsonxllm_stream_with_params_4() -> None:
+    parameters_1 = {
+        GenTextParamsMetaNames.DECODING_METHOD: "sample",
+        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+    }
+    parameters_2 = {
+        "temperature": 0.6,
+    }
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=parameters_1,
+    )
+    stream_response = watsonxllm.stream("What color sunflower is?", **parameters_2)  # type: ignore[arg-type]
+
+    for chunk in stream_response:
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
+        print(chunk)
 
 
 def test_watsonxllm_invoke_from_wx_model() -> None:
