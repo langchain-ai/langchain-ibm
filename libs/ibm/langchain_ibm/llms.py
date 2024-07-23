@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Union
 
-from ibm_watsonx_ai import Credentials  # type: ignore
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -97,6 +97,8 @@ class WatsonxLLM(BaseLLM):
 
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
+    watsonx_client: APIClient = Field(default=None)  #: :meta private:
+
     class Config:
         """Configuration for this pydantic object."""
 
@@ -145,6 +147,18 @@ class WatsonxLLM(BaseLLM):
                 getattr(values["watsonx_model"], "_client"), "default_space_id"
             )
             values["params"] = getattr(values["watsonx_model"], "params")
+
+        elif isinstance(values.get("watsonx_client"), APIClient):
+            watsonx_model = ModelInference(
+                model_id=values["model_id"],
+                params=values["params"],
+                api_client=values["watsonx_client"],
+                project_id=values["project_id"],
+                space_id=values["space_id"],
+                verify=values["verify"],
+            )
+            values["watsonx_model"] = watsonx_model
+
         else:
             values["url"] = convert_to_secret_str(
                 get_from_dict_or_env(values, "url", "WATSONX_URL")
