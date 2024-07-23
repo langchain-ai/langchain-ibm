@@ -5,7 +5,7 @@ You'll need to set WATSONX_APIKEY and WATSONX_PROJECT_ID environment variables.
 
 import os
 
-from ibm_watsonx_ai import Credentials  # type: ignore
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
 from ibm_watsonx_ai.foundation_models.utils.enums import (  # type: ignore
     DecodingMethods,
@@ -432,3 +432,21 @@ def test_get_num_tokens() -> None:
     )
     num_tokens = watsonxllm.get_num_tokens("What color sunflower is?")
     assert num_tokens > 0
+
+
+def test_init_with_client() -> None:
+    watsonx_client = APIClient(
+        credentials={
+            "url": "https://us-south.ml.cloud.ibm.com",
+            "apikey": WX_APIKEY,
+        }
+    )
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        watsonx_client=watsonx_client,
+        project_id=WX_PROJECT_ID,
+    )
+    response = watsonxllm.invoke("What color sunflower is?")
+    print(f"\nResponse: {response}")
+    assert isinstance(response, str)
+    assert len(response) > 0
