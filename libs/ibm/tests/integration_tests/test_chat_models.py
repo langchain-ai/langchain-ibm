@@ -110,7 +110,9 @@ def test_05_generate_chat_with_stream() -> None:
 
 
 def test_05a_invoke_chat_with_streaming() -> None:
-    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, streaming=True)
+    chat = ChatWatsonx(
+        model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, streaming=True
+    )
     response = chat.invoke("What's the weather in san francisco")
     assert isinstance(response.content, str)
 

@@ -669,18 +669,13 @@ Remember to end your response with '</endoftext>'
 
             message_chunk = _convert_delta_to_message_chunk(choice, default_chunk_class)
             generation_info = {}
-            if finish_reason := choice.get("stop_reason"):
+            if (finish_reason := choice.get("stop_reason")) != "not_finished":
                 generation_info["finish_reason"] = finish_reason
-            logprobs = choice.get("logprobs")
-            if logprobs:
-                generation_info["logprobs"] = logprobs
             chunk = ChatGenerationChunk(
                 message=message_chunk, generation_info=generation_info or None
             )
             if run_manager:
-                run_manager.on_llm_new_token(
-                    chunk.text, chunk=chunk, logprobs=logprobs
-                )
+                run_manager.on_llm_new_token(chunk.text, chunk=chunk)
 
             yield chunk
 
@@ -751,8 +746,6 @@ Remember to end your response with '</endoftext>'
         for res in response["results"]:
             message = _convert_dict_to_message(res, call_id)
             generation_info = dict(finish_reason=res.get("stop_reason"))
-            if "logprobs" in res:
-                generation_info["logprobs"] = res["logprobs"]
             if "generated_token_count" in res:
                 sum_of_total_generated_tokens += res["generated_token_count"]
             if "input_token_count" in res:
