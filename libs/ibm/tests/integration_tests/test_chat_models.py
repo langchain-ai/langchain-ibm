@@ -109,6 +109,12 @@ def test_05_generate_chat_with_stream() -> None:
         assert isinstance(chunk.content, str)
 
 
+def test_05a_invoke_chat_with_streaming() -> None:
+    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, streaming=True)
+    response = chat.invoke("What's the weather in san francisco")
+    assert isinstance(response.content, str)
+
+
 def test_05_generate_chat_with_stream_with_param() -> None:
     from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 

@@ -679,7 +679,7 @@ Remember to end your response with '</endoftext>'
             )
             if run_manager:
                 run_manager.on_llm_new_token(
-                    chunk.content, chunk=chunk, logprobs=logprobs
+                    chunk.text, chunk=chunk, logprobs=logprobs
                 )
 
             yield chunk
