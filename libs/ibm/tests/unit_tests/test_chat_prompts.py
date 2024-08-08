@@ -249,18 +249,6 @@ def test_mistral_tool_prompt():
         ])}
     )
 
-    expected2 = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
-
-Environment: ipython
-
-You are an helpful assistant.<|eot_id|><|start_header_id|>user<|end_header_id|>
-
-What's 3 + 2?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
-
-<|python_tag|>[{"name": "add", "parameters": {"a": 3, "b": 2}, "id": "123"}]<|eom_id|><|start_header_id|>ipython<|end_header_id|>
-
-[{"content": "5", "id": "123"}]<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
-
     expected2 = """<s>[INST] You are an helpful assistant. [/INST]</s>\
 [INST] What's 3 + 2? [/INST]\
 [TOOL_CALLS][{"name": "add", "arguments": {"a": 3, "b": 2}, "id": "123"}]</s>\
