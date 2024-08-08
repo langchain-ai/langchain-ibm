@@ -355,10 +355,15 @@ class WatsonxLLM(BaseLLM):
         """Convert a stream response to a generation chunk."""
         if not stream_response["results"]:
             return GenerationChunk(text="")
+
+        finish_reason = stream_response["results"][0].get("stop_reason", None)
+
         return GenerationChunk(
             text=stream_response["results"][0]["generated_text"],
             generation_info=dict(
-                finish_reason=stream_response["results"][0].get("stop_reason", None),
+                finish_reason=None
+                if finish_reason == "not_finished"
+                else finish_reason,
                 llm_output={
                     "model_id": self.model_id,
                     "deployment_id": self.deployment_id,
