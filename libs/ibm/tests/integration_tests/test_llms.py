@@ -173,6 +173,17 @@ def test_watsonxllm_invoke_with_guardrails() -> None:
     assert len(response) > 0
 
 
+def test_watsonxllm_invoke_with_streaming() -> None:
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        streaming=True,
+    )
+    response = watsonxllm.invoke("What color sunflower is?")
+    assert isinstance(response, str)
+
+
 def test_watsonxllm_generate_stream() -> None:
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
