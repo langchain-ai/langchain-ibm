@@ -13,7 +13,7 @@ from langchain_ibm import WatsonxEmbeddings
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
-URL = "https://us-south.ml.cloud.ibm.com"
+URL = os.environ.get("WATSONX_URL", "")
 MODEL_ID = "ibm/slate-125m-english-rtrvr"
 
 DOCUMENTS = ["What is a generative ai?", "What is a loan and how does it works?"]
