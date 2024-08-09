@@ -3,9 +3,8 @@ import random
 import string
 from typing import List, Union
 from langchain_core.messages import ToolCall
-from langchain_core.prompts import PromptTemplate
 
-from langchain_ibm._chat.chat_schema import ChatSchema
+from langchain_ibm._chat.chat_schema import ChatSchema, template_env
 
 _alphanum = string.ascii_letters + string.digits
 
@@ -14,12 +13,13 @@ _alphanum = string.ascii_letters + string.digits
 # Supports tool calls for tool-enabled Mistral models.
 # See: https://github.com/mistralai/mistral-common/blob/main/examples/tokenizer.ipynb
 # See: https://ollama.com/library/mistral-large/blobs/cd887e2923a9
-_PROMPT = PromptTemplate.from_template("""<s>
+_TEMPLATE = template_env.from_string("""<s>
+{%- set last_human = messages|last_human_message_idx -%}
 {%- for message in messages -%}
     {%- if message.type == "system" -%}
         [INST] {{ message.content }} [/INST]</s>
     {%- elif message.type == "human" -%}
-        {%- if (messages|length - loop.index == 0 or (messages|length - loop.index == 1 and messages[messages|length - 1].type != "tool")) and tools -%}
+        {%- if tools and loop.index == last_human -%}
             [AVAILABLE_TOOLS] {{ tools }} [/AVAILABLE_TOOLS]
         {%- endif -%}
         [INST] {{ message.content }} [/INST]
@@ -29,13 +29,22 @@ _PROMPT = PromptTemplate.from_template("""<s>
             {%- if messages|length - loop.index != 0 -%}
                 </s>
             {%- endif -%}
-        {%- elif message.tool_calls -%}
-            [TOOL_CALLS]{{ message.additional_kwargs["tool_calls"] }}</s>
+        {%- endif -%}
+        {%- if message.tool_calls -%}
+            [TOOL_CALLS] [
+                {%- for tool_call in message.tool_calls -%}
+                    {"name": "{{ tool_call.name }}", "arguments": {{ tool_call.args | to_json }}, "id": "{{ tool_call.id }}"}
+                    {%- if not loop.last -%},{%- endif -%}
+                {%- endfor -%}
+            ]
+            {%- if not loop.last -%}
+                </s>
+            {%- endif -%}
         {%- endif -%}
     {%- elif message.type == "tool" -%}
         [TOOL_RESULTS] {"content": "{{ message.content }}", "id": "{{ message.tool_call_id }}"} [/TOOL_RESULTS]
     {%- endif -%}
-{%- endfor -%}""", template_format="jinja2")
+{%- endfor -%}""")
 
 
 def parse_mistral_tool_call(text: str) -> Union[str, List[ToolCall]]:
@@ -68,13 +77,13 @@ def parse_mistral_tool_call(text: str) -> Union[str, List[ToolCall]]:
 
 MISTRAL_LARGE = ChatSchema(
     model_id="mistralai/mistral-large",
-    prompt_template=_PROMPT,
+    template=_TEMPLATE,
     tools=True,
     tools_parser=parse_mistral_tool_call,
 )
 
 MIXTRAL_8X7B_V01 = ChatSchema(
     model_id="mistralai/mixtral-8x7b-instruct-v01",
-    prompt_template=_PROMPT,
+    template=_TEMPLATE,
     tools=False,
 )

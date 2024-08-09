@@ -1,5 +1,4 @@
 import json
-from ibm_watsonx_ai.client import logging
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.prompts.chat import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
@@ -55,7 +54,7 @@ You are a respectful AI assistant.<|eot_id|><|start_header_id|>user<|end_header_
 
 Hello, how are you?<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
 
-    assert LLAMA31_405B.prompt_template.format(messages=CONVERSATION_PROMPT.format_messages(
+    assert LLAMA31_405B.template.render(messages=CONVERSATION_PROMPT.format_messages(
         chat_history=[], input="Hello, how are you?")) == expected
 
 
@@ -74,7 +73,7 @@ Rome<|eot_id|><|start_header_id|>user<|end_header_id|>
 
 Thanks!<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
 
-    assert LLAMA31_405B.prompt_template.format(messages=CONVERSATION_PROMPT.format_messages(
+    assert LLAMA31_405B.template.render(messages=CONVERSATION_PROMPT.format_messages(
         chat_history=HISTORY, input="Thanks!")) == expected
 
 
@@ -93,7 +92,7 @@ Here is the input:
 Here is the json output:
 """
 
-    assert LLAMA31_405B.prompt_template.format(messages=INSTRUCT_PROMPT.format_messages(
+    assert LLAMA31_405B.template.render(messages=INSTRUCT_PROMPT.format_messages(
         input="The capital of Italy is Rome.")) == expected
 
 
@@ -114,7 +113,7 @@ Hello<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
         ("human", "Hello")
     ])
 
-    assert LLAMA31_405B.prompt_template.format(
+    assert LLAMA31_405B.template.render(
         messages=messages.format_messages(), tools="tools") == expected
 
 
@@ -135,7 +134,7 @@ Respond in the format {{"name": function name, "parameters": dictionary of argum
 
 What's 3 + 2?<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
 
-    assert LLAMA31_405B.prompt_template.format(
+    assert LLAMA31_405B.template.render(
         messages=TOOL_PROMPT.format_messages(),
         input="What's 3 + 2?",
         tools=json.dumps(tools)
@@ -153,40 +152,33 @@ What's 3 + 2?<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
 
     parsed_tool_call_message = AIMessage(
         content='',
-        id="123",
         tool_calls=tool_calls,
         additional_kwargs={"tool_calls": json.dumps([
             {"name": "add", "parameters": {"a": 3, "b": 2}, "id": "123"}
         ])}
     )
+    
+    expected += f"""
 
-    expected2 = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+<|python_tag|>[{{"name": "add", "parameters": {{"a": 3, "b": 2}}, "id": "{tool_calls[0]['id']}"}}]<|eom_id|><|start_header_id|>ipython<|end_header_id|>
 
-Environment: ipython
+[{{"content": "5", "id": "{tool_calls[0]['id']}"}}]<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
 
-You are an helpful assistant.<|eot_id|><|start_header_id|>user<|end_header_id|>
-
-What's 3 + 2?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
-
-<|python_tag|>[{"name": "add", "parameters": {"a": 3, "b": 2}, "id": "123"}]<|eom_id|><|start_header_id|>ipython<|end_header_id|>
-
-[{"content": "5", "id": "123"}]<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
-
-    assert LLAMA31_405B.prompt_template.format(
+    assert LLAMA31_405B.template.render(
         messages=(
             TOOL_PROMPT +
             parsed_tool_call_message +
-            ToolMessage(content="5", tool_call_id="123")).format_messages(),
+            ToolMessage(content="5", tool_call_id=tool_calls[0]["id"])).format_messages(),
         input="What's 3 + 2?",
         tools=json.dumps(tools)
-    ) == expected2
+    ) == expected
 
 
 def test_mistral_conversation_no_history() -> None:
     expected = """<s>[INST] You are a respectful AI assistant. [/INST]</s>\
 [INST] Hello, how are you? [/INST]"""
 
-    assert MISTRAL_LARGE.prompt_template.format(messages=CONVERSATION_PROMPT.format_messages(
+    assert MISTRAL_LARGE.template.render(messages=CONVERSATION_PROMPT.format_messages(
         chat_history=[], input="Hello, how are you?")) == expected
 
 
@@ -198,7 +190,7 @@ Hello! I'm doing well, thank you for asking. I'm a large language model assistan
 Rome</s>\
 [INST] Thanks! [/INST]"""
 
-    assert MISTRAL_LARGE.prompt_template.format(messages=CONVERSATION_PROMPT.format_messages(
+    assert MISTRAL_LARGE.template.render(messages=CONVERSATION_PROMPT.format_messages(
         chat_history=HISTORY, input="Thanks!")) == expected
 
 
@@ -213,7 +205,7 @@ def test_mistral_instruct_prompt() -> None:
 Here is the json output:
 """
 
-    assert MISTRAL_LARGE.prompt_template.format(messages=INSTRUCT_PROMPT.format_messages(
+    assert MISTRAL_LARGE.template.render(messages=INSTRUCT_PROMPT.format_messages(
         input="The capital of Italy is Rome.")) == expected
 
 
@@ -224,7 +216,7 @@ def test_mistral_tool_prompt():
 [AVAILABLE_TOOLS] {json.dumps(tools)} [/AVAILABLE_TOOLS]\
 [INST] What's 3 + 2? [/INST]"""
 
-    assert MISTRAL_LARGE.prompt_template.format(
+    assert MISTRAL_LARGE.template.render(
         messages=TOOL_PROMPT.format_messages(),
         input="What's 3 + 2?",
         tools=json.dumps(tools)
@@ -249,19 +241,17 @@ def test_mistral_tool_prompt():
         ])}
     )
 
-    expected2 = """<s>[INST] You are an helpful assistant. [/INST]</s>\
-[INST] What's 3 + 2? [/INST]\
-[TOOL_CALLS][{"name": "add", "arguments": {"a": 3, "b": 2}, "id": "123"}]</s>\
-[TOOL_RESULTS] {"content": "5", "id": "123"} [/TOOL_RESULTS]"""
+    expected += f"""[TOOL_CALLS] [{{"name": "add", "arguments": {{"a": 3, "b": 2}}, "id": "{tool_calls[0]['id']}"}}]</s>\
+[TOOL_RESULTS] {{"content": "5", "id": "{tool_calls[0]['id']}"}} [/TOOL_RESULTS]"""
 
-    assert MISTRAL_LARGE.prompt_template.format(
+    assert MISTRAL_LARGE.template.render(
         messages=(
             TOOL_PROMPT +
             parsed_tool_call_message +
-            ToolMessage(content="5", tool_call_id="123")).format_messages(),
+            ToolMessage(content="5", tool_call_id=tool_calls[0]["id"])).format_messages(),
         input="What's 3 + 2?",
         tools=json.dumps(tools)
-    ) == expected2
+    ) == expected
 
 
 def test_granite_conversation_no_history() -> None:
@@ -271,7 +261,7 @@ You are a respectful AI assistant.
 Hello, how are you?
 <|assistant|>"""
 
-    assert GRANITE_13B_CHAT_V2.prompt_template.format(messages=CONVERSATION_PROMPT.format_messages(
+    assert GRANITE_13B_CHAT_V2.template.render(messages=CONVERSATION_PROMPT.format_messages(
         chat_history=[], input="Hello, how are you?")) == expected
 
 
@@ -290,7 +280,7 @@ Rome
 Thanks!
 <|assistant|>"""
 
-    assert GRANITE_13B_CHAT_V2.prompt_template.format(messages=CONVERSATION_PROMPT.format_messages(
+    assert GRANITE_13B_CHAT_V2.template.render(messages=CONVERSATION_PROMPT.format_messages(
         chat_history=HISTORY, input="Thanks!")) == expected
 
 
@@ -308,7 +298,7 @@ Here is the input:
 Here is the json output:
 """
 
-    assert GRANITE_13B_CHAT_V2.prompt_template.format(messages=INSTRUCT_PROMPT.format_messages(
+    assert GRANITE_13B_CHAT_V2.template.render(messages=INSTRUCT_PROMPT.format_messages(
         input="The capital of Italy is Rome.")) == expected
 
 
@@ -319,7 +309,7 @@ You are a respectful AI assistant.
 
 Hello, how are you?[/INST]"""
 
-    assert LLAMA2_70B_CHAT.prompt_template.format(messages=CONVERSATION_PROMPT.format_messages(
+    assert LLAMA2_70B_CHAT.template.render(messages=CONVERSATION_PROMPT.format_messages(
         chat_history=[], input="Hello, how are you?")) == expected
 
 
@@ -332,7 +322,7 @@ Hello, how are you?[/INST]Hello! I'm doing well, thank you for asking. I'm a lar
 What's the capital of Italy?[/INST]Rome[INST]
 Thanks![/INST]"""
 
-    assert LLAMA2_70B_CHAT.prompt_template.format(messages=CONVERSATION_PROMPT.format_messages(
+    assert LLAMA2_70B_CHAT.template.render(messages=CONVERSATION_PROMPT.format_messages(
         chat_history=HISTORY, input="Thanks!")) == expected
 
 
@@ -349,7 +339,7 @@ Here is the input:
 "The capital of Italy is Rome.". Remember to always respond in the json format specified above.[/INST]Here is the json output:
 """
 
-    assert LLAMA2_70B_CHAT.prompt_template.format(messages=INSTRUCT_PROMPT.format_messages(
+    assert LLAMA2_70B_CHAT.template.render(messages=INSTRUCT_PROMPT.format_messages(
         input="The capital of Italy is Rome.")) == expected
 
 

@@ -178,7 +178,7 @@ def test_watsonxllm_invoke_with_guardrails() -> None:
 def test_watsonxllm_invoke_with_streaming() -> None:
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
-        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
         streaming=True,
     )

@@ -1,9 +1,7 @@
-from langchain_core.prompts import PromptTemplate
-
-from langchain_ibm._chat.chat_schema import ChatSchema
+from langchain_ibm._chat.chat_schema import ChatSchema, template_env
 
 # Prompt template for granite chat
-_PROMPT = PromptTemplate.from_template("""{%- for message in messages -%}
+_TEMPLATE = template_env.from_string("""{%- for message in messages -%}
 {%- if message.type == "system" -%}
 <|system|>
 {{ message.content }}
@@ -22,10 +20,10 @@ _PROMPT = PromptTemplate.from_template("""{%- for message in messages -%}
 {%- if loop.last and message.type != "ai" -%}
 <|assistant|>
 {%- endif -%}
-{%- endfor -%}""", template_format="jinja2")
+{%- endfor -%}""")
 
 GRANITE_13B_CHAT_V2 = ChatSchema(
     model_id="ibm/granite-13b-chat-v2",
-    prompt_template=_PROMPT,
+    template=_TEMPLATE,
     tools=False
 )

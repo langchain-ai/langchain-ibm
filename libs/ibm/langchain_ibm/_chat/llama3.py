@@ -3,9 +3,8 @@ import random
 import string
 from typing import List, Union
 from langchain_core.messages import ToolCall
-from langchain_core.prompts import PromptTemplate
 
-from langchain_ibm._chat.chat_schema import ChatSchema
+from langchain_ibm._chat.chat_schema import ChatSchema, template_env
 
 _alphanum = string.ascii_letters + string.digits
 
@@ -13,9 +12,9 @@ _alphanum = string.ascii_letters + string.digits
 #
 # Supports tool calls for llama3.1 models.
 # See: https://llama.meta.com/docs/model-cards-and-prompt-formats/llama3_1/#json-based-tool-calling
-_PROMPT = PromptTemplate.from_template("""<|begin_of_text|>
-{%- set system_message = messages | selectattr('type', 'equalto', 'system') | list -%}
-{%- if system_message|length == 0 and tools -%}
+_TEMPLATE = template_env.from_string("""<|begin_of_text|>
+{%- set last_human = messages|last_human_message_idx -%}
+{%- if not messages|has_system_message and tools -%}
 <|start_header_id|>system<|end_header_id|>
 
 Environment: ipython<|eot_id|>
@@ -27,12 +26,12 @@ Environment: ipython<|eot_id|>
 {%          if tools -%}
 Environment: ipython
 
-{%         endif -%}
+{%          endif -%}
 {{ message.content }}<|eot_id|>
 {%-     elif message.type == "human" -%}
 <|start_header_id|>user<|end_header_id|>
 
-{%          if tools and loop.last -%}
+{%          if tools and loop.index == last_human -%}
 Given the following functions, please respond with a JSON for a function call with its proper arguments that best answers the given prompt.
 
 Respond in the format {"name": function name, "parameters": dictionary of argument name and its value}. Do not use variables.
@@ -45,7 +44,11 @@ Respond in the format {"name": function name, "parameters": dictionary of argume
 <|start_header_id|>assistant<|end_header_id|>
 
 {%          if message.tool_calls -%}
-<|python_tag|>{{ message.additional_kwargs["tool_calls"] }}{% if not loop.last %}<|eom_id|>{% endif %}
+<|python_tag|>[
+{%-             for tool_call in message.tool_calls -%}
+{"name": "{{ tool_call.name }}", "parameters": {{ tool_call.args | to_json }}, "id": "{{ tool_call.id }}"}{% if not loop.last %}, {% endif %}
+{%-             endfor -%}
+]{% if not loop.last %}<|eom_id|>{% endif %}
 {%-         else -%}
 {{ message.content }}{% if not loop.last %}<|eot_id|>{% endif %}
 {%-         endif -%}
@@ -57,8 +60,7 @@ Respond in the format {"name": function name, "parameters": dictionary of argume
 {%-     if loop.last and message.type != "ai" -%}
 <|start_header_id|>assistant<|end_header_id|>
 {%-     endif -%}
-{%- endfor -%}""", template_format="jinja2")
-
+{%- endfor -%}""")
 
 def parse_llama31_tool_call(text: str) -> Union[str, List[ToolCall]]:
     tool_calls = []
@@ -91,7 +93,7 @@ def parse_llama31_tool_call(text: str) -> Union[str, List[ToolCall]]:
 
 LLAMA31_405B = ChatSchema(
     model_id="meta-llama/llama-3-405b-instruct",
-    prompt_template=_PROMPT,
+    template=_TEMPLATE,
     tools=True,
     tools_parser=parse_llama31_tool_call,
     tools_stop_sequences=["<|eom_id|>"]
@@ -99,7 +101,7 @@ LLAMA31_405B = ChatSchema(
 
 LLAMA31_70B = ChatSchema(
     model_id="meta-llama/llama-3-1-70b-instruct",
-    prompt_template=_PROMPT,
+    template=_TEMPLATE,
     tools=True,
     tools_parser=parse_llama31_tool_call,
     tools_stop_sequences=["<|eom_id|>"]
@@ -107,7 +109,7 @@ LLAMA31_70B = ChatSchema(
 
 LLAMA31_8B = ChatSchema(
     model_id="meta-llama/llama-3-1-8b-instruct",
-    prompt_template=_PROMPT,
+    template=_TEMPLATE,
     tools=True,
     tools_parser=parse_llama31_tool_call,
     tools_stop_sequences=["<|eom_id|>"]
@@ -117,12 +119,12 @@ LLAMA31_8B = ChatSchema(
 
 LLAMA3_70B = ChatSchema(
     model_id="meta-llama/llama-3-70b-instruct",
-    prompt_template=_PROMPT,
+    template=_TEMPLATE,
     tools=False,
 )
 
 LLAMA3_8B = ChatSchema(
     model_id="meta-llama/llama-3-8b-instruct",
-    prompt_template=_PROMPT,
+    template=_TEMPLATE,
     tools=False,
 )
