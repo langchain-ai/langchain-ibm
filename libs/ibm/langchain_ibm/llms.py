@@ -5,7 +5,10 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Union
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
-from langchain_core.callbacks import CallbackManagerForLLMRun
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForLLMRun,
+    CallbackManagerForLLMRun,
+)
 from langchain_core.language_models.llms import BaseLLM
 from langchain_core.outputs import Generation, GenerationChunk, LLMResult
 from langchain_core.pydantic_v1 import Extra, Field, SecretStr, root_validator
@@ -210,22 +213,28 @@ class WatsonxLLM(BaseLLM):
                     )
             credentials = Credentials(
                 url=values["url"].get_secret_value() if values["url"] else None,
-                api_key=values["apikey"].get_secret_value()
-                if values["apikey"]
-                else None,
+                api_key=(
+                    values["apikey"].get_secret_value() if values["apikey"] else None
+                ),
                 token=values["token"].get_secret_value() if values["token"] else None,
-                password=values["password"].get_secret_value()
-                if values["password"]
-                else None,
-                username=values["username"].get_secret_value()
-                if values["username"]
-                else None,
-                instance_id=values["instance_id"].get_secret_value()
-                if values["instance_id"]
-                else None,
-                version=values["version"].get_secret_value()
-                if values["version"]
-                else None,
+                password=(
+                    values["password"].get_secret_value()
+                    if values["password"]
+                    else None
+                ),
+                username=(
+                    values["username"].get_secret_value()
+                    if values["username"]
+                    else None
+                ),
+                instance_id=(
+                    values["instance_id"].get_secret_value()
+                    if values["instance_id"]
+                    else None
+                ),
+                version=(
+                    values["version"].get_secret_value() if values["version"] else None
+                ),
                 verify=values["verify"],
             )
 
@@ -361,9 +370,9 @@ class WatsonxLLM(BaseLLM):
         return GenerationChunk(
             text=stream_response["results"][0]["generated_text"],
             generation_info=dict(
-                finish_reason=None
-                if finish_reason == "not_finished"
-                else finish_reason,
+                finish_reason=(
+                    None if finish_reason == "not_finished" else finish_reason
+                ),
                 llm_output={
                     "model_id": self.model_id,
                     "deployment_id": self.deployment_id,
@@ -442,6 +451,24 @@ class WatsonxLLM(BaseLLM):
                 prompt=prompts, params=params, **kwargs
             )
             return self._create_llm_result(response)
+
+    async def _agenerate(
+        self,
+        prompts: List[str],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> LLMResult:
+        """Run the LLM on the given prompts."""
+        params, kwargs = self._get_chat_params(stop=stop, **kwargs)
+        params = self._validate_chat_params(params)
+
+        agen = await self.watsonx_model._agenerate(
+            prompt=prompts, params=params, **kwargs
+        )
+        response = [p async for p in agen]
+
+        return self._create_llm_result(response)
 
     def _stream(
         self,
