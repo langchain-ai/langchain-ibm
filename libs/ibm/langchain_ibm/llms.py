@@ -131,7 +131,7 @@ class WatsonxLLM(BaseLLM):
             "instance_id": "WATSONX_INSTANCE_ID",
         }
 
-    @root_validator()
+    @root_validator(pre=False, skip_on_failure=False)
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that credentials and python package exists in environment."""
         if isinstance(values.get("watsonx_model"), (ModelInference, Model)):

@@ -67,7 +67,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         extra = Extra.forbid
         arbitrary_types_allowed = True
 
-    @root_validator()
+    @root_validator(pre=False, skip_on_failure=False)
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that credentials and python package exists in environment."""
         if isinstance(values.get("watsonx_client"), APIClient):
