@@ -411,7 +411,7 @@ class ChatWatsonx(BaseChatModel):
             "instance_id": "WATSONX_INSTANCE_ID",
         }
 
-    @root_validator()
+    @root_validator(pre=False, skip_on_failure=True)
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that credentials and python package exists in environment."""
         values["url"] = convert_to_secret_str(
