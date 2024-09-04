@@ -1,3 +1,5 @@
+"""IBM watsonx.ai large language chat models wrapper."""
+
 import json
 import logging
 import os
