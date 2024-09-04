@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-from datetime import datetime
 from operator import itemgetter
 from typing import (
     Any,
@@ -46,16 +45,18 @@ from langchain_core.messages import (
     ToolCall,
     ToolMessage,
     ToolMessageChunk,
-    convert_to_messages,
 )
+from langchain_core.messages.ai import UsageMetadata
+from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.output_parsers import JsonOutputParser, PydanticOutputParser
 from langchain_core.output_parsers.base import OutputParserLike
 from langchain_core.output_parsers.openai_tools import (
     JsonOutputKeyToolsParser,
     PydanticToolsParser,
+    make_invalid_tool_call,
+    parse_tool_call,
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
-from langchain_core.prompt_values import ChatPromptValue
 from langchain_core.pydantic_v1 import BaseModel, Field, SecretStr, root_validator
 from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
 from langchain_core.tools import BaseTool
@@ -64,6 +65,7 @@ from langchain_core.utils.function_calling import (
     convert_to_openai_function,
     convert_to_openai_tool,
 )
+from langchain_core.utils.pydantic import is_basemodel_subclass
 
 logger = logging.getLogger(__name__)
 
@@ -79,48 +81,53 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
         The LangChain message.
     """
     role = _dict.get("role")
+    name = _dict.get("name")
+    id_ = call_id
     if role == "user":
-        return HumanMessage(content=_dict.get("generated_text", ""))
-    else:
+        return HumanMessage(content=_dict.get("content", ""), id=id_, name=name)
+    elif role == "assistant":
+        content = _dict.get("content", "") or ""
         additional_kwargs: Dict = {}
+        if function_call := _dict.get("function_call"):
+            additional_kwargs["function_call"] = dict(function_call)
         tool_calls = []
-        invalid_tool_calls: List[InvalidToolCall] = []
-        content = ""
-
-        raw_tool_calls = _dict.get("generated_text", "")
-
-        if "json" in raw_tool_calls:
-            try:
-                split_raw_tool_calls = raw_tool_calls.split("\n\n")
-                for raw_tool_call in split_raw_tool_calls:
-                    if "json" in raw_tool_call:
-                        json_parts = JsonOutputParser().parse(raw_tool_call)
-
-                        if json_parts["function"]["name"] == "Final Answer":
-                            content = json_parts["function"]["arguments"]["output"]
-                            break
-
-                        additional_kwargs["tool_calls"] = json_parts
-
-                        parsed = {
-                            "name": json_parts["function"]["name"] or "",
-                            "args": json_parts["function"]["arguments"] or {},
-                            "id": call_id,
-                        }
-                        tool_calls.append(parsed)
-
-            except:  # noqa: E722
-                content = _dict.get("generated_text", "") or ""
-
-        else:
-            content = _dict.get("generated_text", "") or ""
-
+        invalid_tool_calls = []
+        if raw_tool_calls := _dict.get("tool_calls"):
+            additional_kwargs["tool_calls"] = raw_tool_calls
+            for raw_tool_call in raw_tool_calls:
+                try:
+                    tool_calls.append(parse_tool_call(raw_tool_call, return_id=True))
+                except Exception as e:
+                    invalid_tool_calls.append(
+                        make_invalid_tool_call(raw_tool_call, str(e))
+                    )
         return AIMessage(
             content=content,
             additional_kwargs=additional_kwargs,
+            name=name,
+            id=id_,
             tool_calls=tool_calls,
             invalid_tool_calls=invalid_tool_calls,
         )
+    elif role == "system":
+        return SystemMessage(content=_dict.get("content", ""), name=name, id=id_)
+    elif role == "function":
+        return FunctionMessage(
+            content=_dict.get("content", ""), name=cast(str, _dict.get("name")), id=id_
+        )
+    elif role == "tool":
+        additional_kwargs = {}
+        if "name" in _dict:
+            additional_kwargs["name"] = _dict["name"]
+        return ToolMessage(
+            content=_dict.get("content", ""),
+            tool_call_id=cast(str, _dict.get("tool_call_id")),
+            additional_kwargs=additional_kwargs,
+            name=name,
+            id=id_,
+        )
+    else:
+        return ChatMessage(content=_dict.get("content", ""), role=role, id=id_)  # type: ignore[arg-type]
 
 
 def _format_message_content(content: Any) -> Any:
@@ -141,30 +148,6 @@ def _format_message_content(content: Any) -> Any:
         formatted_content = content
 
     return formatted_content
-
-
-def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> dict:
-    return {
-        "type": "function",
-        "id": tool_call["id"],
-        "function": {
-            "name": tool_call["name"],
-            "arguments": json.dumps(tool_call["args"]),
-        },
-    }
-
-
-def _lc_invalid_tool_call_to_openai_tool_call(
-    invalid_tool_call: InvalidToolCall,
-) -> dict:
-    return {
-        "type": "function",
-        "id": invalid_tool_call["id"],
-        "function": {
-            "name": invalid_tool_call["name"],
-            "arguments": invalid_tool_call["args"],
-        },
-    }
 
 
 def _convert_message_to_dict(message: BaseMessage) -> dict:
@@ -207,14 +190,7 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
             pass
         # If tool calls present, content null value should be None not empty string.
         if "function_call" in message_dict or "tool_calls" in message_dict:
-            message_dict["content"] = message_dict["content"] or ""
-            message_dict["tool_calls"][0]["name"] = message_dict["tool_calls"][0][
-                "function"
-            ]["name"]
-            message_dict["tool_calls"][0]["args"] = json.loads(
-                message_dict["tool_calls"][0]["function"]["arguments"]
-            )
-
+            message_dict["content"] = message_dict["content"] or None
     elif isinstance(message, SystemMessage):
         message_dict["role"] = "system"
     elif isinstance(message, FunctionMessage):
@@ -231,11 +207,11 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
 
 
 def _convert_delta_to_message_chunk(
-    _dict: Mapping[str, Any], default_class: Type[BaseMessageChunk]
+    _dict: Mapping[str, Any], default_class: Type[BaseMessageChunk], call_id: str
 ) -> BaseMessageChunk:
-    id_ = "sample_id"
+    id_ = call_id
     role = cast(str, _dict.get("role"))
-    content = cast(str, _dict.get("generated_text") or "")
+    content = cast(str, _dict.get("content") or "")
     additional_kwargs: Dict = {}
     if _dict.get("function_call"):
         function_call = dict(_dict["function_call"])
@@ -247,12 +223,12 @@ def _convert_delta_to_message_chunk(
         additional_kwargs["tool_calls"] = raw_tool_calls
         try:
             tool_call_chunks = [
-                {
-                    "name": rtc["function"].get("name"),
-                    "args": rtc["function"].get("arguments"),
-                    "id": rtc.get("id"),
-                    "index": rtc["index"],
-                }
+                tool_call_chunk(
+                    name=rtc["function"].get("name"),
+                    args=rtc["function"].get("arguments"),
+                    id=rtc.get("id"),
+                    index=rtc["index"],
+                )
                 for rtc in raw_tool_calls
             ]
         except KeyError:
@@ -279,6 +255,58 @@ def _convert_delta_to_message_chunk(
         return ChatMessageChunk(content=content, role=role, id=id_)
     else:
         return default_class(content=content, id=id_)  # type: ignore
+
+
+def _convert_chunk_to_generation_chunk(
+    chunk: dict, default_chunk_class: Type, base_generation_info: Optional[Dict]
+) -> Optional[ChatGenerationChunk]:
+    token_usage = chunk.get("usage")
+    choices = chunk.get("choices", [])
+
+    usage_metadata: Optional[UsageMetadata] = (
+        UsageMetadata(
+            input_tokens=token_usage.get("prompt_tokens", 0),
+            output_tokens=token_usage.get("completion_tokens", 0),
+            total_tokens=token_usage.get("total_tokens", 0),
+        )
+        if token_usage
+        else None
+    )
+
+    if len(choices) == 0:
+        # logprobs is implicitly None
+        generation_chunk = ChatGenerationChunk(
+            message=default_chunk_class(content="", usage_metadata=usage_metadata)
+        )
+        return generation_chunk
+
+    choice = choices[0]
+    if choice["delta"] is None:
+        return None
+
+    message_chunk = _convert_delta_to_message_chunk(
+        choice["delta"], default_chunk_class, chunk["id"]
+    )
+    generation_info = {**base_generation_info} if base_generation_info else {}
+
+    if finish_reason := choice.get("finish_reason"):
+        generation_info["finish_reason"] = finish_reason
+        if model_name := chunk.get("model"):
+            generation_info["model_name"] = model_name
+        if system_fingerprint := chunk.get("system_fingerprint"):
+            generation_info["system_fingerprint"] = system_fingerprint
+
+    logprobs = choice.get("logprobs")
+    if logprobs:
+        generation_info["logprobs"] = logprobs
+
+    if usage_metadata and isinstance(message_chunk, AIMessageChunk):
+        message_chunk.usage_metadata = usage_metadata
+
+    generation_chunk = ChatGenerationChunk(
+        message=message_chunk, generation_info=generation_info or None
+    )
+    return generation_chunk
 
 
 class _FunctionCall(TypedDict):
@@ -505,77 +533,9 @@ class ChatWatsonx(BaseChatModel):
             return generate_from_stream(stream_iter)
 
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
-        if message_dicts[-1].get("role") == "tool":
-            chat_prompt = (
-                "User: Please summarize given sentences into "
-                "JSON containing Final Answer: '"
-            )
-            for message in message_dicts:
-                if message["content"]:
-                    chat_prompt += message["content"] + "\n"
-            chat_prompt += "'"
-        else:
-            chat_prompt = self._create_chat_prompt(message_dicts)
 
-        tools = kwargs.get("tools")
-
-        if tools:
-            chat_prompt = f"""
-You are Mixtral Chat function calling, an AI language model developed by Mistral AI. 
-You are a cautious assistant. You carefully follow instructions. You are helpful and 
-harmless and you follow ethical guidelines and promote positive behavior. Here are a 
-few of the tools available to you:
-[AVAILABLE_TOOLS]
-{json.dumps(tools[0], indent=2)}
-[/AVAILABLE_TOOLS]
-To use these tools you must always respond in JSON format containing `"type"` and 
-`"function"` key-value pairs. Also `"function"` key-value pair always containing 
-`"name"` and `"arguments"` key-value pairs. For example, to answer the question, 
-"What is a length of word think?" you must use the get_word_length tool like so:
-
-```json
-{{
-    "type": "function",
-    "function": {{
-        "name": "get_word_length",
-        "arguments": {{
-            "word": "think"
-        }}
-    }}
-}}
-```
-</endoftext>
-
-Remember, even when answering to the user, you must still use this JSON format! 
-If you'd like to ask how the user is doing you must write:
-
-```json
-{{
-    "type": "function",
-    "function": {{
-        "name": "Final Answer",
-        "arguments": {{
-            "output": "How are you today?"
-        }}
-    }}
-}}
-```
-</endoftext>
-
-Remember to end your response with '</endoftext>'
-
-{chat_prompt}
-(reminder to respond in a JSON blob no matter what and use tools only if necessary)"""
-
-            params = params | {"stop_sequences": ["</endoftext>"]}
-
-        if "tools" in kwargs:
-            del kwargs["tools"]
-        if "tool_choice" in kwargs:
-            del kwargs["tool_choice"]
-
-        response = self.watsonx_model.generate(
-            prompt=chat_prompt, **(kwargs | {"params": params})
+        response = self.watsonx_model.chat(
+            messages=message_dicts, **(kwargs | {"params": params})
         )
         return self._create_chat_result(response)
 
@@ -587,134 +547,32 @@ Remember to end your response with '</endoftext>'
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
-        if message_dicts[-1].get("role") == "tool":
-            chat_prompt = (
-                "User: Please summarize given sentences into JSON "
-                "containing Final Answer: '"
-            )
-            for message in message_dicts:
-                if message["content"]:
-                    chat_prompt += message["content"] + "\n"
-            chat_prompt += "'"
-        else:
-            chat_prompt = self._create_chat_prompt(message_dicts)
-
-        tools = kwargs.get("tools")
-
-        if tools:
-            chat_prompt = f"""
-You are Mixtral Chat function calling, an AI language model developed by Mistral AI. 
-You are a cautious assistant. You carefully follow instructions. You are helpful and 
-harmless and you follow ethical guidelines and promote positive behavior. Here are a 
-few of the tools available to you:
-[AVAILABLE_TOOLS]
-{json.dumps(tools[0], indent=2)}
-[/AVAILABLE_TOOLS]
-To use these tools you must always respond in JSON format containing `"type"` and 
-`"function"` key-value pairs. Also `"function"` key-value pair always containing 
-`"name"` and `"arguments"` key-value pairs. For example, to answer the question, 
-"What is a length of word think?" you must use the get_word_length tool like so:
-
-```json
-{{
-    "type": "function",
-    "function": {{
-        "name": "get_word_length",
-        "arguments": {{
-            "word": "think"
-        }}
-    }}
-}}
-```
-</endoftext>
-
-Remember, even when answering to the user, you must still use this JSON format! 
-If you'd like to ask how the user is doing you must write:
-
-```json
-{{
-    "type": "function",
-    "function": {{
-        "name": "Final Answer",
-        "arguments": {{
-            "output": "How are you today?"
-        }}
-    }}
-}}
-```
-</endoftext>
-
-Remember to end your response with '</endoftext>'
-
-{chat_prompt[:-5]}
-(reminder to respond in a JSON blob no matter what and use tools only if necessary)"""
-
-            params = params | {"stop_sequences": ["</endoftext>"]}
-
-        if "tools" in kwargs:
-            del kwargs["tools"]
-        if "tool_choice" in kwargs:
-            del kwargs["tool_choice"]
 
         default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
+        base_generation_info: dict = {}
 
-        for chunk in self.watsonx_model.generate_text_stream(
-            prompt=chat_prompt, raw_response=True, **(kwargs | {"params": params})
+        is_first_chunk = True
+
+        for chunk in self.watsonx_model.chat_stream(
+            messages=message_dicts, **(kwargs | {"params": params})
         ):
             if not isinstance(chunk, dict):
-                chunk = chunk.dict()
-            if len(chunk["results"]) == 0:
-                continue
-            choice = chunk["results"][0]
-
-            message_chunk = _convert_delta_to_message_chunk(choice, default_chunk_class)
-            generation_info = {}
-            if (finish_reason := choice.get("stop_reason")) != "not_finished":
-                generation_info["finish_reason"] = finish_reason
-            chunk = ChatGenerationChunk(
-                message=message_chunk, generation_info=generation_info or None
+                chunk = chunk.model_dump()
+            generation_chunk = _convert_chunk_to_generation_chunk(
+                chunk,
+                default_chunk_class,
+                base_generation_info if is_first_chunk else {},
             )
+            if generation_chunk is None:
+                continue
+            default_chunk_class = generation_chunk.message.__class__
+            logprobs = (generation_chunk.generation_info or {}).get("logprobs")
             if run_manager:
-                run_manager.on_llm_new_token(chunk.text, chunk=chunk)
-
-            yield chunk
-
-    def _create_chat_prompt(self, messages: List[Dict[str, Any]]) -> str:
-        prompt = ""
-
-        if self.model_id in ["ibm/granite-13b-chat-v1", "ibm/granite-13b-chat-v2"]:
-            for message in messages:
-                if message["role"] == "system":
-                    prompt += "<|system|>\n" + message["content"] + "\n\n"
-                elif message["role"] == "assistant":
-                    prompt += "<|assistant|>\n" + message["content"] + "\n\n"
-                elif message["role"] == "function":
-                    prompt += "<|function|>\n" + message["content"] + "\n\n"
-                elif message["role"] == "tool":
-                    prompt += "<|tool|>\n" + message["content"] + "\n\n"
-                else:
-                    prompt += "<|user|>:\n" + message["content"] + "\n\n"
-
-            prompt += "<|assistant|>\n"
-
-        elif self.model_id in [
-            "meta-llama/llama-2-13b-chat",
-            "meta-llama/llama-2-70b-chat",
-        ]:
-            for message in messages:
-                if message["role"] == "system":
-                    prompt += "[INST] <<SYS>>\n" + message["content"] + "<</SYS>>\n\n"
-                elif message["role"] == "assistant":
-                    prompt += message["content"] + "\n[INST]\n\n"
-                else:
-                    prompt += message["content"] + "\n[/INST]\n"
-
-        else:
-            prompt = ChatPromptValue(
-                messages=convert_to_messages(messages) + [AIMessage(content="")]
-            ).to_string()
-
-        return prompt
+                run_manager.on_llm_new_token(
+                    generation_chunk.text, chunk=generation_chunk, logprobs=logprobs
+                )
+            is_first_chunk = False
+            yield generation_chunk
 
     def _create_message_dicts(
         self, messages: List[BaseMessage], stop: Optional[List[str]], **kwargs: Any
@@ -730,47 +588,41 @@ Remember to end your response with '</endoftext>'
         message_dicts = [_convert_message_to_dict(m) for m in messages]
         return message_dicts, params
 
-    def _create_chat_result(self, response: Union[dict]) -> ChatResult:
+    def _create_chat_result(
+        self, response: Union[dict], generation_info: Optional[Dict] = None
+    ) -> ChatResult:
         generations = []
-        sum_of_total_generated_tokens = 0
-        sum_of_total_input_tokens = 0
-        call_id = ""
-        date_string = response.get("created_at")
-        if date_string:
-            date_object = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
-            call_id = str(date_object.timestamp())
 
         if response.get("error"):
             raise ValueError(response.get("error"))
 
-        for res in response["results"]:
-            message = _convert_dict_to_message(res, call_id)
-            generation_info = dict(finish_reason=res.get("stop_reason"))
-            if "generated_token_count" in res:
-                sum_of_total_generated_tokens += res["generated_token_count"]
-            if "input_token_count" in res:
-                sum_of_total_input_tokens += res["input_token_count"]
-            total_token = sum_of_total_generated_tokens + sum_of_total_input_tokens
-            if total_token and isinstance(message, AIMessage):
+        token_usage = response.get("usage", {})
+
+        for res in response["choices"]:
+            message = _convert_dict_to_message(res["message"], response["id"])
+
+            if token_usage and isinstance(message, AIMessage):
                 message.usage_metadata = {
-                    "input_tokens": sum_of_total_input_tokens,
-                    "output_tokens": sum_of_total_generated_tokens,
-                    "total_tokens": total_token,
+                    "input_tokens": token_usage.get("prompt_tokens", 0),
+                    "output_tokens": token_usage.get("completion_tokens", 0),
+                    "total_tokens": token_usage.get("total_tokens", 0),
                 }
-            gen = ChatGeneration(
-                message=message,
-                generation_info=generation_info,
+            generation_info = generation_info or {}
+            generation_info["finish_reason"] = (
+                res.get("finish_reason")
+                if res.get("finish_reason") is not None
+                else generation_info.get("finish_reason")
             )
+            if "logprobs" in res:
+                generation_info["logprobs"] = res["logprobs"]
+            gen = ChatGeneration(message=message, generation_info=generation_info)
             generations.append(gen)
-        token_usage = {
-            "generated_token_count": sum_of_total_generated_tokens,
-            "input_token_count": sum_of_total_input_tokens,
-        }
         llm_output = {
             "token_usage": token_usage,
-            "model_name": self.model_id,
+            "model_name": response.get("model_id", self.model_id),
             "system_fingerprint": response.get("system_fingerprint", ""),
         }
+
         return ChatResult(generations=generations, llm_output=llm_output)
 
     def bind_functions(
@@ -827,7 +679,12 @@ Remember to end your response with '</endoftext>'
 
     def bind_tools(
         self,
-        tools: Sequence[Union[Dict[str, Any], Type[BaseModel], Callable, BaseTool]],
+        tools: Sequence[Union[Dict[str, Any], Type, Callable, BaseTool]],
+        *,
+        tool_choice: Optional[
+            Union[dict, str, Literal["auto", "none", "required", "any"], bool]
+        ] = None,
+        strict: Optional[bool] = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, BaseMessage]:
         """Bind tool-like objects to this chat model.
@@ -837,23 +694,66 @@ Remember to end your response with '</endoftext>'
                 Can be  a dictionary, pydantic model, callable, or BaseTool. Pydantic
                 models, callables, and BaseTools will be automatically converted to
                 their schema dictionary representation.
-            **kwargs: Any additional parameters to pass to the
-                :class:`~langchain.runnable.Runnable` constructor.
-        """
-        bind_tools_supported_models = ["mistralai/mixtral-8x7b-instruct-v01"]
-        if self.model_id not in bind_tools_supported_models:
-            raise Warning(
-                f"bind_tools() method for ChatWatsonx support only "
-                f"following models: {bind_tools_supported_models}"
-            )
+            tool_choice: Which tool to require the model to call.
+                Options are:
+                    - str of the form ``"<<tool_name>>"``: calls <<tool_name>> tool.
+                    - ``"auto"``: automatically selects a tool (including no tool).
+                    - ``"none"``: does not call a tool.
+                    - ``"any"`` or ``"required"`` or ``True``: force at least one tool to be called.
+                    - dict of the form ``{"type": "function", "function": {"name": <<tool_name>>}}``: calls <<tool_name>> tool.
+                    - ``False`` or ``None``: no effect, default OpenAI behavior.
+            strict: If True, model output is guaranteed to exactly match the JSON Schema
+                provided in the tool definition. If True, the input schema will be
+                validated according to
+                https://platform.openai.com/docs/guides/structured-outputs/supported-schemas.
+                If False, input schema will not be validated and model output will not
+                be validated.
+                If None, ``strict`` argument will not be passed to the model.
 
-        formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
-
+            kwargs: Any additional parameters are passed directly to
+                ``self.bind(**kwargs)``.
+        """  # noqa: E501
+        formatted_tools = [
+            convert_to_openai_tool(tool, strict=strict) for tool in tools
+        ]
+        if tool_choice:
+            if isinstance(tool_choice, str):
+                # tool_choice is a tool/function name
+                if tool_choice not in ("auto", "none", "any", "required"):
+                    tool_choice = {
+                        "type": "function",
+                        "function": {"name": tool_choice},
+                    }
+                # 'any' is not natively supported by OpenAI API.
+                # We support 'any' since other models use this instead of 'required'.
+                if tool_choice == "any":
+                    tool_choice = "required"
+            elif isinstance(tool_choice, bool):
+                tool_choice = "required"
+            elif isinstance(tool_choice, dict):
+                tool_names = [
+                    formatted_tool["function"]["name"]
+                    for formatted_tool in formatted_tools
+                ]
+                if not any(
+                    tool_name == tool_choice["function"]["name"]
+                    for tool_name in tool_names
+                ):
+                    raise ValueError(
+                        f"Tool choice {tool_choice} was specified, but the only "
+                        f"provided tools were {tool_names}."
+                    )
+            else:
+                raise ValueError(
+                    f"Unrecognized tool_choice type. Expected str, bool or dict. "
+                    f"Received: {tool_choice}"
+                )
+            kwargs["tool_choice"] = tool_choice
         return super().bind(tools=formatted_tools, **kwargs)
 
     def with_structured_output(
         self,
-        schema: Optional[Union[Dict, Type[BaseModel]]] = None,
+        schema: Optional[Union[Dict, Type]] = None,
         *,
         method: Literal["function_calling", "json_mode"] = "function_calling",
         include_raw: bool = False,
@@ -1012,14 +912,19 @@ Remember to end your response with '</endoftext>'
         """  # noqa: E501
         if kwargs:
             raise ValueError(f"Received unsupported arguments {kwargs}")
-        is_pydantic_schema = _is_pydantic_class(schema)
+        is_pydantic_schema = isinstance(schema, type) and is_basemodel_subclass(schema)
         if method == "function_calling":
             if schema is None:
                 raise ValueError(
                     "schema must be specified when method is 'function_calling'. "
                     "Received None."
                 )
-            llm = self.bind_tools([schema], tool_choice=True)
+            tool_choice = {
+                "type": "function",
+                "function": {"name": schema.__name__},
+            }  # TODO
+            # specifying a tool.
+            llm = self.bind_tools([schema], tool_choice=tool_choice)  # TODO
             if is_pydantic_schema:
                 output_parser: OutputParserLike = PydanticToolsParser(
                     tools=[schema],  # type: ignore[list-item]
@@ -1037,12 +942,6 @@ Remember to end your response with '</endoftext>'
                 if is_pydantic_schema
                 else JsonOutputParser()
             )
-        else:
-            raise ValueError(
-                f"Unrecognized method argument. Expected one of 'function_calling' or "
-                f"'json_format'. Received: '{method}'"
-            )
-
         if include_raw:
             parser_assign = RunnablePassthrough.assign(
                 parsed=itemgetter("raw") | output_parser, parsing_error=lambda _: None
@@ -1058,3 +957,27 @@ Remember to end your response with '</endoftext>'
 
 def _is_pydantic_class(obj: Any) -> bool:
     return isinstance(obj, type) and issubclass(obj, BaseModel)
+
+
+def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> dict:
+    return {
+        "type": "function",
+        "id": tool_call["id"],
+        "function": {
+            "name": tool_call["name"],
+            "arguments": json.dumps(tool_call["args"]),
+        },
+    }
+
+
+def _lc_invalid_tool_call_to_openai_tool_call(
+    invalid_tool_call: InvalidToolCall,
+) -> dict:
+    return {
+        "type": "function",
+        "id": invalid_tool_call["id"],
+        "function": {
+            "name": invalid_tool_call["name"],
+            "arguments": invalid_tool_call["args"],
+        },
+    }

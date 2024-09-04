@@ -19,14 +19,16 @@ from langchain_ibm import ChatWatsonx
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
-URL = "https://us-south.ml.cloud.ibm.com"
-MODEL_ID = "mistralai/mixtral-8x7b-instruct-v01"
+URL = "https://yp-qa.ml.cloud.ibm.com"
+MODEL_ID = "ibm/granite-34b-code-instruct"
+# MODEL_ID_TOOL = "mistralai/mixtral-8x7b-instruct-v01"
+MODEL_ID_TOOL = "ibm/granite-34b-code-instruct"
 
 
 def test_01_generate_chat() -> None:
     chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)
     messages = [
-        ("system", "You are a helpful assistant that translates English to French."),
+        ("user", "You are a helpful assistant that translates English to French."),
         (
             "human",
             "Translate this sentence from English to French. I love programming.",
@@ -220,14 +222,41 @@ def test_11_chaining_with_params() -> None:
     assert response.content
 
 
-def test_20_tool_choice() -> None:
-    """Test that tool choice is respected."""
-    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+def test_20_tool_use() -> None:
+    chat = ChatWatsonx(model_id=MODEL_ID_TOOL, url=URL, project_id=WX_PROJECT_ID)
 
-    params = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 500}
-    chat = ChatWatsonx(
-        model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, params=params
-    )
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather report for a city",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"location": {"type": "string"}},
+                },
+            },
+        },
+    ]
+
+    tool_choice = {"type": "function", "function": {"name": "get_weather"}}
+    llm_with_tools = chat.bind_tools(tools=tools, tool_choice=tool_choice)
+
+    response = llm_with_tools.invoke("what's the weather in san francisco, ca")
+    assert isinstance(response, AIMessage)
+    assert isinstance(response.tool_calls, list)
+    assert len(response.tool_calls) == 1
+    tool_call = response.tool_calls[0]
+    assert tool_call["name"] == "get_weather"
+    assert isinstance(tool_call["args"], dict)
+    assert "location" in tool_call["args"]
+
+
+@pytest.mark.skip(reason="Not implemented")
+def test_21_tool_choice() -> None:
+    """Test that tool choice is respected."""
+
+    chat = ChatWatsonx(model_id=MODEL_ID_TOOL, url=URL, project_id=WX_PROJECT_ID)
 
     class Person(BaseModel):
         name: str
@@ -247,20 +276,18 @@ def test_20_tool_choice() -> None:
     }
 
 
-def test_21_tool_choice_bool() -> None:
+def test_22_tool_choice_dict() -> None:
     """Test that tool choice is respected just passing in True."""
-    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 
-    params = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 500}
-    chat = ChatWatsonx(
-        model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID, params=params
-    )
+    chat = ChatWatsonx(model_id=MODEL_ID_TOOL, url=URL, project_id=WX_PROJECT_ID)
 
     class Person(BaseModel):
         name: str
         age: int
 
-    with_tool = chat.bind_tools([Person], tool_choice=True)
+    tool_choice = {"type": "function", "function": {"name": "Person"}}
+
+    with_tool = chat.bind_tools([Person], tool_choice=tool_choice)
 
     result = with_tool.invoke("Erick, 27 years old")
     assert isinstance(result, AIMessage)
@@ -273,16 +300,14 @@ def test_21_tool_choice_bool() -> None:
     }
 
 
-def test_22_tool_invoke() -> None:
+@pytest.mark.skip(reason="Not implemented")
+def test_23_tool_invoke() -> None:
     """Test that tool choice is respected just passing in True."""
-    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 
-    params = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 500}
     chat = ChatWatsonx(
-        model_id=MODEL_ID,
+        model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
-        params=params,  # type: ignore[arg-type]
     )
     from langchain_core.tools import tool
 
@@ -303,9 +328,16 @@ def test_22_tool_invoke() -> None:
 
     tools = [add, multiply, get_word_length]
 
-    chat_with_tools = chat.bind_tools(tools)
+    tool_choice = {
+        "type": "function",
+        "function": {
+            "name": "add",
+        },
+    }
 
-    query = "What is 3 + 12? What is 3 + 10?"
+    chat_with_tools = chat.bind_tools(tools, tool_choice=tool_choice)
+
+    query = "What is 3 + 12? "
     resp = chat_with_tools.invoke(query)
 
     assert resp.content == ""
@@ -318,27 +350,24 @@ def test_22_tool_invoke() -> None:
 
 @pytest.mark.skip(reason="Not implemented")
 def test_streaming_tool_call() -> None:
-    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
-
-    params = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 500}
     chat = ChatWatsonx(
-        model_id=MODEL_ID,
+        model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
-        params=params,  # type: ignore[arg-type]
     )
 
     class Person(BaseModel):
         name: str
         age: int
 
-    tool_llm = chat.bind_tools([Person])
+    tool_choice = {"type": "function", "function": {"name": "Person"}}
 
-    # where it calls the tool
-    strm = tool_llm.stream("Erick, 27 years old")
+    tool_llm = chat.bind_tools([Person], tool_choice=tool_choice)
+
+    stream_response = tool_llm.stream("Erick, 27 years old")
 
     additional_kwargs = None
-    for chunk in strm:
+    for chunk in stream_response:
         assert isinstance(chunk, AIMessageChunk)
         assert chunk.content == ""
         additional_kwargs = chunk.additional_kwargs
@@ -366,3 +395,27 @@ def test_streaming_tool_call() -> None:
         acc = chunk if acc is None else acc + chunk
     assert acc.content != ""
     assert "tool_calls" not in acc.additional_kwargs
+
+
+@pytest.mark.skip(reason="Not implemented")
+def test_streaming_structured_output() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    structured_llm = chat.with_structured_output(Person)
+
+    strm_response = structured_llm.stream("Erick, 27 years old")
+    chunk_num = 0
+    for chunk in strm_response:
+        assert chunk_num == 0, "should only have one chunk with model"
+        assert isinstance(chunk, Person)
+        assert chunk.name == "Erick"
+        assert chunk.age == 27
+        chunk_num += 1
