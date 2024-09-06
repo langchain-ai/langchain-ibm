@@ -429,7 +429,7 @@ async def test_watsonx_acall() -> None:
         project_id=WX_PROJECT_ID,
     )
     response = await watsonxllm._acall("what is the color of the grass?")
-    assert 'green' in response.lower()
+    assert "green" in response.lower()
 
 
 async def test_watsonx_agenerate() -> None:
