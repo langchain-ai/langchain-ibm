@@ -1,3 +1,5 @@
+"""IBM watsonx.ai large language chat models wrapper."""
+
 import json
 import logging
 import os
@@ -286,12 +288,19 @@ class _FunctionCall(TypedDict):
 
 
 class ChatWatsonx(BaseChatModel):
-    """
-    IBM watsonx.ai large language chat models.
+    """IBM watsonx.ai large language chat models.
 
-    To use, you should have ``langchain_ibm`` python package installed,
-    and the environment variable ``WATSONX_APIKEY`` set with your API key, or pass
-    it as a named parameter to the constructor.
+    .. dropdown:: Setup
+        :open:
+
+        To use, you should have ``langchain_ibm`` python package installed,
+        and the environment variable ``WATSONX_APIKEY`` set with your API key, or pass
+        it as a named parameter to the constructor.
+
+        .. code-block:: bash
+
+            pip install -U langchain-ibm
+            export WATSONX_APIKEY="your-api-key"
 
 
     Example:
@@ -464,15 +473,17 @@ class ChatWatsonx(BaseChatModel):
             url=values["url"].get_secret_value() if values["url"] else None,
             api_key=values["apikey"].get_secret_value() if values["apikey"] else None,
             token=values["token"].get_secret_value() if values["token"] else None,
-            password=values["password"].get_secret_value()
-            if values["password"]
-            else None,
-            username=values["username"].get_secret_value()
-            if values["username"]
-            else None,
-            instance_id=values["instance_id"].get_secret_value()
-            if values["instance_id"]
-            else None,
+            password=(
+                values["password"].get_secret_value() if values["password"] else None
+            ),
+            username=(
+                values["username"].get_secret_value() if values["username"] else None
+            ),
+            instance_id=(
+                values["instance_id"].get_secret_value()
+                if values["instance_id"]
+                else None
+            ),
             version=values["version"].get_secret_value() if values["version"] else None,
             verify=values["verify"],
         )
