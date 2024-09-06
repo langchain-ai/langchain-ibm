@@ -404,6 +404,20 @@ class WatsonxLLM(BaseLLM):
         )
         return result.generations[0][0].text
 
+    async def _acall(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
+        """Async version of the _call method."""
+
+        result = await self._agenerate(
+            prompts=[prompt], stop=stop, run_manager=run_manager, **kwargs
+        )
+        return result.generations[0][0].text
+
     def _generate(
         self,
         prompts: List[str],
@@ -459,16 +473,15 @@ class WatsonxLLM(BaseLLM):
         run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> LLMResult:
-        """Run the LLM on the given prompts."""
+        """Async run the LLM on the given prompt and input."""
         params, kwargs = self._get_chat_params(stop=stop, **kwargs)
         params = self._validate_chat_params(params)
+        responses = [
+            await self.watsonx_model.agenerate(prompt=prompt, params=params, **kwargs)
+            for prompt in prompts
+        ]
 
-        agen = await self.watsonx_model._agenerate(
-            prompt=prompts, params=params, **kwargs
-        )
-        response = [p async for p in agen]
-
-        return self._create_llm_result(response)
+        return self._create_llm_result(responses)
 
     def _stream(
         self,

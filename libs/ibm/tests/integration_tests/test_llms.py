@@ -422,6 +422,16 @@ async def test_watsonx_ainvoke() -> None:
     assert isinstance(response, str)
 
 
+async def test_watsonx_acall() -> None:
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    response = await watsonxllm._acall("what is the color of the grass?")
+    assert 'green' in response.lower()
+
+
 async def test_watsonx_agenerate() -> None:
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
