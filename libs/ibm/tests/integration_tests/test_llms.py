@@ -445,6 +445,16 @@ async def test_watsonx_agenerate() -> None:
     assert response.llm_output["token_usage"]["generated_token_count"] != 0  # type: ignore
 
 
+async def test_watsonx_agenerate_with_stream() -> None:
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    response = await watsonxllm.agenerate(["What color sunflower is?"], stream=True)
+    assert "yellow" in response.generations[0][0].text.lower()
+
+
 def test_get_num_tokens() -> None:
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,

@@ -471,17 +471,25 @@ class WatsonxLLM(BaseLLM):
         prompts: List[str],
         stop: Optional[List[str]] = None,
         run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        stream: Optional[bool] = None,
         **kwargs: Any,
     ) -> LLMResult:
         """Async run the LLM on the given prompt and input."""
         params, kwargs = self._get_chat_params(stop=stop, **kwargs)
         params = self._validate_chat_params(params)
-        responses = [
-            await self.watsonx_model.agenerate(prompt=prompt, params=params, **kwargs)
-            for prompt in prompts
-        ]
+        if stream:
+            return await super()._agenerate(
+                prompts=prompts, stop=stop, run_manager=run_manager, **kwargs
+            )
+        else:
+            responses = [
+                await self.watsonx_model.agenerate(
+                    prompt=prompt, params=params, **kwargs
+                )
+                for prompt in prompts
+            ]
 
-        return self._create_llm_result(responses)
+            return self._create_llm_result(responses)
 
     def _stream(
         self,
