@@ -8,8 +8,10 @@ from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import BaseLLM
 from langchain_core.outputs import Generation, GenerationChunk, LLMResult
-from langchain_core.pydantic_v1 import Extra, Field, SecretStr, root_validator
+from pydantic import Extra, Field, SecretStr, root_validator
 from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
+from pydantic import ConfigDict
+
 
 logger = logging.getLogger(__name__)
 textgen_valid_params = [
@@ -99,10 +101,7 @@ class WatsonxLLM(BaseLLM):
 
     watsonx_client: APIClient = Field(default=None)  #: :meta private:
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra="forbid"
+    model_config = ConfigDict(extra="forbid",)
 
     @classmethod
     def is_lc_serializable(cls) -> bool:

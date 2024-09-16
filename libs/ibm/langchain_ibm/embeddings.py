@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Union
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
 from langchain_core.embeddings import Embeddings as LangChainEmbeddings
-from langchain_core.pydantic_v1 import (
+from pydantic import (
     BaseModel,
     Extra,
     Field,
@@ -12,6 +12,8 @@ from langchain_core.pydantic_v1 import (
     root_validator,
 )
 from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
+from pydantic import ConfigDict
+
 
 
 class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
@@ -61,11 +63,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
 
     watsonx_client: APIClient = Field(default=None)  #: :meta private:
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra="forbid"
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(extra="forbid",arbitrary_types_allowed=True,)
 
     @root_validator(pre=False, skip_on_failure=True)
     def validate_environment(cls, values: Dict) -> Dict:
