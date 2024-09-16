@@ -91,11 +91,11 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 )
             else:
                 if (
-                    not values["token"]
+                    not values.get("token")
                     and "WATSONX_TOKEN" not in os.environ
-                    and not values["password"]
+                    and not values.get("password")
                     and "WATSONX_PASSWORD" not in os.environ
-                    and not values["apikey"]
+                    and not values.get("apikey")
                     and "WATSONX_APIKEY" not in os.environ
                 ):
                     raise ValueError(
@@ -106,25 +106,28 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                         " or pass 'token', 'password' or 'apikey'"
                         " as a named parameter."
                     )
-                elif values["token"] or "WATSONX_TOKEN" in os.environ:
+                elif values.get("token") or "WATSONX_TOKEN" in os.environ:
                     values["token"] = convert_to_secret_str(
                         get_from_dict_or_env(values, "token", "WATSONX_TOKEN")
                     )
-                elif values["password"] or "WATSONX_PASSWORD" in os.environ:
+                elif values.get("password") or "WATSONX_PASSWORD" in os.environ:
                     values["password"] = convert_to_secret_str(
                         get_from_dict_or_env(values, "password", "WATSONX_PASSWORD")
                     )
                     values["username"] = convert_to_secret_str(
                         get_from_dict_or_env(values, "username", "WATSONX_USERNAME")
                     )
-                elif values["apikey"] or "WATSONX_APIKEY" in os.environ:
+                elif values.get("apikey") or "WATSONX_APIKEY" in os.environ:
                     values["apikey"] = convert_to_secret_str(
                         get_from_dict_or_env(values, "apikey", "WATSONX_APIKEY")
                     )
                     values["username"] = convert_to_secret_str(
                         get_from_dict_or_env(values, "username", "WATSONX_USERNAME")
                     )
-                if not values["instance_id"] or "WATSONX_INSTANCE_ID" not in os.environ:
+                if (
+                    not values.get("instance_id")
+                    or "WATSONX_INSTANCE_ID" not in os.environ
+                ):
                     values["instance_id"] = convert_to_secret_str(
                         get_from_dict_or_env(
                             values, "instance_id", "WATSONX_INSTANCE_ID"
@@ -132,32 +135,34 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                     )
 
             credentials = Credentials(
-                url=values["url"].get_secret_value() if values["url"] else None,
+                url=values["url"].get_secret_value() if values.get("url") else None,
                 api_key=values["apikey"].get_secret_value()
-                if values["apikey"]
+                if values.get("apikey")
                 else None,
-                token=values["token"].get_secret_value() if values["token"] else None,
+                token=values["token"].get_secret_value()
+                if values.get("token")
+                else None,
                 password=values["password"].get_secret_value()
-                if values["password"]
+                if values.get("password")
                 else None,
                 username=values["username"].get_secret_value()
-                if values["username"]
+                if values.get("username")
                 else None,
                 instance_id=values["instance_id"].get_secret_value()
-                if values["instance_id"]
+                if values.get("instance_id")
                 else None,
                 version=values["version"].get_secret_value()
-                if values["version"]
+                if values.get("version")
                 else None,
-                verify=values["verify"],
+                verify=values.get("verify"),
             )
 
             watsonx_embed = Embeddings(
-                model_id=values["model_id"],
-                params=values["params"],
+                model_id=values.get("model_id"),
+                params=values.get("params"),
                 credentials=credentials,
-                project_id=values["project_id"],
-                space_id=values["space_id"],
+                project_id=values.get("project_id"),
+                space_id=values.get("space_id"),
             )
 
             values["watsonx_embed"] = watsonx_embed
