@@ -141,7 +141,7 @@ class WatsonxLLM(BaseLLM):
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
-        if isinstance((self.watsonx_model or None), (ModelInference, Model)):
+        if isinstance(self.watsonx_model, (ModelInference, Model)):
             self.model_id = getattr(self.watsonx_model, "model_id")
             self.deployment_id = getattr(self.watsonx_model, "deployment_id", "")
             self.project_id = getattr(
@@ -153,7 +153,7 @@ class WatsonxLLM(BaseLLM):
             )
             self.params = getattr(self.watsonx_model, "params")
 
-        elif isinstance((self.watsonx_client or None), APIClient):
+        elif isinstance(self.watsonx_client, APIClient):
             watsonx_model = ModelInference(
                 model_id=self.model_id,
                 params=self.params,

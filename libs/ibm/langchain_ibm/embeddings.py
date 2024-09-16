@@ -72,7 +72,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
-        if isinstance((self.watsonx_client or None), APIClient):
+        if isinstance(self.watsonx_client, APIClient):
             watsonx_embed = Embeddings(
                 model_id=self.model_id,
                 params=self.params,
