@@ -118,7 +118,9 @@ class WatsonxLLM(BaseLLM):
 
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+    )
 
     @classmethod
     def is_lc_serializable(cls) -> bool:

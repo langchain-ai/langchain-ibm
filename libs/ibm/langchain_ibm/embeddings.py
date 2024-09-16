@@ -77,7 +77,11 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
 
     watsonx_client: Optional[APIClient] = Field(default=None)  #: :meta private:
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        arbitrary_types_allowed=True,
+        protected_namespaces=(),
+    )
 
     @model_validator(mode="after")
     def validate_environment(self) -> Self:

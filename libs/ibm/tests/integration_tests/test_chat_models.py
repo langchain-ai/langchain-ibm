@@ -12,7 +12,7 @@ from langchain_core.messages import (
     SystemMessage,
 )
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.pydantic_v1 import BaseModel
+from pydantic import BaseModel
 
 from langchain_ibm import ChatWatsonx
 
