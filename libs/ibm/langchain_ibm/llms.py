@@ -102,7 +102,7 @@ class WatsonxLLM(BaseLLM):
     class Config:
         """Configuration for this pydantic object."""
 
-        extra = Extra.forbid
+        extra="forbid"
 
     @classmethod
     def is_lc_serializable(cls) -> bool:
