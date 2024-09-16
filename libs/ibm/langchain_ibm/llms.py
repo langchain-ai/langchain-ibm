@@ -151,8 +151,9 @@ class WatsonxLLM(BaseLLM):
                 )
                 or ""
             )
-            values["space_id"] = getattr(
-                getattr(values["watsonx_model"], "_client"), "default_space_id"
+            values["space_id"] = (
+                getattr(getattr(values["watsonx_model"], "_client"), "default_space_id")
+                or ""
             )
             values["params"] = getattr(values["watsonx_model"], "params")
 
