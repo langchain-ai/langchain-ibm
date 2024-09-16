@@ -67,6 +67,8 @@ from langchain_core.utils.function_calling import (
     convert_to_openai_tool,
 )
 from pydantic import ConfigDict
+from typing_extensions import Self
+
 
 
 logger = logging.getLogger(__name__)

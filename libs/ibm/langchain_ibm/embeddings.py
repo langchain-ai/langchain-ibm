@@ -13,6 +13,8 @@ from pydantic import (
 )
 from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
 from pydantic import ConfigDict
+from typing_extensions import Self
+
 
 
 
