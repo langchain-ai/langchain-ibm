@@ -8,8 +8,9 @@ from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import BaseLLM
 from langchain_core.outputs import Generation, GenerationChunk, LLMResult
-from langchain_core.pydantic_v1 import Extra, Field, SecretStr, root_validator
-from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
+from langchain_core.utils import get_from_dict_or_env, pre_init
+from langchain_core.utils.utils import convert_to_secret_str
+from pydantic import ConfigDict, Field, SecretStr
 
 logger = logging.getLogger(__name__)
 textgen_valid_params = [
@@ -49,16 +50,16 @@ class WatsonxLLM(BaseLLM):
             )
     """
 
-    model_id: str = ""
+    model_id: Optional[str] = ""
     """Type of model to use."""
 
-    deployment_id: str = ""
+    deployment_id: Optional[str] = ""
     """Type of deployed model to use."""
 
-    project_id: str = ""
+    project_id: Optional[str] = ""
     """ID of the Watson Studio project."""
 
-    space_id: str = ""
+    space_id: Optional[str] = ""
     """ID of the Watson Studio space."""
 
     url: Optional[SecretStr] = None
@@ -97,12 +98,11 @@ class WatsonxLLM(BaseLLM):
 
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
-    watsonx_client: APIClient = Field(default=None)  #: :meta private:
+    watsonx_client: Optional[APIClient] = Field(
+        default=None, exclude=True
+    )  #: :meta private:
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra = Extra.forbid
+    model_config = ConfigDict(extra="forbid")
 
     @classmethod
     def is_lc_serializable(cls) -> bool:
@@ -131,7 +131,7 @@ class WatsonxLLM(BaseLLM):
             "instance_id": "WATSONX_INSTANCE_ID",
         }
 
-    @root_validator(pre=False, skip_on_failure=True)
+    @pre_init
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that credentials and python package exists in environment."""
         if isinstance(values.get("watsonx_model"), (ModelInference, Model)):

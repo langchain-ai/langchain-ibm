@@ -4,14 +4,8 @@ from typing import Dict, List, Optional, Union
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
 from langchain_core.embeddings import Embeddings as LangChainEmbeddings
-from langchain_core.pydantic_v1 import (
-    BaseModel,
-    Extra,
-    Field,
-    SecretStr,
-    root_validator,
-)
-from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
+from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env, pre_init
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
@@ -20,10 +14,10 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     model_id: str = ""
     """Type of model to use."""
 
-    project_id: str = ""
+    project_id: Optional[str] = ""
     """ID of the Watson Studio project."""
 
-    space_id: str = ""
+    space_id: Optional[str] = ""
     """ID of the Watson Studio space."""
 
     url: Optional[SecretStr] = None
@@ -59,15 +53,11 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
 
     watsonx_embed: Embeddings = Field(default=None)  #: :meta private:
 
-    watsonx_client: APIClient = Field(default=None)  #: :meta private:
+    watsonx_client: Optional[APIClient] = Field(default=None)  #: :meta private:
 
-    class Config:
-        """Configuration for this pydantic object."""
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
-        extra = Extra.forbid
-        arbitrary_types_allowed = True
-
-    @root_validator(pre=False, skip_on_failure=True)
+    @pre_init
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that credentials and python package exists in environment."""
         if isinstance(values.get("watsonx_client"), APIClient):

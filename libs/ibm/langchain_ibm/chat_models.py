@@ -58,14 +58,14 @@ from langchain_core.output_parsers.openai_tools import (
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.prompt_values import ChatPromptValue
-from langchain_core.pydantic_v1 import BaseModel, Field, SecretStr, root_validator
 from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
 from langchain_core.tools import BaseTool
-from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
+from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env, pre_init
 from langchain_core.utils.function_calling import (
     convert_to_openai_function,
     convert_to_openai_tool,
 )
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 logger = logging.getLogger(__name__)
 
@@ -326,16 +326,16 @@ class ChatWatsonx(BaseChatModel):
             )
     """
 
-    model_id: str = ""
+    model_id: Optional[str] = ""
     """Type of model to use."""
 
-    deployment_id: str = ""
+    deployment_id: Optional[str] = ""
     """Type of deployed model to use."""
 
-    project_id: str = ""
+    project_id: Optional[str] = ""
     """ID of the Watson Studio project."""
 
-    space_id: str = ""
+    space_id: Optional[str] = ""
     """ID of the Watson Studio space."""
 
     url: Optional[SecretStr] = None
@@ -374,10 +374,7 @@ class ChatWatsonx(BaseChatModel):
 
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
     def is_lc_serializable(cls) -> bool:
@@ -393,8 +390,9 @@ class ChatWatsonx(BaseChatModel):
     ) -> LangSmithParams:
         """Get standard params for tracing."""
         params = super()._get_ls_params(stop=stop, **kwargs)
-        params["ls_provider"] = "together"
-        params["ls_model_name"] = self.model_id
+        params["ls_provider"] = "ibm"
+        if self.model_id:
+            params["ls_model_name"] = self.model_id
         return params
 
     @property
@@ -420,7 +418,7 @@ class ChatWatsonx(BaseChatModel):
             "instance_id": "WATSONX_INSTANCE_ID",
         }
 
-    @root_validator(pre=False, skip_on_failure=True)
+    @pre_init
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that credentials and python package exists in environment."""
         values["url"] = convert_to_secret_str(
@@ -912,7 +910,7 @@ Remember to end your response with '</endoftext>'
             .. code-block:: python
 
                 from langchain_ibm import ChatWatsonx
-                from langchain_core.pydantic_v1 import BaseModel
+                from pydantic import BaseModel
 
                 class AnswerWithJustification(BaseModel):
                     '''An answer to the user question along with justification for the answer.'''
@@ -933,7 +931,7 @@ Remember to end your response with '</endoftext>'
             .. code-block:: python
 
                 from langchain_ibm import ChatWatsonx
-                from langchain_core.pydantic_v1 import BaseModel
+                from pydantic import BaseModel
 
                 class AnswerWithJustification(BaseModel):
                     '''An answer to the user question along with justification for the answer.'''
@@ -954,7 +952,7 @@ Remember to end your response with '</endoftext>'
             .. code-block:: python
 
                 from langchain_ibm import ChatWatsonx
-                from langchain_core.pydantic_v1 import BaseModel
+                from pydantic import BaseModel
                 from langchain_core.utils.function_calling import convert_to_openai_tool
 
                 class AnswerWithJustification(BaseModel):
@@ -976,7 +974,7 @@ Remember to end your response with '</endoftext>'
             .. code-block::
 
                 from langchain_ibm import ChatWatsonx
-                from langchain_core.pydantic_v1 import BaseModel
+                from pydantic import BaseModel
 
                 class AnswerWithJustification(BaseModel):
                     answer: str
