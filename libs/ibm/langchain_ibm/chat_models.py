@@ -71,9 +71,7 @@ from pydantic import (
     Field,
     SecretStr,
     model_validator,
-    root_validator,
 )
-from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
@@ -427,23 +425,24 @@ class ChatWatsonx(BaseChatModel):
             "instance_id": "WATSONX_INSTANCE_ID",
         }
 
-    @model_validator(mode="after")
-    def validate_environment(self) -> Self:
+    @model_validator(mode="before")
+    @classmethod
+    def validate_environment(cls, values: Dict) -> Any:
         """Validate that credentials and python package exists in environment."""
-        self.url = convert_to_secret_str(
+        values["url"] = convert_to_secret_str(
             get_from_dict_or_env(values, "url", "WATSONX_URL")
         )
-        if "cloud.ibm.com" in self.url.get_secret_value():
-            self.apikey = convert_to_secret_str(
+        if "cloud.ibm.com" in values.get("url", "").get_secret_value():
+            values["apikey"] = convert_to_secret_str(
                 get_from_dict_or_env(values, "apikey", "WATSONX_APIKEY")
             )
         else:
             if (
-                not self.token
+                not values["token"]
                 and "WATSONX_TOKEN" not in os.environ
-                and not self.password
+                and not values["password"]
                 and "WATSONX_PASSWORD" not in os.environ
-                and not self.apikey
+                and not values["apikey"]
                 and "WATSONX_APIKEY" not in os.environ
             ):
                 raise ValueError(
@@ -454,52 +453,58 @@ class ChatWatsonx(BaseChatModel):
                     " or pass 'token', 'password' or 'apikey'"
                     " as a named parameter."
                 )
-            elif self.token or "WATSONX_TOKEN" in os.environ:
-                self.token = convert_to_secret_str(
+            elif values["token"] or "WATSONX_TOKEN" in os.environ:
+                values["token"] = convert_to_secret_str(
                     get_from_dict_or_env(values, "token", "WATSONX_TOKEN")
                 )
-            elif self.password or "WATSONX_PASSWORD" in os.environ:
-                self.password = convert_to_secret_str(
+            elif values["password"] or "WATSONX_PASSWORD" in os.environ:
+                values["password"] = convert_to_secret_str(
                     get_from_dict_or_env(values, "password", "WATSONX_PASSWORD")
                 )
-                self.username = convert_to_secret_str(
+                values["username"] = convert_to_secret_str(
                     get_from_dict_or_env(values, "username", "WATSONX_USERNAME")
                 )
-            elif self.apikey or "WATSONX_APIKEY" in os.environ:
-                self.apikey = convert_to_secret_str(
+            elif values["apikey"] or "WATSONX_APIKEY" in os.environ:
+                values["apikey"] = convert_to_secret_str(
                     get_from_dict_or_env(values, "apikey", "WATSONX_APIKEY")
                 )
-                self.username = convert_to_secret_str(
+                values["username"] = convert_to_secret_str(
                     get_from_dict_or_env(values, "username", "WATSONX_USERNAME")
                 )
-            if not self.instance_id or "WATSONX_INSTANCE_ID" not in os.environ:
-                self.instance_id = convert_to_secret_str(
+            if not values["instance_id"] or "WATSONX_INSTANCE_ID" not in os.environ:
+                values["instance_id"] = convert_to_secret_str(
                     get_from_dict_or_env(values, "instance_id", "WATSONX_INSTANCE_ID")
                 )
         credentials = Credentials(
-            url=self.url.get_secret_value() if self.url else None,
-            api_key=self.apikey.get_secret_value() if self.apikey else None,
-            token=self.token.get_secret_value() if self.token else None,
-            password=(self.password.get_secret_value() if self.password else None),
-            username=(self.username.get_secret_value() if self.username else None),
-            instance_id=(
-                self.instance_id.get_secret_value() if self.instance_id else None
+            url=values["url"].get_secret_value() if values["url"] else None,
+            api_key=values["apikey"].get_secret_value() if values["apikey"] else None,
+            token=values["token"].get_secret_value() if values["token"] else None,
+            password=(
+                values["password"].get_secret_value() if values["password"] else None
             ),
-            version=self.version.get_secret_value() if self.version else None,
-            verify=self.verify,
+            username=(
+                values["username"].get_secret_value() if values["username"] else None
+            ),
+            instance_id=(
+                values["instance_id"].get_secret_value()
+                if values["instance_id"]
+                else None
+            ),
+            version=values["version"].get_secret_value() if values["version"] else None,
+            verify=values["verify"],
         )
 
         watsonx_chat = ModelInference(
-            model_id=self.model_id,
-            deployment_id=self.deployment_id,
+            model_id=values["model_id"],
+            deployment_id=values["deployment_id"],
             credentials=credentials,
-            params=self.params,
-            project_id=self.project_id,
-            space_id=self.space_id,
+            params=values["params"],
+            project_id=values["project_id"],
+            space_id=values["space_id"],
         )
-        self.watsonx_model = watsonx_chat
+        values["watsonx_model"] = watsonx_chat
 
-        return self
+        return values
 
     def _generate(
         self,
