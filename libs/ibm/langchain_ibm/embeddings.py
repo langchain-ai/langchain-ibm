@@ -73,12 +73,12 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         """Validate that credentials and python package exists in environment."""
         if isinstance(values.get("watsonx_client"), APIClient):
             watsonx_embed = Embeddings(
-                model_id=values["model_id"],
-                params=values["params"],
-                api_client=values["watsonx_client"],
-                project_id=values["project_id"],
-                space_id=values["space_id"],
-                verify=values["verify"],
+                model_id=values.get("model_id", ""),
+                params=values.get("params"),
+                api_client=values.get("watsonx_client"),
+                project_id=values.get("project_id", ""),
+                space_id=values.get("space_id", ""),
+                verify=values.get("verify"),
             )
             values["watsonx_embed"] = watsonx_embed
 
@@ -159,11 +159,11 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
             )
 
             watsonx_embed = Embeddings(
-                model_id=values.get("model_id"),
+                model_id=values.get("model_id", ""),
                 params=values.get("params"),
                 credentials=credentials,
-                project_id=values.get("project_id"),
-                space_id=values.get("space_id"),
+                project_id=values.get("project_id", ""),
+                space_id=values.get("space_id", ""),
             )
 
             values["watsonx_embed"] = watsonx_embed

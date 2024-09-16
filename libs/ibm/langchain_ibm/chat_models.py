@@ -499,16 +499,16 @@ class ChatWatsonx(BaseChatModel):
             version=values["version"].get_secret_value()
             if values.get("version")
             else None,
-            verify=values["verify"],
+            verify=values.get("verify"),
         )
 
         watsonx_chat = ModelInference(
-            model_id=values.get("model_id"),
-            deployment_id=values.get("deployment_id"),
+            model_id=values.get("model_id", ""),
+            deployment_id=values.get("deployment_id", ""),
             credentials=credentials,
             params=values.get("params"),
-            project_id=values.get("project_id"),
-            space_id=values.get("space_id"),
+            project_id=values.get("project_id", ""),
+            space_id=values.get("space_id", ""),
         )
         values["watsonx_model"] = watsonx_chat
 

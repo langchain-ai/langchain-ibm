@@ -155,11 +155,11 @@ class WatsonxLLM(BaseLLM):
 
         elif isinstance(values.get("watsonx_client"), APIClient):
             watsonx_model = ModelInference(
-                model_id=values.get("model_id"),
+                model_id=values.get("model_id", ""),
                 params=values.get("params"),
                 api_client=values.get("watsonx_client"),
-                project_id=values.get("project_id"),
-                space_id=values.get("space_id"),
+                project_id=values.get("project_id", ""),
+                space_id=values.get("space_id", ""),
                 verify=values.get("verify"),
             )
             values["watsonx_model"] = watsonx_model
@@ -240,12 +240,12 @@ class WatsonxLLM(BaseLLM):
             )
 
             watsonx_model = ModelInference(
-                model_id=values.get("model_id"),
-                deployment_id=values.get("deployment_id"),
+                model_id=values.get("model_id", ""),
+                deployment_id=values.get("deployment_id", ""),
                 credentials=credentials,
                 params=values.get("params"),
-                project_id=values.get("project_id"),
-                space_id=values.get("space_id"),
+                project_id=values.get("project_id", ""),
+                space_id=values.get("space_id", ""),
             )
             values["watsonx_model"] = watsonx_model
 
