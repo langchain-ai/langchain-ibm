@@ -526,7 +526,7 @@ typing-extensions = ">=4.7"
 type = "git"
 url = "https://github.com/langchain-ai/langchain.git"
 reference = "HEAD"
-resolved_reference = "63c3cc1f1f2b78eb588e56fb62a7dacb43a2e27f"
+resolved_reference = "a319a0ff1d17057d750f7e4a8fee98aa8f68703c"
 subdirectory = "libs/core"
 
 [[package]]
@@ -1364,4 +1364,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "1f39676754ee9f9bd7b00f32c2d4cbda2471702b4ece078091d10c8fb16377ce"
+content-hash = "8d0733830b528c92ac39164df1644bec0e9896afdc9d4e33ee167a72b6141b4d"
