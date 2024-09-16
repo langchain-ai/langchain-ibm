@@ -8,12 +8,16 @@ from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import BaseLLM
 from langchain_core.outputs import Generation, GenerationChunk, LLMResult
-from pydantic import Extra, Field, SecretStr, root_validator, model_validator
 from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
-from pydantic import ConfigDict
+from pydantic import (
+    ConfigDict,
+    Extra,
+    Field,
+    SecretStr,
+    model_validator,
+    root_validator,
+)
 from typing_extensions import Self
-
-
 
 logger = logging.getLogger(__name__)
 textgen_valid_params = [
@@ -103,7 +107,9 @@ class WatsonxLLM(BaseLLM):
 
     watsonx_client: APIClient = Field(default=None)  #: :meta private:
 
-    model_config = ConfigDict(extra="forbid",)
+    model_config = ConfigDict(
+        extra="forbid",
+    )
 
     @classmethod
     def is_lc_serializable(cls) -> bool:
@@ -137,9 +143,7 @@ class WatsonxLLM(BaseLLM):
         """Validate that credentials and python package exists in environment."""
         if isinstance((self.watsonx_model or None), (ModelInference, Model)):
             self.model_id = getattr(self.watsonx_model, "model_id")
-            self.deployment_id = getattr(
-                self.watsonx_model, "deployment_id", ""
-            )
+            self.deployment_id = getattr(self.watsonx_model, "deployment_id", "")
             self.project_id = getattr(
                 getattr(self.watsonx_model, "_client"),
                 "default_project_id",
@@ -211,22 +215,14 @@ class WatsonxLLM(BaseLLM):
                     )
             credentials = Credentials(
                 url=self.url.get_secret_value() if self.url else None,
-                api_key=self.apikey.get_secret_value()
-                if self.apikey
-                else None,
+                api_key=self.apikey.get_secret_value() if self.apikey else None,
                 token=self.token.get_secret_value() if self.token else None,
-                password=self.password.get_secret_value()
-                if self.password
-                else None,
-                username=self.username.get_secret_value()
-                if self.username
-                else None,
+                password=self.password.get_secret_value() if self.password else None,
+                username=self.username.get_secret_value() if self.username else None,
                 instance_id=self.instance_id.get_secret_value()
                 if self.instance_id
                 else None,
-                version=self.version.get_secret_value()
-                if self.version
-                else None,
+                version=self.version.get_secret_value() if self.version else None,
                 verify=self.verify,
             )
 

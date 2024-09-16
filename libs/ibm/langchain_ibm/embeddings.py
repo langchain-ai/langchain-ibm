@@ -4,18 +4,17 @@ from typing import Dict, List, Optional, Union
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
 from langchain_core.embeddings import Embeddings as LangChainEmbeddings
+from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Extra,
     Field,
     SecretStr,
-    root_validator, model_validator,
+    model_validator,
+    root_validator,
 )
-from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
-from pydantic import ConfigDict
 from typing_extensions import Self
-
-
 
 
 class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
@@ -65,7 +64,10 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
 
     watsonx_client: APIClient = Field(default=None)  #: :meta private:
 
-    model_config = ConfigDict(extra="forbid",arbitrary_types_allowed=True,)
+    model_config = ConfigDict(
+        extra="forbid",
+        arbitrary_types_allowed=True,
+    )
 
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
@@ -133,22 +135,14 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
 
             credentials = Credentials(
                 url=self.url.get_secret_value() if self.url else None,
-                api_key=self.apikey.get_secret_value()
-                if self.apikey
-                else None,
+                api_key=self.apikey.get_secret_value() if self.apikey else None,
                 token=self.token.get_secret_value() if self.token else None,
-                password=self.password.get_secret_value()
-                if self.password
-                else None,
-                username=self.username.get_secret_value()
-                if self.username
-                else None,
+                password=self.password.get_secret_value() if self.password else None,
+                username=self.username.get_secret_value() if self.username else None,
                 instance_id=self.instance_id.get_secret_value()
                 if self.instance_id
                 else None,
-                version=self.version.get_secret_value()
-                if self.version
-                else None,
+                version=self.version.get_secret_value() if self.version else None,
                 verify=self.verify,
             )
 

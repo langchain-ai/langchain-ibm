@@ -58,7 +58,6 @@ from langchain_core.output_parsers.openai_tools import (
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.prompt_values import ChatPromptValue
-from pydantic import BaseModel, Field, SecretStr, root_validator, model_validator
 from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
 from langchain_core.tools import BaseTool
 from langchain_core.utils import convert_to_secret_str, get_from_dict_or_env
@@ -66,10 +65,15 @@ from langchain_core.utils.function_calling import (
     convert_to_openai_function,
     convert_to_openai_tool,
 )
-from pydantic import ConfigDict
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    model_validator,
+    root_validator,
+)
 from typing_extensions import Self
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -378,7 +382,9 @@ class ChatWatsonx(BaseChatModel):
 
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
-    model_config = ConfigDict(populate_by_name=True,)
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
 
     @classmethod
     def is_lc_serializable(cls) -> bool:
@@ -474,16 +480,10 @@ class ChatWatsonx(BaseChatModel):
             url=self.url.get_secret_value() if self.url else None,
             api_key=self.apikey.get_secret_value() if self.apikey else None,
             token=self.token.get_secret_value() if self.token else None,
-            password=(
-                self.password.get_secret_value() if self.password else None
-            ),
-            username=(
-                self.username.get_secret_value() if self.username else None
-            ),
+            password=(self.password.get_secret_value() if self.password else None),
+            username=(self.username.get_secret_value() if self.username else None),
             instance_id=(
-                self.instance_id.get_secret_value()
-                if self.instance_id
-                else None
+                self.instance_id.get_secret_value() if self.instance_id else None
             ),
             version=self.version.get_secret_value() if self.version else None,
             verify=self.verify,
