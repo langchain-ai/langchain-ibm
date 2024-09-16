@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import logging
-import os
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Union
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
@@ -8,9 +9,11 @@ from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.llms import BaseLLM
 from langchain_core.outputs import Generation, GenerationChunk, LLMResult
-from langchain_core.utils import get_from_dict_or_env, pre_init
-from langchain_core.utils.utils import convert_to_secret_str
-from pydantic import ConfigDict, Field, SecretStr
+from langchain_core.utils.utils import secret_from_env
+from pydantic import ConfigDict, Field, SecretStr, model_validator
+from typing_extensions import Self
+
+from langchain_ibm.utils import check_for_attribute
 
 logger = logging.getLogger(__name__)
 textgen_valid_params = [
@@ -62,22 +65,37 @@ class WatsonxLLM(BaseLLM):
     space_id: Optional[str] = ""
     """ID of the Watson Studio space."""
 
-    url: Optional[SecretStr] = None
+    url: SecretStr = Field(
+        alias="url", default_factory=secret_from_env("WATSONX_URL", default=None)
+    )
     """Url to Watson Machine Learning or CPD instance"""
 
-    apikey: Optional[SecretStr] = None
+    apikey: Optional[SecretStr] = Field(
+        alias="apikey", default_factory=secret_from_env("WATSONX_APIKEY", default=None)
+    )
     """Apikey to Watson Machine Learning or CPD instance"""
 
-    token: Optional[SecretStr] = None
+    token: Optional[SecretStr] = Field(
+        alias="token", default_factory=secret_from_env("WATSONX_TOKEN", default=None)
+    )
     """Token to CPD instance"""
 
-    password: Optional[SecretStr] = None
+    password: Optional[SecretStr] = Field(
+        alias="password",
+        default_factory=secret_from_env("WATSONX_PASSWORD", default=None),
+    )
     """Password to CPD instance"""
 
-    username: Optional[SecretStr] = None
+    username: Optional[SecretStr] = Field(
+        alias="username",
+        default_factory=secret_from_env("WATSONX_USERNAME", default=None),
+    )
     """Username to CPD instance"""
 
-    instance_id: Optional[SecretStr] = None
+    instance_id: Optional[SecretStr] = Field(
+        alias="instance_id",
+        default_factory=secret_from_env("WATSONX_INSTANCE_ID", default=None),
+    )
     """Instance_id of CPD instance"""
 
     version: Optional[SecretStr] = None
@@ -98,9 +116,7 @@ class WatsonxLLM(BaseLLM):
 
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
-    watsonx_client: Optional[APIClient] = Field(
-        default=None, exclude=True
-    )  #: :meta private:
+    watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -131,51 +147,39 @@ class WatsonxLLM(BaseLLM):
             "instance_id": "WATSONX_INSTANCE_ID",
         }
 
-    @pre_init
-    def validate_environment(cls, values: Dict) -> Dict:
+    @model_validator(mode="after")
+    def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
-        if isinstance(values.get("watsonx_model"), (ModelInference, Model)):
-            values["model_id"] = getattr(values["watsonx_model"], "model_id")
-            values["deployment_id"] = getattr(
-                values["watsonx_model"], "deployment_id", ""
-            )
-            values["project_id"] = getattr(
-                getattr(values["watsonx_model"], "_client"),
+        if isinstance(self.watsonx_model, (ModelInference, Model)):
+            self.model_id = getattr(self.watsonx_model, "model_id")
+            self.deployment_id = getattr(self.watsonx_model, "deployment_id", "")
+            self.project_id = getattr(
+                getattr(self.watsonx_model, "_client"),
                 "default_project_id",
             )
-            values["space_id"] = getattr(
-                getattr(values["watsonx_model"], "_client"), "default_space_id"
+            self.space_id = getattr(
+                getattr(self.watsonx_model, "_client"), "default_space_id"
             )
-            values["params"] = getattr(values["watsonx_model"], "params")
+            self.params = getattr(self.watsonx_model, "params")
 
-        elif isinstance(values.get("watsonx_client"), APIClient):
+        elif isinstance(self.watsonx_client, APIClient):
             watsonx_model = ModelInference(
-                model_id=values["model_id"],
-                params=values["params"],
-                api_client=values["watsonx_client"],
-                project_id=values["project_id"],
-                space_id=values["space_id"],
-                verify=values["verify"],
+                model_id=self.model_id,
+                params=self.params,
+                api_client=self.watsonx_client,
+                project_id=self.project_id,
+                space_id=self.space_id,
+                verify=self.verify,
             )
-            values["watsonx_model"] = watsonx_model
+            self.watsonx_model = watsonx_model
 
         else:
-            values["url"] = convert_to_secret_str(
-                get_from_dict_or_env(values, "url", "WATSONX_URL")
-            )
-            if "cloud.ibm.com" in values.get("url", "").get_secret_value():
-                values["apikey"] = convert_to_secret_str(
-                    get_from_dict_or_env(values, "apikey", "WATSONX_APIKEY")
-                )
+            check_for_attribute(self.url, "WATSONX_URL")
+
+            if "cloud.ibm.com" in self.url.get_secret_value():
+                check_for_attribute(self.apikey, "WATSONX_APIKEY")
             else:
-                if (
-                    not values["token"]
-                    and "WATSONX_TOKEN" not in os.environ
-                    and not values["password"]
-                    and "WATSONX_PASSWORD" not in os.environ
-                    and not values["apikey"]
-                    and "WATSONX_APIKEY" not in os.environ
-                ):
+                if not self.token and not self.password and not self.apikey:
                     raise ValueError(
                         "Did not find 'token', 'password' or 'apikey',"
                         " please add an environment variable"
@@ -184,62 +188,42 @@ class WatsonxLLM(BaseLLM):
                         " or pass 'token', 'password' or 'apikey'"
                         " as a named parameter."
                     )
-                elif values["token"] or "WATSONX_TOKEN" in os.environ:
-                    values["token"] = convert_to_secret_str(
-                        get_from_dict_or_env(values, "token", "WATSONX_TOKEN")
-                    )
-                elif values["password"] or "WATSONX_PASSWORD" in os.environ:
-                    values["password"] = convert_to_secret_str(
-                        get_from_dict_or_env(values, "password", "WATSONX_PASSWORD")
-                    )
-                    values["username"] = convert_to_secret_str(
-                        get_from_dict_or_env(values, "username", "WATSONX_USERNAME")
-                    )
-                elif values["apikey"] or "WATSONX_APIKEY" in os.environ:
-                    values["apikey"] = convert_to_secret_str(
-                        get_from_dict_or_env(values, "apikey", "WATSONX_APIKEY")
-                    )
-                    values["username"] = convert_to_secret_str(
-                        get_from_dict_or_env(values, "username", "WATSONX_USERNAME")
-                    )
-                if not values["instance_id"] or "WATSONX_INSTANCE_ID" not in os.environ:
-                    values["instance_id"] = convert_to_secret_str(
-                        get_from_dict_or_env(
-                            values, "instance_id", "WATSONX_INSTANCE_ID"
-                        )
-                    )
+                elif self.token:
+                    check_for_attribute(self.token, "WATSONX_TOKEN")
+                elif self.password:
+                    check_for_attribute(self.password, "WATSONX_PASSWORD")
+                    check_for_attribute(self.username, "WATSONX_USERNAME")
+                elif self.apikey:
+                    check_for_attribute(self.apikey, "WATSONX_APIKEY")
+                    check_for_attribute(self.username, "WATSONX_USERNAME")
+
+                if not self.instance_id:
+                    check_for_attribute(self.instance_id, "WATSONX_INSTANCE_ID")
+
             credentials = Credentials(
-                url=values["url"].get_secret_value() if values["url"] else None,
-                api_key=values["apikey"].get_secret_value()
-                if values["apikey"]
+                url=self.url.get_secret_value() if self.url else None,
+                api_key=self.apikey.get_secret_value() if self.apikey else None,
+                token=self.token.get_secret_value() if self.token else None,
+                password=self.password.get_secret_value() if self.password else None,
+                username=self.username.get_secret_value() if self.username else None,
+                instance_id=self.instance_id.get_secret_value()
+                if self.instance_id
                 else None,
-                token=values["token"].get_secret_value() if values["token"] else None,
-                password=values["password"].get_secret_value()
-                if values["password"]
-                else None,
-                username=values["username"].get_secret_value()
-                if values["username"]
-                else None,
-                instance_id=values["instance_id"].get_secret_value()
-                if values["instance_id"]
-                else None,
-                version=values["version"].get_secret_value()
-                if values["version"]
-                else None,
-                verify=values["verify"],
+                version=self.version.get_secret_value() if self.version else None,
+                verify=self.verify,
             )
 
             watsonx_model = ModelInference(
-                model_id=values["model_id"],
-                deployment_id=values["deployment_id"],
+                model_id=self.model_id,
+                deployment_id=self.deployment_id,
                 credentials=credentials,
-                params=values["params"],
-                project_id=values["project_id"],
-                space_id=values["space_id"],
+                params=self.params,
+                project_id=self.project_id,
+                space_id=self.space_id,
             )
-            values["watsonx_model"] = watsonx_model
+            self.watsonx_model = watsonx_model
 
-        return values
+        return self
 
     @property
     def _identifying_params(self) -> Mapping[str, Any]:
