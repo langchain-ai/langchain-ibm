@@ -328,16 +328,16 @@ class ChatWatsonx(BaseChatModel):
             )
     """
 
-    model_id: Optional[str] = ""
+    model_id: Optional[str] = None
     """Type of model to use."""
 
-    deployment_id: Optional[str] = ""
+    deployment_id: Optional[str] = None
     """Type of deployed model to use."""
 
-    project_id: Optional[str] = ""
+    project_id: Optional[str] = None
     """ID of the Watson Studio project."""
 
-    space_id: Optional[str] = ""
+    space_id: Optional[str] = None
     """ID of the Watson Studio space."""
 
     url: SecretStr = Field(

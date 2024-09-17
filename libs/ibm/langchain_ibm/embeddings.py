@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     """IBM watsonx.ai embedding models."""
 
-    model_id: str = ""
+    model_id: str
     """Type of model to use."""
 
-    project_id: Optional[str] = ""
+    project_id: Optional[str] = None
     """ID of the Watson Studio project."""
 
-    space_id: Optional[str] = ""
+    space_id: Optional[str] = None
     """ID of the Watson Studio space."""
 
     url: SecretStr = Field(
