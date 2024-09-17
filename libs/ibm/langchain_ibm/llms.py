@@ -176,10 +176,10 @@ class WatsonxLLM(BaseLLM):
             self.watsonx_model = watsonx_model
 
         else:
-            check_for_attribute(self.url, "WATSONX_URL")
+            check_for_attribute(self.url, "url", "WATSONX_URL")
 
             if "cloud.ibm.com" in self.url.get_secret_value():
-                check_for_attribute(self.apikey, "WATSONX_APIKEY")
+                check_for_attribute(self.apikey, "apikey", "WATSONX_APIKEY")
             else:
                 if not self.token and not self.password and not self.apikey:
                     raise ValueError(
@@ -191,16 +191,18 @@ class WatsonxLLM(BaseLLM):
                         " as a named parameter."
                     )
                 elif self.token:
-                    check_for_attribute(self.token, "WATSONX_TOKEN")
+                    check_for_attribute(self.token, "token", "WATSONX_TOKEN")
                 elif self.password:
-                    check_for_attribute(self.password, "WATSONX_PASSWORD")
-                    check_for_attribute(self.username, "WATSONX_USERNAME")
+                    check_for_attribute(self.password, "password", "WATSONX_PASSWORD")
+                    check_for_attribute(self.username, "username", "WATSONX_USERNAME")
                 elif self.apikey:
-                    check_for_attribute(self.apikey, "WATSONX_APIKEY")
-                    check_for_attribute(self.username, "WATSONX_USERNAME")
+                    check_for_attribute(self.apikey, "apikey", "WATSONX_APIKEY")
+                    check_for_attribute(self.username, "username", "WATSONX_USERNAME")
 
                 if not self.instance_id:
-                    check_for_attribute(self.instance_id, "WATSONX_INSTANCE_ID")
+                    check_for_attribute(
+                        self.instance_id, "instance_id", "WATSONX_INSTANCE_ID"
+                    )
 
             credentials = Credentials(
                 url=self.url.get_secret_value() if self.url else None,
