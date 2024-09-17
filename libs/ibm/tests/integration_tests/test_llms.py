@@ -422,6 +422,16 @@ async def test_watsonx_ainvoke() -> None:
     assert isinstance(response, str)
 
 
+async def test_watsonx_acall() -> None:
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    response = await watsonxllm._acall("what is the color of the grass?")
+    assert "green" in response.lower()
+
+
 async def test_watsonx_agenerate() -> None:
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
@@ -433,6 +443,16 @@ async def test_watsonx_agenerate() -> None:
     )
     assert len(response.generations) > 0
     assert response.llm_output["token_usage"]["generated_token_count"] != 0  # type: ignore
+
+
+async def test_watsonx_agenerate_with_stream() -> None:
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    response = await watsonxllm.agenerate(["What color sunflower is?"], stream=True)
+    assert "yellow" in response.generations[0][0].text.lower()
 
 
 def test_get_num_tokens() -> None:
