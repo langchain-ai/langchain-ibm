@@ -343,48 +343,48 @@ class ChatWatsonx(BaseChatModel):
     url: SecretStr = Field(
         alias="url", default_factory=secret_from_env("WATSONX_URL", default=None)
     )
-    """Url to Watson Machine Learning or CPD instance"""
+    """URL to the Watson Machine Learning or CPD instance."""
 
     apikey: Optional[SecretStr] = Field(
         alias="apikey", default_factory=secret_from_env("WATSONX_APIKEY", default=None)
     )
-    """Apikey to Watson Machine Learning or CPD instance"""
+    """API key to the Watson Machine Learning or CPD instance."""
 
     token: Optional[SecretStr] = Field(
         alias="token", default_factory=secret_from_env("WATSONX_TOKEN", default=None)
     )
-    """Token to CPD instance"""
+    """Token to the CPD instance."""
 
     password: Optional[SecretStr] = Field(
         alias="password",
         default_factory=secret_from_env("WATSONX_PASSWORD", default=None),
     )
-    """Password to CPD instance"""
+    """Password to the CPD instance."""
 
     username: Optional[SecretStr] = Field(
         alias="username",
         default_factory=secret_from_env("WATSONX_USERNAME", default=None),
     )
-    """Username to CPD instance"""
+    """Username to the CPD instance."""
 
     instance_id: Optional[SecretStr] = Field(
         alias="instance_id",
         default_factory=secret_from_env("WATSONX_INSTANCE_ID", default=None),
     )
-    """Instance_id of CPD instance"""
+    """Instance_id of the CPD instance."""
 
     version: Optional[SecretStr] = None
-    """Version of CPD instance"""
+    """Version of the CPD instance."""
 
     params: Optional[dict] = None
-    """Chat Model parameters to use during generate requests."""
+    """Model parameters to use during request generation."""
 
-    verify: Union[str, bool] = ""
-    """User can pass as verify one of following:
-        the path to a CA_BUNDLE file
-        the path of directory with certificates of trusted CAs
-        True - default path to truststore will be taken
-        False - no verification will be made"""
+    verify: Union[str, bool, None] = None
+    """You can pass one of following as verify:
+        * the path to a CA_BUNDLE file
+        * the path of directory with certificates of trusted CAs
+        * True - default path to truststore will be taken
+        * False - no verification will be made"""
 
     streaming: bool = False
     """ Whether to stream the results or not. """
@@ -401,7 +401,7 @@ class ChatWatsonx(BaseChatModel):
 
     @property
     def _llm_type(self) -> str:
-        """Return type of chat model."""
+        """Return the type of chat model."""
         return "watsonx-chat"
 
     def _get_ls_params(

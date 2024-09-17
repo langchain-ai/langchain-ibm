@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
-    """IBM WatsonX.ai embedding models."""
+    """IBM watsonx.ai embedding models."""
 
     model_id: str = ""
     """Type of model to use."""
@@ -30,48 +30,48 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     url: SecretStr = Field(
         alias="url", default_factory=secret_from_env("WATSONX_URL", default=None)
     )
-    """Url to Watson Machine Learning or CPD instance"""
+    """URL to the Watson Machine Learning or CPD instance."""
 
     apikey: Optional[SecretStr] = Field(
         alias="apikey", default_factory=secret_from_env("WATSONX_APIKEY", default=None)
     )
-    """Apikey to Watson Machine Learning or CPD instance"""
+    """API key to the Watson Machine Learning or CPD instance."""
 
     token: Optional[SecretStr] = Field(
         alias="token", default_factory=secret_from_env("WATSONX_TOKEN", default=None)
     )
-    """Token to CPD instance"""
+    """Token to the CPD instance."""
 
     password: Optional[SecretStr] = Field(
         alias="password",
         default_factory=secret_from_env("WATSONX_PASSWORD", default=None),
     )
-    """Password to CPD instance"""
+    """Password to the CPD instance."""
 
     username: Optional[SecretStr] = Field(
         alias="username",
         default_factory=secret_from_env("WATSONX_USERNAME", default=None),
     )
-    """Username to CPD instance"""
+    """Username to the CPD instance."""
 
     instance_id: Optional[SecretStr] = Field(
         alias="instance_id",
         default_factory=secret_from_env("WATSONX_INSTANCE_ID", default=None),
     )
-    """Instance_id of CPD instance"""
+    """Instance_id of the CPD instance."""
 
     version: Optional[SecretStr] = None
-    """Version of CPD instance"""
+    """Version of the CPD instance."""
 
     params: Optional[dict] = None
-    """Model parameters to use during generate requests."""
+    """Model parameters to use during request generation."""
 
     verify: Union[str, bool, None] = None
-    """User can pass as verify one of following:
-        the path to a CA_BUNDLE file
-        the path of directory with certificates of trusted CAs
-        True - default path to truststore will be taken
-        False - no verification will be made"""
+    """You can pass one of following as verify:
+        * the path to a CA_BUNDLE file
+        * the path of directory with certificates of trusted CAs
+        * True - default path to truststore will be taken
+        * False - no verification will be made"""
 
     watsonx_embed: Embeddings = Field(default=None)  #: :meta private:
 
