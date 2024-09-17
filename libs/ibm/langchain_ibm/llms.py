@@ -116,7 +116,7 @@ class WatsonxLLM(BaseLLM):
 
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
-    watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
+    watsonx_client: Optional[APIClient] = Field(default=None)
 
     model_config = ConfigDict(
         extra="forbid",
