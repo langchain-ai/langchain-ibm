@@ -6,7 +6,10 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Union
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
-from langchain_core.callbacks import CallbackManagerForLLMRun
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForLLMRun,
+    CallbackManagerForLLMRun,
+)
 from langchain_core.language_models.llms import BaseLLM
 from langchain_core.outputs import Generation, GenerationChunk, LLMResult
 from langchain_core.utils.utils import secret_from_env
@@ -349,9 +352,9 @@ class WatsonxLLM(BaseLLM):
         return GenerationChunk(
             text=stream_response["results"][0]["generated_text"],
             generation_info=dict(
-                finish_reason=None
-                if finish_reason == "not_finished"
-                else finish_reason,
+                finish_reason=(
+                    None if finish_reason == "not_finished" else finish_reason
+                ),
                 llm_output={
                     "model_id": self.model_id,
                     "deployment_id": self.deployment_id,
@@ -379,6 +382,20 @@ class WatsonxLLM(BaseLLM):
                 response = watsonx_llm.invoke("What is a molecule")
         """
         result = self._generate(
+            prompts=[prompt], stop=stop, run_manager=run_manager, **kwargs
+        )
+        return result.generations[0][0].text
+
+    async def _acall(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
+        """Async version of the _call method."""
+
+        result = await self._agenerate(
             prompts=[prompt], stop=stop, run_manager=run_manager, **kwargs
         )
         return result.generations[0][0].text
@@ -430,6 +447,31 @@ class WatsonxLLM(BaseLLM):
                 prompt=prompts, params=params, **kwargs
             )
             return self._create_llm_result(response)
+
+    async def _agenerate(
+        self,
+        prompts: List[str],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        stream: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> LLMResult:
+        """Async run the LLM on the given prompt and input."""
+        params, kwargs = self._get_chat_params(stop=stop, **kwargs)
+        params = self._validate_chat_params(params)
+        if stream:
+            return await super()._agenerate(
+                prompts=prompts, stop=stop, run_manager=run_manager, **kwargs
+            )
+        else:
+            responses = [
+                await self.watsonx_model.agenerate(
+                    prompt=prompt, params=params, **kwargs
+                )
+                for prompt in prompts
+            ]
+
+            return self._create_llm_result(responses)
 
     def _stream(
         self,
