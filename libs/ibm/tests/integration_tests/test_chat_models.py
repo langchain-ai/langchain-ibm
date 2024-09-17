@@ -21,8 +21,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://yp-qa.ml.cloud.ibm.com"
 MODEL_ID = "ibm/granite-34b-code-instruct"
-# MODEL_ID_TOOL = "mistralai/mixtral-8x7b-instruct-v01"
-MODEL_ID_TOOL = "ibm/granite-34b-code-instruct"
+MODEL_ID_TOOL = "mistralai/mistral-large"
 
 
 def test_01_generate_chat() -> None:
@@ -234,8 +233,14 @@ def test_11_chaining_with_params() -> None:
     assert response.content
 
 
-def test_20_tool_use() -> None:
-    chat = ChatWatsonx(model_id=MODEL_ID_TOOL, url=URL, project_id=WX_PROJECT_ID)
+def test_20_bind_tools() -> None:
+    params = {"max_tokens": 200}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,
+    )
 
     tools = [
         {
@@ -251,11 +256,11 @@ def test_20_tool_use() -> None:
         },
     ]
 
-    tool_choice = {"type": "function", "function": {"name": "get_weather"}}
-    llm_with_tools = chat.bind_tools(tools=tools, tool_choice=tool_choice)
+    llm_with_tools = chat.bind_tools(tools=tools)
 
     response = llm_with_tools.invoke("what's the weather in san francisco, ca")
     assert isinstance(response, AIMessage)
+    assert not response.content
     assert isinstance(response.tool_calls, list)
     assert len(response.tool_calls) == 1
     tool_call = response.tool_calls[0]
@@ -264,11 +269,125 @@ def test_20_tool_use() -> None:
     assert "location" in tool_call["args"]
 
 
-@pytest.mark.skip(reason="Not implemented")
-def test_21_tool_choice() -> None:
-    """Test that tool choice is respected."""
+def test_21a_bind_tools_tool_choice_auto() -> None:
+    params = {"max_tokens": 200}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,
+    )
 
-    chat = ChatWatsonx(model_id=MODEL_ID_TOOL, url=URL, project_id=WX_PROJECT_ID)
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather report for a city",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"location": {"type": "string"}},
+                },
+            },
+        },
+    ]
+
+    llm_with_tools = chat.bind_tools(tools=tools, tool_choice="auto")
+
+    response = llm_with_tools.invoke("what's the weather in san francisco, ca")
+    assert isinstance(response, AIMessage)
+    assert not response.content
+    assert isinstance(response.tool_calls, list)
+    assert len(response.tool_calls) == 1
+    tool_call = response.tool_calls[0]
+    assert tool_call["name"] == "get_weather"
+    assert isinstance(tool_call["args"], dict)
+    assert "location" in tool_call["args"]
+
+
+@pytest.mark.skip(reason="Not supported yet")
+def test_21b_bind_tools_tool_choice_none() -> None:
+    params = {"max_tokens": 200}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,
+    )
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather report for a city",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"location": {"type": "string"}},
+                },
+            },
+        },
+    ]
+
+    llm_with_tools = chat.bind_tools(tools=tools, tool_choice="none")
+
+    response = llm_with_tools.invoke("what's the weather in san francisco, ca")
+    assert isinstance(response, AIMessage)
+    assert not response.content
+    assert isinstance(response.tool_calls, list)
+    assert len(response.tool_calls) == 1
+    tool_call = response.tool_calls[0]
+    assert tool_call["name"] == "get_weather"
+    assert isinstance(tool_call["args"], dict)
+    assert "location" in tool_call["args"]
+
+
+@pytest.mark.skip(reason="Not supported yet")
+def test_21c_bind_tools_tool_choice_required() -> None:
+    params = {"max_tokens": 200}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,
+    )
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather report for a city",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"location": {"type": "string"}},
+                },
+            },
+        },
+    ]
+
+    llm_with_tools = chat.bind_tools(tools=tools, tool_choice="required")
+
+    response = llm_with_tools.invoke("what's the weather in san francisco, ca")
+    assert isinstance(response, AIMessage)
+    assert not response.content
+    assert isinstance(response.tool_calls, list)
+    assert len(response.tool_calls) == 1
+    tool_call = response.tool_calls[0]
+    assert tool_call["name"] == "get_weather"
+    assert isinstance(tool_call["args"], dict)
+    assert "location" in tool_call["args"]
+
+
+def test_22a_bind_tools_tool_choice_as_class() -> None:
+    """Test that tool choice is respected."""
+    params = {"max_tokens": 200}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,
+    )
 
     class Person(BaseModel):
         name: str
@@ -288,10 +407,15 @@ def test_21_tool_choice() -> None:
     }
 
 
-def test_22_tool_choice_dict() -> None:
+def test_22b_bind_tools_tool_choice_as_dict() -> None:
     """Test that tool choice is respected just passing in True."""
-
-    chat = ChatWatsonx(model_id=MODEL_ID_TOOL, url=URL, project_id=WX_PROJECT_ID)
+    params = {"max_tokens": 200}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,
+    )
 
     class Person(BaseModel):
         name: str
@@ -312,14 +436,14 @@ def test_22_tool_choice_dict() -> None:
     }
 
 
-@pytest.mark.skip(reason="Not implemented")
-def test_23_tool_invoke() -> None:
+def test_23a_bind_tools_list_tool_choice_dict() -> None:
     """Test that tool choice is respected just passing in True."""
-
+    params = {"max_tokens": 200}
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params=params,
     )
     from langchain_core.tools import tool
 
@@ -354,18 +478,64 @@ def test_23_tool_invoke() -> None:
 
     assert resp.content == ""
 
-    query = "Who was the famous painter from Italy?"
-    resp = chat_with_tools.invoke(query)
 
-    assert resp.content
-
-
-@pytest.mark.skip(reason="Not implemented")
-def test_streaming_tool_call() -> None:
+def test_23_bind_tools_list_tool_choice_auto() -> None:
+    """Test that tool choice is respected just passing in True."""
+    params = {"max_tokens": 200}
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params=params,
+    )
+    from langchain_core.tools import tool
+
+    @tool
+    def add(a: int, b: int) -> int:
+        """Adds a and b."""
+        return a + b
+
+    @tool
+    def multiply(a: int, b: int) -> int:
+        """Multiplies a and b."""
+        return a * b
+
+    @tool
+    def get_word_length(word: str) -> int:
+        """Get word length."""
+        return len(word)
+
+    tools = [add, multiply, get_word_length]
+    chat_with_tools = chat.bind_tools(tools, tool_choice="auto")
+
+    query = "What is 3 + 12? "
+    resp = chat_with_tools.invoke(query)
+    assert resp.content == ""
+    assert len(resp.tool_calls) == 1  # type: ignore
+    tool_call = resp.tool_calls[0]  # type: ignore
+    assert tool_call["name"] == "add"
+
+    query = "What is 3 * 12? "
+    resp = chat_with_tools.invoke(query)
+    assert resp.content == ""
+    assert len(resp.tool_calls) == 1  # type: ignore
+    tool_call = resp.tool_calls[0]  # type: ignore
+    assert tool_call["name"] == "multiply"
+
+    query = "Who was the famous painter from Italy?"
+    resp = chat_with_tools.invoke(query)
+    assert resp.content
+    assert len(resp.tool_calls) == 0  # type: ignore
+
+
+@pytest.mark.skip(reason="Not implemented")
+def test_streaming_tool_call() -> None:
+    params = {"max_tokens": 200}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,
     )
 
     class Person(BaseModel):

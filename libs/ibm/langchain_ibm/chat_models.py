@@ -2,8 +2,6 @@
 
 import json
 import logging
-from datetime import datetime
-import os
 from operator import itemgetter
 from typing import (
     Any,
@@ -60,7 +58,6 @@ from langchain_core.output_parsers.openai_tools import (
     parse_tool_call,
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
-from langchain_core.prompt_values import ChatPromptValue
 from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import (
@@ -73,7 +70,6 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
 from langchain_ibm.utils import check_for_attribute
-
 
 logger = logging.getLogger(__name__)
 
@@ -768,7 +764,14 @@ class ChatWatsonx(BaseChatModel):
                     f"Unrecognized tool_choice type. Expected str, bool or dict. "
                     f"Received: {tool_choice}"
                 )
-            kwargs["tool_choice"] = tool_choice
+
+            if isinstance(tool_choice, str):
+                kwargs["tool_choice_option"] = tool_choice
+            else:
+                kwargs["tool_choice"] = tool_choice
+        else:
+            kwargs["tool_choice_option"] = "auto"
+
         return super().bind(tools=formatted_tools, **kwargs)
 
     def with_structured_output(
@@ -939,12 +942,13 @@ class ChatWatsonx(BaseChatModel):
                     "schema must be specified when method is 'function_calling'. "
                     "Received None."
                 )
-            tool_choice = {
-                "type": "function",
-                "function": {"name": schema.__name__},
-            }  # TODO
             # specifying a tool.
-            llm = self.bind_tools([schema], tool_choice=tool_choice)  # TODO
+            tool_name = convert_to_openai_tool(schema)["function"]["name"]
+            llm = self.bind_tools(
+                [schema],
+                tool_choice=tool_name,
+                parallel_tool_calls=False,
+            )
             if is_pydantic_schema:
                 output_parser: OutputParserLike = PydanticToolsParser(
                     tools=[schema],  # type: ignore[list-item]
