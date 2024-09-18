@@ -579,12 +579,41 @@ def test_streaming_tool_call() -> None:
     assert "tool_calls" not in acc.additional_kwargs
 
 
-@pytest.mark.skip(reason="Not implemented")
-def test_streaming_structured_output() -> None:
+def test_structured_output() -> None:
+    params = {"max_tokens": 200}
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params=params,
+    )
+    schema = {
+        "title": "AnswerWithJustification",
+        "description": (
+            "An answer to the user question along with justification for the answer."
+        ),
+        "type": "object",
+        "properties": {
+            "answer": {"title": "Answer", "type": "string"},
+            "justification": {"title": "Justification", "type": "string"},
+        },
+        "required": ["answer", "justification"],
+    }
+    structured_llm = chat.with_structured_output(schema)
+    result = structured_llm.invoke(
+        "What weighs more a pound of bricks or a pound of feathers"
+    )
+    assert isinstance(result, dict)
+
+
+@pytest.mark.skip(reason="Not implemented")
+def test_streaming_structured_output() -> None:
+    params = {"max_tokens": 200}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params,
     )
 
     class Person(BaseModel):
@@ -592,7 +621,6 @@ def test_streaming_structured_output() -> None:
         age: int
 
     structured_llm = chat.with_structured_output(Person)
-
     strm_response = structured_llm.stream("Erick, 27 years old")
     chunk_num = 0
     for chunk in strm_response:
@@ -601,3 +629,42 @@ def test_streaming_structured_output() -> None:
         assert chunk.name == "Erick"
         assert chunk.age == 27
         chunk_num += 1
+
+
+# def test_langgraph_draft() -> None:
+#     params = {"max_tokens": 200}
+#     chat = ChatWatsonx(
+#         model_id=MODEL_ID_TOOL,
+#         url=URL,  # type: ignore[arg-type]
+#         project_id=WX_PROJECT_ID,
+#         params=params,
+#     )
+#     from typing import Literal
+#
+#     from langchain_core.tools import tool
+#
+#     @tool
+#     def get_weather(city: Literal["nyc", "sf"]) -> str:
+#         """Use this to get weather information."""
+#         if city == "nyc":
+#             return "It might by cloudy in nyc"
+#         elif city == "sf":
+#             return "It's always sunny in sf"
+#         else:
+#             raise AssertionError("Unknown city")
+#
+#     tools = [get_weather]
+#     from langgraph.prebuilt import create_react_agent
+#
+#     graph = create_react_agent(chat, tools=tools)
+#
+#     def print_stream(stream):
+#         for s in stream:
+#             message = s["messages"][-1]
+#             if isinstance(message, tuple):
+#                 print(message)
+#             else:
+#                 message.pretty_print()
+#
+#     inputs = {"messages": [("user", "what is the weather in sf")]}
+#     print_stream(graph.stream(inputs, stream_mode="values"))

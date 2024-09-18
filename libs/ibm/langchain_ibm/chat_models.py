@@ -943,12 +943,7 @@ class ChatWatsonx(BaseChatModel):
                     "Received None."
                 )
             # specifying a tool.
-            tool_name = convert_to_openai_tool(schema)["function"]["name"]
-            llm = self.bind_tools(
-                [schema],
-                tool_choice=tool_name,
-                parallel_tool_calls=False,
-            )
+            llm = self.bind_tools([schema], tool_choice="auto")
             if is_pydantic_schema:
                 output_parser: OutputParserLike = PydanticToolsParser(
                     tools=[schema],  # type: ignore[list-item]
