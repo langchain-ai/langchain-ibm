@@ -22,6 +22,10 @@ from typing import (
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
+from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
+    BaseSchema,
+    TextChatParameters,
+)
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.chat_models import (
@@ -211,7 +215,10 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
 
 
 def _convert_delta_to_message_chunk(
-    _dict: Mapping[str, Any], default_class: Type[BaseMessageChunk], call_id: str
+    _dict: Mapping[str, Any],
+    default_class: Type[BaseMessageChunk],
+    call_id: str,
+    finish_reason: str,
 ) -> BaseMessageChunk:
     id_ = call_id
     role = cast(str, _dict.get("role"))
@@ -228,9 +235,11 @@ def _convert_delta_to_message_chunk(
         try:
             tool_call_chunks = [
                 tool_call_chunk(
-                    name=rtc["function"].get("name"),
+                    name=rtc["function"].get("name")
+                    if finish_reason is not None
+                    else None,
                     args=rtc["function"].get("arguments"),
-                    id=rtc.get("id"),
+                    id=call_id if finish_reason is not None else None,
                     index=rtc["index"],
                 )
                 for rtc in raw_tool_calls
@@ -289,7 +298,7 @@ def _convert_chunk_to_generation_chunk(
         return None
 
     message_chunk = _convert_delta_to_message_chunk(
-        choice["delta"], default_chunk_class, chunk["id"]
+        choice["delta"], default_chunk_class, chunk["id"], choice["finish_reason"]
     )
     generation_info = {**base_generation_info} if base_generation_info else {}
 
@@ -404,7 +413,7 @@ class ChatWatsonx(BaseChatModel):
     version: Optional[SecretStr] = None
     """Version of the CPD instance."""
 
-    params: Optional[dict] = None
+    params: Optional[Union[dict, TextChatParameters]] = None
     """Model parameters to use during request generation."""
 
     verify: Union[str, bool, None] = None
@@ -593,8 +602,24 @@ class ChatWatsonx(BaseChatModel):
     def _create_message_dicts(
         self, messages: List[BaseMessage], stop: Optional[List[str]], **kwargs: Any
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        params = {**self.params} if self.params else {}
-        params = params | {**kwargs.get("params", {})}
+        params = (
+            {
+                **(
+                    self.params.to_dict()
+                    if isinstance(self.params, BaseSchema)
+                    else self.params
+                )
+            }
+            if self.params
+            else {}
+        )
+        params = params | {
+            **(
+                kwargs.get("params", {}).to_dict()
+                if isinstance(kwargs.get("params", {}), BaseSchema)
+                else kwargs.get("params", {})
+            )
+        }
         if stop is not None:
             if params and "stop_sequences" in params:
                 raise ValueError(
