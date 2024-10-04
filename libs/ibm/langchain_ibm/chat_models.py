@@ -869,7 +869,7 @@ Remember to end your response with '</endoftext>'
                 "The `mistralai/mixtral-8x7b-instruct-v01` model, which "
                 "supports the `bind_tools()` method, is deprecated and will be "
                 "removed in version 0.3.x of `langchain_ibm`.",
-                LangChainDeprecationWarning
+                LangChainDeprecationWarning,
             )
 
         formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
