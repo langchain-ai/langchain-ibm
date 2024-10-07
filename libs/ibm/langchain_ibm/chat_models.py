@@ -2,6 +2,7 @@
 
 import json
 import logging
+import warnings
 from datetime import datetime
 from operator import itemgetter
 from typing import (
@@ -23,6 +24,7 @@ from typing import (
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
+from langchain_core._api import LangChainDeprecationWarning
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.chat_models import (
@@ -861,6 +863,13 @@ Remember to end your response with '</endoftext>'
             raise Warning(
                 f"bind_tools() method for ChatWatsonx support only "
                 f"following models: {bind_tools_supported_models}"
+            )
+        else:
+            warnings.warn(
+                "The `mistralai/mixtral-8x7b-instruct-v01` model, which "
+                "supports the `bind_tools()` method, is deprecated and will be "
+                "removed in version 0.3.x of `langchain_ibm`.",
+                LangChainDeprecationWarning,
             )
 
         formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
