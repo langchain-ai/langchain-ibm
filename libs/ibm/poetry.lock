@@ -548,7 +548,7 @@ syrupy = "^4"
 type = "git"
 url = "https://github.com/langchain-ai/langchain.git"
 reference = "HEAD"
-resolved_reference = "907c758d67764385828c8abad14a3e64cf44d05b"
+resolved_reference = "7a07196df683582c783edf164bfb6fe813135169"
 subdirectory = "libs/standard-tests"
 
 [[package]]
