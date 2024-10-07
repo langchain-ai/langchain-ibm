@@ -182,9 +182,9 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
             message_dict["function_call"] = message.additional_kwargs["function_call"]
         if message.tool_calls or message.invalid_tool_calls:
             message_dict["tool_calls"] = [
-                _lc_tool_call_to_openai_tool_call(tc) for tc in message.tool_calls
+                _lc_tool_call_to_watsonx_tool_call(tc) for tc in message.tool_calls
             ] + [
-                _lc_invalid_tool_call_to_openai_tool_call(tc)
+                _lc_invalid_tool_call_to_watsonx_tool_call(tc)
                 for tc in message.invalid_tool_calls
             ]
         elif "tool_calls" in message.additional_kwargs:
@@ -725,7 +725,6 @@ class ChatWatsonx(BaseChatModel):
         tool_choice: Optional[
             Union[dict, str, Literal["auto", "none", "required", "any"], bool]
         ] = None,
-        strict: Optional[bool] = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, BaseMessage]:
         """Bind tool-like objects to this chat model.
@@ -743,20 +742,11 @@ class ChatWatsonx(BaseChatModel):
                     - ``"any"`` or ``"required"`` or ``True``: force at least one tool to be called.
                     - dict of the form ``{"type": "function", "function": {"name": <<tool_name>>}}``: calls <<tool_name>> tool.
                     - ``False`` or ``None``: no effect, default OpenAI behavior.
-            strict: If True, model output is guaranteed to exactly match the JSON Schema
-                provided in the tool definition. If True, the input schema will be
-                validated according to
-                https://platform.openai.com/docs/guides/structured-outputs/supported-schemas.
-                If False, input schema will not be validated and model output will not
-                be validated.
-                If None, ``strict`` argument will not be passed to the model.
 
             kwargs: Any additional parameters are passed directly to
                 ``self.bind(**kwargs)``.
         """  # noqa: E501
-        formatted_tools = [
-            convert_to_openai_tool(tool, strict=strict) for tool in tools
-        ]
+        formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
         if tool_choice:
             if isinstance(tool_choice, str):
                 # tool_choice is a tool/function name
@@ -765,7 +755,6 @@ class ChatWatsonx(BaseChatModel):
                         "type": "function",
                         "function": {"name": tool_choice},
                     }
-                # 'any' is not natively supported by OpenAI API.
                 # We support 'any' since other models use this instead of 'required'.
                 if tool_choice == "any":
                     tool_choice = "required"
@@ -1003,7 +992,7 @@ def _is_pydantic_class(obj: Any) -> bool:
     return isinstance(obj, type) and issubclass(obj, BaseModel)
 
 
-def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> dict:
+def _lc_tool_call_to_watsonx_tool_call(tool_call: ToolCall) -> dict:
     return {
         "type": "function",
         "id": tool_call["id"],
@@ -1014,7 +1003,7 @@ def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> dict:
     }
 
 
-def _lc_invalid_tool_call_to_openai_tool_call(
+def _lc_invalid_tool_call_to_watsonx_tool_call(
     invalid_tool_call: InvalidToolCall,
 ) -> dict:
     return {
