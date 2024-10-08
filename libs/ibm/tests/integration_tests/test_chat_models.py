@@ -402,6 +402,7 @@ def test_22a_bind_tools_tool_choice_as_class() -> None:
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
 
     class Person(BaseModel):
@@ -428,6 +429,7 @@ def test_22b_bind_tools_tool_choice_as_dict() -> None:
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
 
     class Person(BaseModel):
@@ -455,6 +457,7 @@ def test_23a_bind_tools_list_tool_choice_dict() -> None:
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
 
     @tool
@@ -495,6 +498,7 @@ def test_23_bind_tools_list_tool_choice_auto() -> None:
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
 
     @tool
@@ -540,6 +544,7 @@ def test_json_mode() -> None:
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
     response = llm.invoke(
         "Return this as json: {'a': 1}",
@@ -565,6 +570,7 @@ async def test_json_mode_async() -> None:
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
     response = await llm.ainvoke(
         "Return this as json: {'a': 1}",
@@ -639,6 +645,7 @@ def test_structured_output() -> None:
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
     schema = {
         "title": "AnswerWithJustification",
