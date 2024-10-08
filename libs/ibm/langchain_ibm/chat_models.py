@@ -630,7 +630,7 @@ class ChatWatsonx(BaseChatModel):
         return message_dicts, params
 
     def _create_chat_result(
-        self, response: Union[dict], generation_info: Optional[Dict] = None
+        self, response: dict, generation_info: Optional[Dict] = None
     ) -> ChatResult:
         generations = []
 
