@@ -22,7 +22,7 @@ from langchain_ibm import ChatWatsonx
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
-URL = "https://yp-qa.ml.cloud.ibm.com"
+URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/granite-34b-code-instruct"
 MODEL_ID_TOOL = "mistralai/mistral-large"
