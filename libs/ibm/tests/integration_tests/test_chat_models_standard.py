@@ -1,5 +1,5 @@
 import os
-from typing import Type
+from typing import Dict, List, Literal, Type
 
 import pytest
 from langchain_core.language_models import BaseChatModel
@@ -19,6 +19,26 @@ class TestTogetherStandard(ChatModelIntegrationTests):
     @property
     def chat_model_class(self) -> Type[BaseChatModel]:
         return ChatWatsonx
+
+    @property
+    def supported_usage_metadata_details(
+        self,
+    ) -> Dict[
+        Literal["invoke", "stream"],
+        List[
+            Literal[
+                "audio_input",
+                "audio_output",
+                "reasoning_output",
+                "cache_read_input",
+                "cache_creation_input",
+            ]
+        ],
+    ]:
+        return {
+            "invoke": [],
+            "stream": [],
+        }
 
     @property
     def chat_model_params(self) -> dict:
