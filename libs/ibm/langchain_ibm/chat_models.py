@@ -1,5 +1,6 @@
 """IBM watsonx.ai large language chat models wrapper."""
 
+import hashlib
 import json
 import logging
 from operator import itemgetter
@@ -158,11 +159,37 @@ def _format_message_content(content: Any) -> Any:
     return formatted_content
 
 
-def _convert_message_to_dict(message: BaseMessage) -> dict:
+def _base62_encode(num: int) -> str:
+    """Encodes a number in base62 and ensures result is of a specified length."""
+    base62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if num == 0:
+        return base62[0]
+    arr = []
+    base = len(base62)
+    while num:
+        num, rem = divmod(num, base)
+        arr.append(base62[rem])
+    arr.reverse()
+    return "".join(arr)
+
+
+def _convert_tool_call_id_to_mistral_compatible(tool_call_id: str) -> str:
+    """Convert a tool call ID to a Mistral-compatible format"""
+    hash_bytes = hashlib.sha256(tool_call_id.encode()).digest()
+    hash_int = int.from_bytes(hash_bytes, byteorder="big")
+    base62_str = _base62_encode(hash_int)
+    if len(base62_str) >= 9:
+        return base62_str[:9]
+    else:
+        return base62_str.rjust(9, "0")
+
+
+def _convert_message_to_dict(message: BaseMessage, model_id: str | None) -> dict:
     """Convert a LangChain message to a dictionary.
 
     Args:
         message: The LangChain message.
+        model_id: Type of model to use.
 
     Returns:
         The dictionary.
@@ -201,16 +228,20 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
             message_dict["content"] = message_dict["content"] or None
 
         # Workaround for "mistralai/mistral-large" model when id < 9
-        tool_calls = message_dict.get("tool_calls", [])
-        if (
-            isinstance(tool_calls, list)
-            and tool_calls
-            and isinstance(tool_calls[0], dict)
-        ):
-            tool_call_id = tool_calls[0].get("id", "")
-            while len(tool_call_id) < 9:
-                tool_call_id += "1"
-            message_dict["tool_calls"][0]["id"] = tool_call_id
+        if model_id and model_id.startswith("mistralai"):
+            tool_calls = message_dict.get("tool_calls", [])
+            if (
+                isinstance(tool_calls, list)
+                and tool_calls
+                and isinstance(tool_calls[0], dict)
+            ):
+                tool_call_id = tool_calls[0].get("id", "")
+                if len(tool_call_id) < 9:
+                    tool_call_id = _convert_tool_call_id_to_mistral_compatible(
+                        tool_call_id
+                    )
+
+                message_dict["tool_calls"][0]["id"] = tool_call_id
     elif isinstance(message, SystemMessage):
         message_dict["role"] = "system"
     elif isinstance(message, FunctionMessage):
@@ -220,10 +251,12 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
         message_dict["tool_call_id"] = message.tool_call_id
 
         # Workaround for "mistralai/mistral-large" model when id < 9
-        tool_call_id = message_dict.get("tool_call_id", "")
-        while len(tool_call_id) < 9:
-            tool_call_id += "1"
-        message_dict["tool_call_id"] = tool_call_id
+        if model_id and model_id.startswith("mistralai"):
+            tool_call_id = message_dict.get("tool_call_id", "")
+            if len(tool_call_id) < 9:
+                tool_call_id = _convert_tool_call_id_to_mistral_compatible(tool_call_id)
+
+            message_dict["tool_call_id"] = tool_call_id
 
         supported_props = {"content", "role", "tool_call_id"}
         message_dict = {k: v for k, v in message_dict.items() if k in supported_props}
@@ -651,7 +684,7 @@ class ChatWatsonx(BaseChatModel):
                     "`stop_sequences` found in both the input and default params."
                 )
             params = (params or {}) | {"stop_sequences": stop}
-        message_dicts = [_convert_message_to_dict(m) for m in messages]
+        message_dicts = [_convert_message_to_dict(m, self.model_id) for m in messages]
         return message_dicts, params
 
     def _create_chat_result(
