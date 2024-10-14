@@ -29,18 +29,6 @@ class TestTogetherStandard(ChatModelIntegrationTests):
             "project_id": WX_PROJECT_ID,
         }
 
-    @pytest.mark.xfail(reason="Not yet implemented.")
-    def test_structured_output(self, model: BaseChatModel) -> None:
-        super().test_structured_output(model)
-
-    @pytest.mark.xfail(reason="Not yet implemented.")
-    async def test_structured_output_async(self, model: BaseChatModel) -> None:  # type: ignore[override]
-        await super().test_structured_output_async(model)
-
-    @pytest.mark.xfail(reason="Not yet implemented.")
-    def test_structured_output_pydantic_2_v1(self, model: BaseChatModel) -> None:
-        super().test_structured_output_pydantic_2_v1(model)
-
-    @pytest.mark.xfail(reason="Not yet implemented.")
+    @pytest.mark.xfail(reason="Not implemented tool_choice as `any`.")
     def test_structured_few_shot_examples(self, model: BaseChatModel) -> None:
         super().test_structured_few_shot_examples(model)
