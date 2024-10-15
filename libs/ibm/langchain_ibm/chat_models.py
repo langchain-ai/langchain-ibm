@@ -470,6 +470,9 @@ class ChatWatsonx(BaseChatModel):
         * True - default path to truststore will be taken
         * False - no verification will be made"""
 
+    validate_model: bool = True
+    """Model ID validation."""
+
     streaming: bool = False
     """ Whether to stream the results or not. """
 
@@ -532,6 +535,7 @@ class ChatWatsonx(BaseChatModel):
                 project_id=self.project_id,
                 space_id=self.space_id,
                 verify=self.verify,
+                validate=self.validate_model,
             )
             self.watsonx_model = watsonx_model
 
@@ -584,6 +588,8 @@ class ChatWatsonx(BaseChatModel):
                 params=self.params,
                 project_id=self.project_id,
                 space_id=self.space_id,
+                verify=self.verify,
+                validate=self.validate_model,
             )
             self.watsonx_model = watsonx_chat
 

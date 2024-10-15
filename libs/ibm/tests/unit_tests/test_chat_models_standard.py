@@ -1,13 +1,19 @@
-import os
 from typing import Type
 
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
+from ibm_watsonx_ai.service_instance import ServiceInstance  # type: ignore
 from langchain_core.language_models import BaseChatModel
 from langchain_standard_tests.unit_tests import ChatModelUnitTests
 
 from langchain_ibm import ChatWatsonx
 
-WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
-WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
+client = APIClient.__new__(APIClient)
+client.CLOUD_PLATFORM_SPACES = True
+client.ICP_PLATFORM_SPACES = True
+credentials = Credentials(api_key="api_key")
+client.credentials = credentials
+client.service_instance = ServiceInstance.__new__(ServiceInstance)
+client.service_instance._credentials = credentials
 
 
 class TestWatsonxStandard(ChatModelUnitTests):
@@ -18,8 +24,7 @@ class TestWatsonxStandard(ChatModelUnitTests):
     @property
     def chat_model_params(self) -> dict:
         return {
-            "model_id": "mistralai/mistral-large",
-            "url": "https://us-south.ml.cloud.ibm.com",
-            "project_id": WX_PROJECT_ID,
-            "apikey": WX_APIKEY,
+            "model_id": "ibm/granite-13b-instruct-v2",
+            "validate_model": False,
+            "watsonx_client": client,
         }
