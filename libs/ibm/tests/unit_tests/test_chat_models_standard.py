@@ -10,7 +10,7 @@ WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 
-class TestGeminiAIStandard(ChatModelUnitTests):
+class TestWatsonxStandard(ChatModelUnitTests):
     @property
     def chat_model_class(self) -> Type[BaseChatModel]:
         return ChatWatsonx
@@ -21,4 +21,5 @@ class TestGeminiAIStandard(ChatModelUnitTests):
             "model_id": "mistralai/mistral-large",
             "url": "https://us-south.ml.cloud.ibm.com",
             "project_id": WX_PROJECT_ID,
+            "apikey": WX_APIKEY,
         }
