@@ -16,7 +16,7 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute
+from langchain_ibm.utils import check_for_attribute, extract_params
 
 logger = logging.getLogger(__name__)
 textgen_valid_params = [
@@ -305,13 +305,7 @@ class WatsonxLLM(BaseLLM):
     def _get_chat_params(
         self, stop: Optional[List[str]] = None, **kwargs: Any
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        if kwargs.get("params") is not None:
-            params = kwargs.get("params")
-            kwargs.pop("params")
-        elif self.params is not None:
-            params = self.params
-        else:
-            params = None
+        params = extract_params(kwargs, self.params)
 
         params, kwargs = self._override_chat_params(params or {}, **kwargs)
         if stop is not None:

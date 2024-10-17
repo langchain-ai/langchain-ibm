@@ -8,7 +8,7 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute
+from langchain_ibm.utils import check_for_attribute, extract_params
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
 
     def embed_documents(self, texts: List[str], **kwargs: Any) -> List[List[float]]:
         """Embed search docs."""
-        params = self._get_embeddings_params(**kwargs)
+        params = extract_params(kwargs, self.params)
         return self.watsonx_embed.embed_documents(
             texts=texts, **(kwargs | {"params": params})
         )
@@ -159,13 +159,3 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     def embed_query(self, text: str, **kwargs: Any) -> List[float]:
         """Embed query text."""
         return self.embed_documents([text], **kwargs)[0]
-
-    def _get_embeddings_params(self, **kwargs: Any) -> Dict[str, Any]:
-        if kwargs.get("params") is not None:
-            params = kwargs.get("params")
-        elif self.params is not None:
-            params = self.params
-        else:
-            params = None
-
-        return params or {}

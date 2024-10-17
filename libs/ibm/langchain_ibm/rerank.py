@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Rerank  # type: ignore
 from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
-    BaseSchema,
     RerankParameters,
 )
 from langchain_core.callbacks import Callbacks
@@ -15,7 +14,7 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute
+from langchain_ibm.utils import check_for_attribute, extract_params
 
 
 class WatsonxRerank(BaseDocumentCompressor):
@@ -87,9 +86,9 @@ class WatsonxRerank(BaseDocumentCompressor):
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 
     model_config = ConfigDict(
-        populate_by_name=True,
         arbitrary_types_allowed=True,
         extra="forbid",
+        protected_namespaces=(),
     )
 
     @property
@@ -194,7 +193,7 @@ class WatsonxRerank(BaseDocumentCompressor):
         docs = [
             doc.page_content if isinstance(doc, Document) else doc for doc in documents
         ]
-        params = self._get_rerank_params(**kwargs)
+        params = extract_params(kwargs, self.params)
 
         results = self.watsonx_rerank.generate(
             query=query, inputs=docs, **(kwargs | {"params": params})
@@ -231,16 +230,3 @@ class WatsonxRerank(BaseDocumentCompressor):
             doc_copy.metadata["relevance_score"] = res["relevance_score"]
             compressed.append(doc_copy)
         return compressed
-
-    def _get_rerank_params(self, **kwargs: Any) -> Dict[str, Any]:
-        if kwargs.get("params") is not None:
-            params = kwargs.get("params")
-        elif self.params is not None:
-            params = self.params
-        else:
-            params = None
-
-        if isinstance(params, BaseSchema):
-            params = params.to_dict()
-
-        return params or {}

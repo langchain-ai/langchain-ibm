@@ -24,7 +24,6 @@ from typing import (
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
 from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
-    BaseSchema,
     TextChatParameters,
 )
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -74,7 +73,7 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute
+from langchain_ibm.utils import check_for_attribute, extract_params
 
 logger = logging.getLogger(__name__)
 
@@ -668,15 +667,7 @@ class ChatWatsonx(BaseChatModel):
     def _create_message_dicts(
         self, messages: List[BaseMessage], stop: Optional[List[str]], **kwargs: Any
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        if kwargs.get("params") is not None:
-            params = kwargs.get("params")
-        elif self.params is not None:
-            params = self.params
-        else:
-            params = None
-
-        if isinstance(params, BaseSchema):
-            params = params.to_dict()
+        params = extract_params(kwargs, self.params)
 
         if stop is not None:
             if params and "stop_sequences" in params:
