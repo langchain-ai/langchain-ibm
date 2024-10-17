@@ -305,12 +305,15 @@ class WatsonxLLM(BaseLLM):
     def _get_chat_params(
         self, stop: Optional[List[str]] = None, **kwargs: Any
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        params = (
-            {**self.params, **kwargs.pop("params", {})}
-            if self.params
-            else kwargs.pop("params", {})
-        )
-        params, kwargs = self._override_chat_params(params, **kwargs)
+        if kwargs.get("params") is not None:
+            params = kwargs.get("params")
+            kwargs.pop("params")
+        elif self.params is not None:
+            params = self.params
+        else:
+            params = None
+
+        params, kwargs = self._override_chat_params(params or {}, **kwargs)
         if stop is not None:
             if params and "stop_sequences" in params:
                 raise ValueError(
