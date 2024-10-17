@@ -668,24 +668,16 @@ class ChatWatsonx(BaseChatModel):
     def _create_message_dicts(
         self, messages: List[BaseMessage], stop: Optional[List[str]], **kwargs: Any
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        params = (
-            {
-                **(
-                    self.params.to_dict()
-                    if isinstance(self.params, BaseSchema)
-                    else self.params
-                )
-            }
-            if self.params
-            else {}
-        )
-        params = params | {
-            **(
-                kwargs.get("params", {}).to_dict()
-                if isinstance(kwargs.get("params", {}), BaseSchema)
-                else kwargs.get("params", {})
-            )
-        }
+        if kwargs.get("params") is not None:
+            params = kwargs.get("params")
+        elif self.params is not None:
+            params = self.params
+        else:
+            params = None
+
+        if isinstance(params, BaseSchema):
+            params = params.to_dict()
+
         if stop is not None:
             if params and "stop_sequences" in params:
                 raise ValueError(
@@ -693,7 +685,7 @@ class ChatWatsonx(BaseChatModel):
                 )
             params = (params or {}) | {"stop_sequences": stop}
         message_dicts = [_convert_message_to_dict(m, self.model_id) for m in messages]
-        return message_dicts, params
+        return message_dicts, params or {}
 
     def _create_chat_result(
         self, response: dict, generation_info: Optional[Dict] = None

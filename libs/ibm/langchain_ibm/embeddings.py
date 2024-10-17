@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 import logging
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
@@ -63,7 +61,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     version: Optional[SecretStr] = None
     """Version of the CPD instance."""
 
-    params: Optional[dict] = None
+    params: Optional[Dict] = None
     """Model parameters to use during request generation."""
 
     verify: Union[str, bool, None] = None
@@ -151,10 +149,23 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
 
         return self
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: List[str], **kwargs: Any) -> List[List[float]]:
         """Embed search docs."""
-        return self.watsonx_embed.embed_documents(texts=texts)
+        params = self._get_embeddings_params(**kwargs)
+        return self.watsonx_embed.embed_documents(
+            texts=texts, **(kwargs | {"params": params})
+        )
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str, **kwargs: Any) -> List[float]:
         """Embed query text."""
-        return self.embed_documents([text])[0]
+        return self.embed_documents([text], **kwargs)[0]
+
+    def _get_embeddings_params(self, **kwargs: Any) -> Dict[str, Any]:
+        if kwargs.get("params") is not None:
+            params = kwargs.get("params")
+        elif self.params is not None:
+            params = self.params
+        else:
+            params = None
+
+        return params or {}
