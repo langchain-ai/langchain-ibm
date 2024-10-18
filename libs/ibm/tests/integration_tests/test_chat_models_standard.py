@@ -15,7 +15,7 @@ URL = "https://us-south.ml.cloud.ibm.com"
 MODEL_ID = "mistralai/mistral-large"
 
 
-class TestWatsonxStandard(ChatModelIntegrationTests):
+class TestChatWatsonxStandard(ChatModelIntegrationTests):
     @property
     def chat_model_class(self) -> Type[BaseChatModel]:
         return ChatWatsonx
