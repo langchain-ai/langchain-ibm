@@ -23,7 +23,7 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
 
     @property
     def supports_image_inputs(self) -> bool:
-        return False
+        return False  # Supported, but set False due to token limit in test account
 
     @property
     def returns_usage_metadata(self) -> bool:
@@ -61,12 +61,6 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
             "apikey": WX_APIKEY,
             "project_id": WX_PROJECT_ID,
         }
-
-    @pytest.mark.xfail(reason="Supported for vision model.")
-    def test_image_inputs(self, model: BaseChatModel) -> None:
-        model.watsonx_model._inference.model_id = MODEL_ID_IMAGE  # type: ignore[attr-defined]
-        super().test_image_inputs(model)
-        model.watsonx_model._inference.model_id = MODEL_ID  # type: ignore[attr-defined]
 
     @pytest.mark.xfail(reason="Not implemented tool_choice as `any`.")
     def test_structured_few_shot_examples(self, model: BaseChatModel) -> None:
