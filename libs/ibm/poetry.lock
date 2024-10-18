@@ -13,13 +13,13 @@ files = [
 
 [[package]]
 name = "anyio"
-version = "4.6.2"
+version = "4.6.2.post1"
 description = "High level compatibility layer for multiple asynchronous event loop implementations"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 files = [
-    {file = "anyio-4.6.2-py3-none-any.whl", hash = "sha256:6caec6b1391f6f6d7b2ef2258d2902d36753149f67478f7df4be8e54d03a8f54"},
-    {file = "anyio-4.6.2.tar.gz", hash = "sha256:f72a7bb3dd0752b3bd8b17a844a019d7fbf6ae218c588f4f9ba1b2f600b12347"},
+    {file = "anyio-4.6.2.post1-py3-none-any.whl", hash = "sha256:6d170c36fba3bdd840c73d3868c1e777e33676a69c3a72cf0a0d5d6d8009b61d"},
+    {file = "anyio-4.6.2.post1.tar.gz", hash = "sha256:4c8bc31ccdb51c7f7bd251f51c609e038d63e34219b44aa86e47576389880b4c"},
 ]
 
 [package.dependencies]
@@ -350,57 +350,57 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
 name = "ibm-cos-sdk"
-version = "2.13.5"
+version = "2.13.6"
 description = "IBM SDK for Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "ibm-cos-sdk-2.13.5.tar.gz", hash = "sha256:1aff7f9863ac9072a3db2f0053bec99478b26f3fb5fa797ce96a15bbb13cd40e"},
+    {file = "ibm-cos-sdk-2.13.6.tar.gz", hash = "sha256:171cf2ae4ab662a4b8ab58dcf4ac994b0577d6c92d78490295fd7704a83978f6"},
 ]
 
 [package.dependencies]
-ibm-cos-sdk-core = "2.13.5"
-ibm-cos-sdk-s3transfer = "2.13.5"
+ibm-cos-sdk-core = "2.13.6"
+ibm-cos-sdk-s3transfer = "2.13.6"
 jmespath = ">=0.10.0,<=1.0.1"
 
 [[package]]
 name = "ibm-cos-sdk-core"
-version = "2.13.5"
+version = "2.13.6"
 description = "Low-level, data-driven core of IBM SDK for Python"
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "ibm-cos-sdk-core-2.13.5.tar.gz", hash = "sha256:d3a99d8b06b3f8c00b1a9501f85538d592463e63ddf8cec32672ab5a0b107b83"},
+    {file = "ibm-cos-sdk-core-2.13.6.tar.gz", hash = "sha256:dd41fb789eeb65546501afabcd50e78846ab4513b6ad4042e410b6a14ff88413"},
 ]
 
 [package.dependencies]
 jmespath = ">=0.10.0,<=1.0.1"
 python-dateutil = ">=2.9.0,<3.0.0"
-requests = ">=2.32.3,<3.0"
-urllib3 = {version = ">=1.26.18,<2.2", markers = "python_version >= \"3.10\""}
+requests = ">=2.32.0,<2.32.3"
+urllib3 = ">=1.26.18,<3"
 
 [[package]]
 name = "ibm-cos-sdk-s3transfer"
-version = "2.13.5"
+version = "2.13.6"
 description = "IBM S3 Transfer Manager"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "ibm-cos-sdk-s3transfer-2.13.5.tar.gz", hash = "sha256:9649b1f2201c6de96ff5a6b5a3686de3a809e6ef3b8b12c7c4f2f7ce72da7749"},
+    {file = "ibm-cos-sdk-s3transfer-2.13.6.tar.gz", hash = "sha256:e0acce6f380c47d11e07c6765b684b4ababbf5c66cc0503bc246469a1e2b9790"},
 ]
 
 [package.dependencies]
-ibm-cos-sdk-core = "2.13.5"
+ibm-cos-sdk-core = "2.13.6"
 
 [[package]]
 name = "ibm-watsonx-ai"
-version = "1.1.14"
+version = "1.1.15"
 description = "IBM watsonx.ai API Client"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "ibm_watsonx_ai-1.1.14-py3-none-any.whl", hash = "sha256:3b711dd4eb96a67ebfa406d5de115bf51e74b8bd5b58e0d80bd7cb7aebc11155"},
-    {file = "ibm_watsonx_ai-1.1.14.tar.gz", hash = "sha256:746d838370b5c07e2591082530ff8ed232a2ef01a530b214da32367483deafa8"},
+    {file = "ibm_watsonx_ai-1.1.15-py3-none-any.whl", hash = "sha256:e0df23edac8fc1c0e77311760dbf3b145291dcd7d30dd2bcaa971a0ecfb6d4fe"},
+    {file = "ibm_watsonx_ai-1.1.15.tar.gz", hash = "sha256:2f07b63e0cb6b6ead267d0a2e25b7d48cdcd268746146944cff988ddeb86022a"},
 ]
 
 [package.dependencies]
@@ -508,7 +508,7 @@ files = [
 
 [[package]]
 name = "langchain-core"
-version = "0.3.10"
+version = "0.3.11"
 description = "Building applications with LLMs through composability"
 optional = false
 python-versions = ">=3.9,<4.0"
@@ -531,7 +531,7 @@ typing-extensions = ">=4.7"
 type = "git"
 url = "https://github.com/langchain-ai/langchain.git"
 reference = "HEAD"
-resolved_reference = "2197958366b527df23adbf12bf6578e4cd5e002c"
+resolved_reference = "0ebddabf7ddafab30fefcbfae2148bf8e0fca42f"
 subdirectory = "libs/core"
 
 [[package]]
@@ -553,18 +553,18 @@ syrupy = "^4"
 type = "git"
 url = "https://github.com/langchain-ai/langchain.git"
 reference = "HEAD"
-resolved_reference = "2197958366b527df23adbf12bf6578e4cd5e002c"
+resolved_reference = "0ebddabf7ddafab30fefcbfae2148bf8e0fca42f"
 subdirectory = "libs/standard-tests"
 
 [[package]]
 name = "langsmith"
-version = "0.1.134"
+version = "0.1.135"
 description = "Client library to connect to the LangSmith LLM Tracing and Evaluation Platform."
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langsmith-0.1.134-py3-none-any.whl", hash = "sha256:ada98ad80ef38807725f32441a472da3dd28394010877751f48f458d3289da04"},
-    {file = "langsmith-0.1.134.tar.gz", hash = "sha256:23abee3b508875a0e63c602afafffc02442a19cfd88f9daae05b3e9054fd6b61"},
+    {file = "langsmith-0.1.135-py3-none-any.whl", hash = "sha256:b1d1ca3bad483a4239745c57e9b9157b4d099fbf3149be21e3d112c94ede06ac"},
+    {file = "langsmith-0.1.135.tar.gz", hash = "sha256:7abed7e141386af99a2177f0b3600b124ae3ad1b482879ba0724ce92ef998a11"},
 ]
 
 [package.dependencies]
@@ -1162,13 +1162,13 @@ files = [
 
 [[package]]
 name = "requests"
-version = "2.32.3"
+version = "2.32.2"
 description = "Python HTTP for Humans."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6"},
-    {file = "requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760"},
+    {file = "requests-2.32.2-py3-none-any.whl", hash = "sha256:fc06670dd0ed212426dfeb94fc1b983d917c4f9847c863f313c9dfaaffb7c23c"},
+    {file = "requests-2.32.2.tar.gz", hash = "sha256:dd951ff5ecf3e3b3aa26b40703ba77495dab41da839ae72ef3c8e5d8e2433289"},
 ]
 
 [package.dependencies]
@@ -1300,13 +1300,13 @@ files = [
 
 [[package]]
 name = "types-requests"
-version = "2.32.0.20240914"
+version = "2.32.0.20241016"
 description = "Typing stubs for requests"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "types-requests-2.32.0.20240914.tar.gz", hash = "sha256:2850e178db3919d9bf809e434eef65ba49d0e7e33ac92d588f4a5e295fffd405"},
-    {file = "types_requests-2.32.0.20240914-py3-none-any.whl", hash = "sha256:59c2f673eb55f32a99b2894faf6020e1a9f4a402ad0f192bfee0b64469054310"},
+    {file = "types-requests-2.32.0.20241016.tar.gz", hash = "sha256:0d9cad2f27515d0e3e3da7134a1b6f28fb97129d86b867f24d9c726452634d95"},
+    {file = "types_requests-2.32.0.20241016-py3-none-any.whl", hash = "sha256:4195d62d6d3e043a4eaaf08ff8a62184584d2e8684e9d2aa178c7915a7da3747"},
 ]
 
 [package.dependencies]
@@ -1336,17 +1336,18 @@ files = [
 
 [[package]]
 name = "urllib3"
-version = "2.1.0"
+version = "2.2.3"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "urllib3-2.1.0-py3-none-any.whl", hash = "sha256:55901e917a5896a349ff771be919f8bd99aff50b79fe58fec595eb37bbc56bb3"},
-    {file = "urllib3-2.1.0.tar.gz", hash = "sha256:df7aa8afb0148fa78488e7899b2c59b5f4ffcfa82e6c54ccb9dd37c1d7b52d54"},
+    {file = "urllib3-2.2.3-py3-none-any.whl", hash = "sha256:ca899ca043dcb1bafa3e262d73aa25c465bfb49e0bd9dd5d59f1d0acba2f8fac"},
+    {file = "urllib3-2.2.3.tar.gz", hash = "sha256:e7d814a81dad81e6caf2ec9fdedb284ecc9c73076b62654547cc64ccdcae26e9"},
 ]
 
 [package.extras]
 brotli = ["brotli (>=1.0.9)", "brotlicffi (>=0.8.0)"]
+h2 = ["h2 (>=4,<5)"]
 socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
 zstd = ["zstandard (>=0.18.0)"]
 

@@ -30,19 +30,7 @@ def test_01_generate_embed_documents() -> None:
     assert all(isinstance(el, float) for el in generate_embedding[0])
 
 
-def test_02_generate_embed_query() -> None:
-    watsonx_embedding = WatsonxEmbeddings(
-        model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
-        project_id=WX_PROJECT_ID,
-    )
-    generate_embedding = watsonx_embedding.embed_query(text=DOCUMENTS[0])
-    assert isinstance(generate_embedding, list) and isinstance(
-        generate_embedding[0], float
-    )
-
-
-def test_03_generate_embed_documents_with_param() -> None:
+def test_02_generate_embed_documents_with_param() -> None:
     embed_params = {
         EmbedTextParamsMetaNames.TRUNCATE_INPUT_TOKENS: 3,
     }
@@ -57,7 +45,87 @@ def test_03_generate_embed_documents_with_param() -> None:
     assert all(isinstance(el, float) for el in generate_embedding[0])
 
 
-def test_10_generate_embed_query_with_client_initialization() -> None:
+def test_03_generate_embed_documents_with_param_in_method() -> None:
+    embed_params = {
+        EmbedTextParamsMetaNames.TRUNCATE_INPUT_TOKENS: 3,
+    }
+    watsonx_embedding = WatsonxEmbeddings(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    generate_embedding = watsonx_embedding.embed_documents(
+        texts=DOCUMENTS, params=embed_params
+    )
+    assert len(generate_embedding) == len(DOCUMENTS)
+    assert all(isinstance(el, float) for el in generate_embedding[0])
+
+
+def test_04_generate_embed_documents_with_param_and_concurrency_limit() -> None:
+    embed_params = {
+        EmbedTextParamsMetaNames.TRUNCATE_INPUT_TOKENS: 3,
+    }
+    watsonx_embedding = WatsonxEmbeddings(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=embed_params,
+    )
+    generate_embedding = watsonx_embedding.embed_documents(
+        texts=DOCUMENTS, concurrency_limit=9
+    )
+    assert len(generate_embedding) == len(DOCUMENTS)
+    assert all(isinstance(el, float) for el in generate_embedding[0])
+
+
+def test_10_generate_embed_query() -> None:
+    watsonx_embedding = WatsonxEmbeddings(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    generate_embedding = watsonx_embedding.embed_query(text=DOCUMENTS[0])
+    assert isinstance(generate_embedding, list) and isinstance(
+        generate_embedding[0], float
+    )
+
+
+def test_11_generate_embed_query_with_params() -> None:
+    embed_params = {
+        EmbedTextParamsMetaNames.TRUNCATE_INPUT_TOKENS: 3,
+    }
+    watsonx_embedding = WatsonxEmbeddings(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    generate_embedding = watsonx_embedding.embed_query(
+        text=DOCUMENTS[0], params=embed_params
+    )
+    assert isinstance(generate_embedding, list) and isinstance(
+        generate_embedding[0], float
+    )
+
+
+def test_12_generate_embed_query_with_params_and_concurrency_limit() -> None:
+    embed_params = {
+        EmbedTextParamsMetaNames.TRUNCATE_INPUT_TOKENS: 3,
+    }
+    watsonx_embedding = WatsonxEmbeddings(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=embed_params,
+    )
+    generate_embedding = watsonx_embedding.embed_query(
+        text=DOCUMENTS[0], concurrency_limit=9
+    )
+    assert isinstance(generate_embedding, list) and isinstance(
+        generate_embedding[0], float
+    )
+
+
+def test_20_generate_embed_query_with_client_initialization() -> None:
     watsonx_client = APIClient(
         credentials={
             "url": URL,

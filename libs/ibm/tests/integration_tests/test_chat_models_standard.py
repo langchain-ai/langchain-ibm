@@ -13,12 +13,29 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "mistralai/mistral-large"
+MODEL_ID_IMAGE = "meta-llama/llama-3-2-11b-vision-instruct"
 
 
-class TestWatsonxStandard(ChatModelIntegrationTests):
+class TestChatWatsonxStandard(ChatModelIntegrationTests):
     @property
     def chat_model_class(self) -> Type[BaseChatModel]:
         return ChatWatsonx
+
+    @property
+    def has_tool_calling(self) -> bool:
+        return True
+
+    @property
+    def returns_usage_metadata(self) -> bool:
+        return True
+
+    @property
+    def supports_image_inputs(self) -> bool:
+        return False  # Supported, but set False due to token limit in test account
+
+    @property
+    def supports_image_tool_message(self) -> bool:
+        return False  # Supported, but set False due to token limit in test account
 
     @property
     def supported_usage_metadata_details(
