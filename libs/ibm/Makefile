@@ -11,6 +11,9 @@ integration_test integration_tests: TEST_FILE=tests/integration_tests/
 test tests integration_test integration_tests:
 	poetry run pytest $(TEST_FILE)
 
+token tokens:
+	poetry run pytest tests/integration_tests/test_chat_models.py -k "test_01_"
+
 
 ######################
 # LINTING AND FORMATTING
