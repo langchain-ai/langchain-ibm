@@ -23,7 +23,7 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
 
     @property
     def supports_image_inputs(self) -> bool:
-        return True
+        return False
 
     @property
     def returns_usage_metadata(self) -> bool:
