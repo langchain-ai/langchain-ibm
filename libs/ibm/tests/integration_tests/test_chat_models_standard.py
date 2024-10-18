@@ -22,16 +22,20 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
         return ChatWatsonx
 
     @property
-    def supports_image_inputs(self) -> bool:
-        return False  # Supported, but set False due to token limit in test account
+    def has_tool_calling(self) -> bool:
+        return True
 
     @property
     def returns_usage_metadata(self) -> bool:
         return True
 
     @property
-    def has_tool_calling(self) -> bool:
-        return True
+    def supports_image_inputs(self) -> bool:
+        return False  # Supported, but set False due to token limit in test account
+
+    @property
+    def supports_image_tool_message(self) -> bool:
+        return False  # Supported, but set False due to token limit in test account
 
     @property
     def supported_usage_metadata_details(
