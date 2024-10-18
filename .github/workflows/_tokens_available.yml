@@ -1,4 +1,4 @@
-name: Integration tests
+name: Tokens available check
 
 on:
   workflow_dispatch:
@@ -38,13 +38,13 @@ jobs:
         shell: bash
         run: poetry install --with test,test_integration
 
-      - name: Run integration tests
+      - name: Run tokens available check
         shell: bash
         env:
           WATSONX_APIKEY: ${{ secrets.WATSONX_APIKEY }}
           WATSONX_PROJECT_ID: ${{ secrets.WATSONX_PROJECT_ID }}
         run: |
-          make integration_tests
+          make token
 
       - name: Ensure the tests did not create any additional files
         shell: bash
