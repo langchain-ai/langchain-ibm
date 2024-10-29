@@ -1,20 +1,24 @@
-import logging
-from typing import Any, Dict, List, Optional, Union
+from __future__ import annotations
+
+from copy import deepcopy
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
-from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
-from langchain_core.embeddings import Embeddings as LangChainEmbeddings
+from ibm_watsonx_ai.foundation_models import Rerank  # type: ignore
+from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
+    RerankParameters,
+)
+from langchain_core.callbacks import Callbacks
+from langchain_core.documents import BaseDocumentCompressor, Document
 from langchain_core.utils.utils import secret_from_env
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
 from langchain_ibm.utils import check_for_attribute, extract_params
 
-logger = logging.getLogger(__name__)
 
-
-class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
-    """IBM watsonx.ai embedding models."""
+class WatsonxRerank(BaseDocumentCompressor):
+    """Document compressor that uses `watsonx Rerank API`."""
 
     model_id: str
     """Type of model to use."""
@@ -61,7 +65,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     version: Optional[SecretStr] = None
     """Version of the CPD instance."""
 
-    params: Optional[Dict] = None
+    params: Optional[Union[dict, RerankParameters]] = None
     """Model parameters to use during request generation."""
 
     verify: Union[str, bool, None] = None
@@ -71,21 +75,50 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         * True - default path to truststore will be taken
         * False - no verification will be made"""
 
-    watsonx_embed: Embeddings = Field(default=None)  #: :meta private:
+    validate_model: bool = True
+    """Model ID validation."""
 
-    watsonx_client: Optional[APIClient] = Field(default=None)  #: :meta private:
+    streaming: bool = False
+    """ Whether to stream the results or not. """
+
+    watsonx_rerank: Rerank = Field(default=None, exclude=True)  #: :meta private:
+
+    watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 
     model_config = ConfigDict(
-        extra="forbid",
         arbitrary_types_allowed=True,
+        extra="forbid",
         protected_namespaces=(),
     )
+
+    @property
+    def lc_secrets(self) -> Dict[str, str]:
+        """A map of constructor argument names to secret ids.
+
+        For example:
+            {
+                "url": "WATSONX_URL",
+                "apikey": "WATSONX_APIKEY",
+                "token": "WATSONX_TOKEN",
+                "password": "WATSONX_PASSWORD",
+                "username": "WATSONX_USERNAME",
+                "instance_id": "WATSONX_INSTANCE_ID",
+            }
+        """
+        return {
+            "url": "WATSONX_URL",
+            "apikey": "WATSONX_APIKEY",
+            "token": "WATSONX_TOKEN",
+            "password": "WATSONX_PASSWORD",
+            "username": "WATSONX_USERNAME",
+            "instance_id": "WATSONX_INSTANCE_ID",
+        }
 
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
         if isinstance(self.watsonx_client, APIClient):
-            watsonx_embed = Embeddings(
+            watsonx_rerank = Rerank(
                 model_id=self.model_id,
                 params=self.params,
                 api_client=self.watsonx_client,
@@ -93,7 +126,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 space_id=self.space_id,
                 verify=self.verify,
             )
-            self.watsonx_embed = watsonx_embed
+            self.watsonx_rerank = watsonx_rerank
 
         else:
             check_for_attribute(self.url, "url", "WATSONX_URL")
@@ -137,25 +170,63 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 verify=self.verify,
             )
 
-            watsonx_embed = Embeddings(
+            watsonx_rerank = Rerank(
                 model_id=self.model_id,
-                params=self.params,
                 credentials=credentials,
+                params=self.params,
                 project_id=self.project_id,
                 space_id=self.space_id,
+                verify=self.verify,
             )
-
-            self.watsonx_embed = watsonx_embed
+            self.watsonx_rerank = watsonx_rerank
 
         return self
 
-    def embed_documents(self, texts: List[str], **kwargs: Any) -> List[List[float]]:
-        """Embed search docs."""
+    def rerank(
+        self,
+        documents: Sequence[Union[str, Document, dict]],
+        query: str,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        if len(documents) == 0:  # to avoid empty api call
+            return []
+        docs = [
+            doc.page_content if isinstance(doc, Document) else doc for doc in documents
+        ]
         params = extract_params(kwargs, self.params)
-        return self.watsonx_embed.embed_documents(
-            texts=texts, **(kwargs | {"params": params})
-        )
 
-    def embed_query(self, text: str, **kwargs: Any) -> List[float]:
-        """Embed query text."""
-        return self.embed_documents([text], **kwargs)[0]
+        results = self.watsonx_rerank.generate(
+            query=query, inputs=docs, **(kwargs | {"params": params})
+        )
+        result_dicts = []
+        for res in results["results"]:
+            result_dicts.append(
+                {"index": res.get("index"), "relevance_score": res.get("score")}
+            )
+        return result_dicts
+
+    def compress_documents(
+        self,
+        documents: Sequence[Document],
+        query: str,
+        callbacks: Optional[Callbacks] = None,
+        **kwargs: Any,
+    ) -> Sequence[Document]:
+        """
+        Compress documents using watsonx's rerank API.
+
+        Args:
+            documents: A sequence of documents to compress.
+            query: The query to use for compressing the documents.
+            callbacks: Callbacks to run during the compression process.
+
+        Returns:
+            A sequence of compressed documents.
+        """
+        compressed = []
+        for res in self.rerank(documents, query, **kwargs):
+            doc = documents[res["index"]]
+            doc_copy = Document(doc.page_content, metadata=deepcopy(doc.metadata))
+            doc_copy.metadata["relevance_score"] = res["relevance_score"]
+            compressed.append(doc_copy)
+        return compressed

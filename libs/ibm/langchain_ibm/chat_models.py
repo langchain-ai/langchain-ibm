@@ -24,7 +24,6 @@ from typing import (
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
 from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
-    BaseSchema,
     TextChatParameters,
 )
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -74,7 +73,7 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute
+from langchain_ibm.utils import check_for_attribute, extract_params
 
 logger = logging.getLogger(__name__)
 
@@ -668,24 +667,8 @@ class ChatWatsonx(BaseChatModel):
     def _create_message_dicts(
         self, messages: List[BaseMessage], stop: Optional[List[str]], **kwargs: Any
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        params = (
-            {
-                **(
-                    self.params.to_dict()
-                    if isinstance(self.params, BaseSchema)
-                    else self.params
-                )
-            }
-            if self.params
-            else {}
-        )
-        params = params | {
-            **(
-                kwargs.get("params", {}).to_dict()
-                if isinstance(kwargs.get("params", {}), BaseSchema)
-                else kwargs.get("params", {})
-            )
-        }
+        params = extract_params(kwargs, self.params)
+
         if stop is not None:
             if params and "stop_sequences" in params:
                 raise ValueError(
@@ -693,7 +676,7 @@ class ChatWatsonx(BaseChatModel):
                 )
             params = (params or {}) | {"stop_sequences": stop}
         message_dicts = [_convert_message_to_dict(m, self.model_id) for m in messages]
-        return message_dicts, params
+        return message_dicts, params or {}
 
     def _create_chat_result(
         self, response: dict, generation_info: Optional[Dict] = None

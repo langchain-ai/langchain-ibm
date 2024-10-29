@@ -27,6 +27,8 @@ URL = "https://us-south.ml.cloud.ibm.com"
 MODEL_ID = "ibm/granite-34b-code-instruct"
 MODEL_ID_TOOL = "mistralai/mistral-large"
 
+PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
+
 
 def test_01_generate_chat() -> None:
     chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
@@ -122,7 +124,12 @@ def test_01b_generate_chat_with_invoke_params() -> None:
 
 
 def test_02_generate_chat_with_few_inputs() -> None:
-    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=PARAMS_WITH_MAX_TOKENS,
+    )
     message = HumanMessage(content="Hello")
     response = chat.generate([[message], [message]])
     assert response
@@ -131,7 +138,12 @@ def test_02_generate_chat_with_few_inputs() -> None:
 
 
 def test_03_generate_chat_with_few_various_inputs() -> None:
-    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=PARAMS_WITH_MAX_TOKENS,
+    )
     system_message = SystemMessage(content="You are to chat with the user.")
     human_message = HumanMessage(content="Hello")
     response = chat.invoke([system_message, human_message])
@@ -142,7 +154,12 @@ def test_03_generate_chat_with_few_various_inputs() -> None:
 
 
 def test_05_generate_chat_with_stream() -> None:
-    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=PARAMS_WITH_MAX_TOKENS,
+    )
     response = chat.stream("What's the weather in san francisco")
     for chunk in response:
         assert isinstance(chunk.content, str)
@@ -154,6 +171,7 @@ def test_05a_invoke_chat_with_streaming() -> None:
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
         streaming=True,
+        params=PARAMS_WITH_MAX_TOKENS,
     )
     response = chat.invoke("What's the weather in san francisco")
     assert isinstance(response.content, str)
@@ -185,6 +203,7 @@ def test_06_chain_invoke() -> None:
         model_id=MODEL_ID,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params=PARAMS_WITH_MAX_TOKENS,
     )
 
     system = "You are a helpful assistant."
@@ -199,48 +218,18 @@ def test_06_chain_invoke() -> None:
 
 
 def test_10_chaining() -> None:
-    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=PARAMS_WITH_MAX_TOKENS,
+    )
     prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
                 "You are a helpful assistant that "
                 "translates {input_language} to {output_language}.",
-            ),
-            ("human", "{input}"),
-        ]
-    )
-    chain = prompt | chat
-
-    response = chain.invoke(
-        {
-            "input_language": "English",
-            "output_language": "German",
-            "input": "I love programming.",
-        }
-    )
-    assert response
-    assert response.content
-
-
-def test_11_chaining_with_params() -> None:
-    parameters = {
-        GenTextParamsMetaNames.DECODING_METHOD: "sample",
-        GenTextParamsMetaNames.MIN_NEW_TOKENS: 5,
-        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
-    }
-    chat = ChatWatsonx(
-        model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
-        project_id=WX_PROJECT_ID,
-        params=parameters,
-    )
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "You are a helpful assistant that translates "
-                "{input_language} to {output_language}.",
             ),
             ("human", "{input}"),
         ]
