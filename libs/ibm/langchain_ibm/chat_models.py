@@ -24,6 +24,7 @@ from typing import (
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
 from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
+    BaseSchema,
     TextChatParameters,
 )
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -64,6 +65,7 @@ from langchain_core.output_parsers.openai_tools import (
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
 from langchain_core.tools import BaseTool
+from langchain_core.utils._merge import merge_dicts
 from langchain_core.utils.function_calling import (
     convert_to_openai_function,
     convert_to_openai_tool,
@@ -73,7 +75,7 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute, extract_params
+from langchain_ibm.utils import check_for_attribute, extract_chat_params
 
 logger = logging.getLogger(__name__)
 
@@ -462,6 +464,49 @@ class ChatWatsonx(BaseChatModel):
     params: Optional[Union[dict, TextChatParameters]] = None
     """Model parameters to use during request generation."""
 
+    frequency_penalty: Optional[float] = None
+    """Positive values penalize new tokens based on their existing frequency in the 
+    text so far, decreasing the model's likelihood to repeat the same line verbatim."""
+
+    logprobs: Optional[bool] = None
+    """Whether to return log probabilities of the output tokens or not. 
+    If true, returns the log probabilities of each output token returned 
+    in the content of message."""
+
+    top_logprobs: Optional[int] = None
+    """An integer specifying the number of most likely tokens to return at each 
+    token position, each with an associated log probability. The option logprobs 
+    must be set to true if this parameter is used."""
+
+    max_tokens: Optional[int] = None
+    """The maximum number of tokens that can be generated in the chat completion. 
+    The total length of input tokens and generated tokens is limited by the 
+    model's context length."""
+
+    n: Optional[int] = None
+    """How many chat completion choices to generate for each input message. 
+    Note that you will be charged based on the number of generated tokens across 
+    all of the choices. Keep n as 1 to minimize costs."""
+
+    presence_penalty: Optional[float] = None
+    """Positive values penalize new tokens based on whether they appear in the 
+    text so far, increasing the model's likelihood to talk about new topics."""
+
+    temperature: Optional[float] = None
+    """What sampling temperature to use. Higher values like 0.8 will make the 
+    output more random, while lower values like 0.2 will make it more focused 
+    and deterministic.
+    
+    We generally recommend altering this or top_p but not both."""
+
+    top_p: Optional[float] = None
+    """An alternative to sampling with temperature, called nucleus sampling, 
+    where the model considers the results of the tokens with top_p probability 
+    mass. So 0.1 means only the tokens comprising the top 10% probability mass 
+    are considered.
+
+    We generally recommend altering this or temperature but not both."""
+
     verify: Union[str, bool, None] = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
@@ -473,7 +518,7 @@ class ChatWatsonx(BaseChatModel):
     """Model ID validation."""
 
     streaming: bool = False
-    """ Whether to stream the results or not. """
+    """Whether to stream the results or not."""
 
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
@@ -526,6 +571,49 @@ class ChatWatsonx(BaseChatModel):
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
+        self.params = self.params or {}
+
+        if isinstance(self.params, BaseSchema):
+            self.params = self.params.to_dict()
+
+        duplicate_keys = {
+            k
+            for k, v in {
+                "frequency_penalty": self.frequency_penalty,
+                "logprobs": self.logprobs,
+                "top_logprobs": self.top_logprobs,
+                "max_tokens": self.max_tokens,
+                "n": self.n,
+                "presence_penalty": self.presence_penalty,
+                "temperature": self.temperature,
+                "top_p": self.top_p,
+            }.items()
+            if v is not None and k in self.params
+        }
+
+        if duplicate_keys:
+            raise ValueError(
+                f"Duplicate parameters found in params and attributes: "
+                f"{list(duplicate_keys)}"
+            )
+
+        self.params.update(
+            {
+                k: v
+                for k, v in {
+                    "frequency_penalty": self.frequency_penalty,
+                    "logprobs": self.logprobs,
+                    "top_logprobs": self.top_logprobs,
+                    "max_tokens": self.max_tokens,
+                    "n": self.n,
+                    "presence_penalty": self.presence_penalty,
+                    "temperature": self.temperature,
+                    "top_p": self.top_p,
+                }.items()
+                if v is not None
+            }
+        )
+
         if isinstance(self.watsonx_client, APIClient):
             watsonx_model = ModelInference(
                 model_id=self.model_id,
@@ -608,9 +696,10 @@ class ChatWatsonx(BaseChatModel):
             return generate_from_stream(stream_iter)
 
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
+        updated_params = self._update_params(params, kwargs)
 
         response = self.watsonx_model.chat(
-            messages=message_dicts, **(kwargs | {"params": params})
+            messages=message_dicts, **(kwargs | {"params": updated_params})
         )
         return self._create_chat_result(response)
 
@@ -622,6 +711,7 @@ class ChatWatsonx(BaseChatModel):
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
+        updated_params = self._update_params(params, kwargs)
 
         default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
         base_generation_info: dict = {}
@@ -630,7 +720,7 @@ class ChatWatsonx(BaseChatModel):
         is_first_tool_chunk = True
 
         for chunk in self.watsonx_model.chat_stream(
-            messages=message_dicts, **(kwargs | {"params": params})
+            messages=message_dicts, **(kwargs | {"params": updated_params})
         ):
             if not isinstance(chunk, dict):
                 chunk = chunk.model_dump()
@@ -664,10 +754,33 @@ class ChatWatsonx(BaseChatModel):
 
             yield generation_chunk
 
+    @staticmethod
+    def _update_params(params: dict, kwargs: dict) -> dict:
+        param_updates = {}
+        for k in [
+            "frequency_penalty",
+            "logprobs",
+            "top_logprobs",
+            "max_tokens",
+            "n",
+            "presence_penalty",
+            "temperature",
+            "top_p",
+        ]:
+            if kwargs.get(k) is not None:
+                param_updates[k] = kwargs.pop(k)
+
+        if kwargs.get("params"):
+            merged_params = merge_dicts(params, param_updates)
+        else:
+            merged_params = params | param_updates
+
+        return merged_params
+
     def _create_message_dicts(
         self, messages: List[BaseMessage], stop: Optional[List[str]], **kwargs: Any
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        params = extract_params(kwargs, self.params)
+        params = extract_chat_params(kwargs, self.params)
 
         if stop is not None:
             if params and "stop_sequences" in params:
