@@ -710,7 +710,7 @@ def test_init_with_params_3() -> None:
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
-        **params_1,
+        **params_1,  # type: ignore[arg-type]
     )
     assert chat.params == params_1
 

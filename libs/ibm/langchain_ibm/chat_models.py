@@ -577,9 +577,7 @@ class ChatWatsonx(BaseChatModel):
             self.params = self.params.to_dict()
 
         duplicate_keys = {
-            k
-            for k, v in self.__dict__.items()
-            if v is not None and k in self.params
+            k for k, v in self.__dict__.items() if v is not None and k in self.params
         }
 
         if duplicate_keys:
