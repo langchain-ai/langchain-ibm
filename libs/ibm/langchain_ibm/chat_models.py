@@ -578,16 +578,7 @@ class ChatWatsonx(BaseChatModel):
 
         duplicate_keys = {
             k
-            for k, v in {
-                "frequency_penalty": self.frequency_penalty,
-                "logprobs": self.logprobs,
-                "top_logprobs": self.top_logprobs,
-                "max_tokens": self.max_tokens,
-                "n": self.n,
-                "presence_penalty": self.presence_penalty,
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-            }.items()
+            for k, v in self.__dict__.items()
             if v is not None and k in self.params
         }
 
