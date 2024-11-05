@@ -50,20 +50,7 @@ def extract_chat_params(
 
 
 def check_duplicate_chat_params(params: dict, kwargs: dict) -> None:
-    duplicate_keys = {
-        k
-        for k, v in {
-            "frequency_penalty": kwargs.get("frequency_penalty"),
-            "logprobs": kwargs.get("logprobs"),
-            "top_logprobs": kwargs.get("top_logprobs"),
-            "max_tokens": kwargs.get("max_tokens"),
-            "n": kwargs.get("n"),
-            "presence_penalty": kwargs.get("presence_penalty"),
-            "temperature": kwargs.get("temperature"),
-            "top_p": kwargs.get("top_p"),
-        }.items()
-        if v is not None and k in params
-    }
+    duplicate_keys = {k for k, v in kwargs.items() if v is not None and k in params}
 
     if duplicate_keys:
         raise ValueError(

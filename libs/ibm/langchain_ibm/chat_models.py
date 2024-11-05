@@ -75,7 +75,11 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute, extract_chat_params
+from langchain_ibm.utils import (
+    check_duplicate_chat_params,
+    check_for_attribute,
+    extract_chat_params,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -576,15 +580,7 @@ class ChatWatsonx(BaseChatModel):
         if isinstance(self.params, BaseSchema):
             self.params = self.params.to_dict()
 
-        duplicate_keys = {
-            k for k, v in self.__dict__.items() if v is not None and k in self.params
-        }
-
-        if duplicate_keys:
-            raise ValueError(
-                f"Duplicate parameters found in params and attributes: "
-                f"{list(duplicate_keys)}"
-            )
+        check_duplicate_chat_params(self.params, self.__dict__)
 
         self.params.update(
             {
