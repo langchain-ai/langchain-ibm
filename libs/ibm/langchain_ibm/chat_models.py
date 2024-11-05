@@ -468,9 +468,9 @@ class ChatWatsonx(BaseChatModel):
     params: Optional[Union[dict, TextChatParameters]] = None
     """Model parameters to use during request generation.
 
-    Warning:
-        It is not permitted to provide the same parameters both within the 
-        params attribute and as keyword arguments."""
+    Note:
+        `ValueError` is raised if the same Chat generation parameter is provided 
+        within the params attribute and as keyword argument."""
 
     frequency_penalty: Optional[float] = None
     """Positive values penalize new tokens based on their existing frequency in the 
