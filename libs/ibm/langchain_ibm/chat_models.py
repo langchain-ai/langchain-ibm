@@ -466,7 +466,11 @@ class ChatWatsonx(BaseChatModel):
     """Version of the CPD instance."""
 
     params: Optional[Union[dict, TextChatParameters]] = None
-    """Model parameters to use during request generation."""
+    """Model parameters to use during request generation.
+
+    Warning:
+        It is not permitted to provide the same parameters both within the 
+        params attribute and as keyword arguments."""
 
     frequency_penalty: Optional[float] = None
     """Positive values penalize new tokens based on their existing frequency in the 
