@@ -54,6 +54,6 @@ def check_duplicate_chat_params(params: dict, kwargs: dict) -> None:
 
     if duplicate_keys:
         raise ValueError(
-            f"Duplicate parameters found in params and attributes: "
+            f"Duplicate parameters found in params and keyword arguments: "
             f"{list(duplicate_keys)}"
         )

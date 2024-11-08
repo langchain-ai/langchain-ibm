@@ -740,8 +740,9 @@ def test_init_with_params_5() -> None:
             params=params_1,
             **params_2,  # type: ignore[arg-type]
         )
-    assert "Duplicate parameters found in params and attributes: ['max_tokens']" in str(
-        e.value
+    assert (
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+        in str(e.value)
     )
 
 
@@ -829,8 +830,9 @@ def test_invoke_with_params_4() -> None:
     with pytest.raises(ValueError) as e:
         chat.invoke(prompt_1, params=params_1, **params_2)  # type: ignore[arg-type]
 
-    assert "Duplicate parameters found in params and attributes: ['max_tokens']" in str(
-        e.value
+    assert (
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+        in str(e.value)
     )
 
 
@@ -847,7 +849,7 @@ def test_invoke_with_params_5() -> None:
         chat.invoke(prompt_1, params=params_1, **params_2, **params_3)  # type: ignore[arg-type]
 
     assert (
-        "Duplicate parameters found in params and attributes: " in str(e.value)
+        "Duplicate parameters found in params and keyword arguments: " in str(e.value)
         and "'logprobs'" in str(e.value)
         and "'max_tokens'" in str(e.value)
     )
@@ -949,6 +951,7 @@ def test_init_and_invoke_with_params_4() -> None:
     with pytest.raises(ValueError) as e:
         chat.invoke(prompt_1, params=params_1_b, **params_1_c)  # type: ignore[arg-type]
 
-    assert "Duplicate parameters found in params and attributes: ['max_tokens']" in str(
-        e.value
+    assert (
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+        in str(e.value)
     )
