@@ -685,7 +685,7 @@ class ChatWatsonx(BaseChatModel):
             return generate_from_stream(stream_iter)
 
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
-        updated_params = self._update_params(params, kwargs)
+        updated_params = self._merge_params(params, kwargs)
 
         response = self.watsonx_model.chat(
             messages=message_dicts, **(kwargs | {"params": updated_params})
@@ -700,7 +700,7 @@ class ChatWatsonx(BaseChatModel):
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
-        updated_params = self._update_params(params, kwargs)
+        updated_params = self._merge_params(params, kwargs)
 
         default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
         base_generation_info: dict = {}
@@ -744,7 +744,7 @@ class ChatWatsonx(BaseChatModel):
             yield generation_chunk
 
     @staticmethod
-    def _update_params(params: dict, kwargs: dict) -> dict:
+    def _merge_params(params: dict, kwargs: dict) -> dict:
         param_updates = {}
         for k in [
             "frequency_penalty",
