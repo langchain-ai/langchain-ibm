@@ -531,12 +531,12 @@ typing-extensions = ">=4.7"
 type = "git"
 url = "https://github.com/langchain-ai/langchain.git"
 reference = "HEAD"
-resolved_reference = "50563400fbba99407c8a8a5a1d8546057a597e50"
+resolved_reference = "b509747c7f13c5cad2226e62a3c9d948664fa193"
 subdirectory = "libs/core"
 
 [[package]]
 name = "langchain-standard-tests"
-version = "0.1.1"
+version = "0.3.0"
 description = "Standard tests for LangChain implementations"
 optional = false
 python-versions = ">=3.9,<4.0"
@@ -553,18 +553,18 @@ syrupy = "^4"
 type = "git"
 url = "https://github.com/langchain-ai/langchain.git"
 reference = "HEAD"
-resolved_reference = "50563400fbba99407c8a8a5a1d8546057a597e50"
+resolved_reference = "b509747c7f13c5cad2226e62a3c9d948664fa193"
 subdirectory = "libs/standard-tests"
 
 [[package]]
 name = "langsmith"
-version = "0.1.139"
+version = "0.1.141"
 description = "Client library to connect to the LangSmith LLM Tracing and Evaluation Platform."
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "langsmith-0.1.139-py3-none-any.whl", hash = "sha256:2a4a541bfbd0a9727255df28a60048c85bc8c4c6a276975923785c3fd82dc879"},
-    {file = "langsmith-0.1.139.tar.gz", hash = "sha256:2f9e4d32fef3ad7ef42c8506448cce3a31ad6b78bb4f3310db04ddaa1e9d744d"},
+    {file = "langsmith-0.1.141-py3-none-any.whl", hash = "sha256:e133c6bed9c6d274f19735696a169dea890d35d444ae61c25fb47082aa2d0f16"},
+    {file = "langsmith-0.1.141.tar.gz", hash = "sha256:f3f17d2abc7b8a3857ad8d492b535970109b5ea40e712df91a782522ed581516"},
 ]
 
 [package.dependencies]
