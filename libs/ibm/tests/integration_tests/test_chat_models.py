@@ -315,7 +315,7 @@ def test_21a_bind_tools_tool_choice_auto() -> None:
     assert "location" in tool_call["args"]
 
 
-@pytest.mark.skip(reason="Not supported yet")
+@pytest.mark.xfail(reason="Not supported yet")
 def test_21b_bind_tools_tool_choice_none() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -350,7 +350,7 @@ def test_21b_bind_tools_tool_choice_none() -> None:
     assert "location" in tool_call["args"]
 
 
-@pytest.mark.skip(reason="Not supported yet")
+@pytest.mark.xfail(reason="Not supported yet")
 def test_21c_bind_tools_tool_choice_required() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -578,7 +578,7 @@ async def test_json_mode_async() -> None:
     assert json.loads(full.content) == {"a": 1}
 
 
-@pytest.mark.skip(reason="Not implemented")
+@pytest.mark.xfail(reason="Not implemented")
 def test_streaming_tool_call() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -652,7 +652,7 @@ def test_structured_output() -> None:
     assert isinstance(result, dict)
 
 
-@pytest.mark.skip(reason="Not implemented")
+@pytest.mark.xfail(reason="Not implemented")
 def test_streaming_structured_output() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -673,3 +673,285 @@ def test_streaming_structured_output() -> None:
         assert chunk.name == "Erick"
         assert chunk.age == 27
         chunk_num += 1
+
+
+###################################
+# --------Parameter-Tests-------- #
+###################################
+
+prompt_1 = "Say: 'Hello, My name is Erick!'"
+
+
+def test_init_with_params_1() -> None:
+    params_1 = None
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params_1,
+    )
+    assert chat.params == {}
+
+
+def test_init_with_params_2() -> None:
+    params_1 = {"max_tokens": 10}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params_1,
+    )
+    assert chat.params == params_1
+
+
+def test_init_with_params_3() -> None:
+    params_1 = {"max_tokens": 10}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        **params_1,  # type: ignore[arg-type]
+    )
+    assert chat.params == params_1
+
+
+def test_init_with_params_4() -> None:
+    params_1 = {"max_tokens": 10}
+    params_2 = {"temperature": 0.5}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params_1,
+        **params_2,  # type: ignore[arg-type]
+    )
+    assert chat.params == params_1 | params_2
+
+
+def test_init_with_params_5() -> None:
+    params_1 = {"max_tokens": 10}
+    params_2 = {"max_tokens": 20}
+
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx(
+            model_id=MODEL_ID_TOOL,
+            url=URL,  # type: ignore[arg-type]
+            project_id=WX_PROJECT_ID,
+            params=params_1,
+            **params_2,  # type: ignore[arg-type]
+        )
+    assert (
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+        in str(e.value)
+    )
+
+
+def test_invoke_with_params_1() -> None:
+    params_1 = None
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    resp = chat.invoke(prompt_1, params=params_1)
+    completion_tokens = resp.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+
+    assert chat.params == {}
+    assert 7 < completion_tokens < 11
+
+
+def test_invoke_with_params_2() -> None:
+    params_1 = {"max_tokens": 5}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    resp = chat.invoke(prompt_1, params=params_1)
+    completion_tokens = resp.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+
+    assert chat.params == {}
+    assert completion_tokens == 5
+
+
+def test_invoke_with_params_3() -> None:
+    params_1_a = {"max_tokens": 5}
+    params_1_b = {"max_tokens": 10}
+    params_2_a = {"logprobs": False}
+    params_2_b = {"logprobs": True}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    resp_1 = chat.invoke(prompt_1, params=params_1_a, **params_2_a)  # type: ignore[arg-type]
+    completion_tokens = resp_1.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    logprobs = resp_1.response_metadata.get("logprobs")
+
+    assert chat.params == {}
+    assert completion_tokens == 5
+    assert not logprobs
+
+    resp_2 = chat.invoke(prompt_1, params=params_1_a, **params_2_b)  # type: ignore[arg-type]
+    completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    logprobs = resp_2.response_metadata.get("logprobs")
+
+    assert chat.params == {}
+    assert completion_tokens == 5
+    assert logprobs
+
+    resp_3 = chat.invoke(prompt_1, **params_1_b, **params_2_b)  # type: ignore[arg-type]
+    completion_tokens = resp_3.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    logprobs = resp_3.response_metadata.get("logprobs")
+
+    assert chat.params == {}
+    assert 7 < completion_tokens < 11
+    assert logprobs
+
+
+def test_invoke_with_params_4() -> None:
+    params_1 = {"max_tokens": 5}
+    params_2 = {"max_tokens": 20}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    with pytest.raises(ValueError) as e:
+        chat.invoke(prompt_1, params=params_1, **params_2)  # type: ignore[arg-type]
+
+    assert (
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+        in str(e.value)
+    )
+
+
+def test_invoke_with_params_5() -> None:
+    params_1 = {"max_tokens": 5, "logprobs": False}
+    params_2 = {"max_tokens": 10}
+    params_3 = {"logprobs": True}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    with pytest.raises(ValueError) as e:
+        chat.invoke(prompt_1, params=params_1, **params_2, **params_3)  # type: ignore[arg-type]
+
+    assert (
+        "Duplicate parameters found in params and keyword arguments: " in str(e.value)
+        and "'logprobs'" in str(e.value)
+        and "'max_tokens'" in str(e.value)
+    )
+
+
+def test_init_and_invoke_with_params_1() -> None:
+    params_1 = None
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params_1,
+    )
+    resp = chat.invoke(prompt_1, params=params_1)
+    completion_tokens = resp.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    assert chat.params == {}
+    assert 7 < completion_tokens < 11
+
+
+def test_init_and_invoke_with_params_2() -> None:
+    params_1_a = {"max_tokens": 4}
+    params_1_b = {"max_tokens": 5}
+    params_1_c = {"max_tokens": 6}
+
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params_1_a,
+    )
+    resp_1 = chat.invoke(prompt_1, params=params_1_b)
+    completion_tokens = resp_1.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    assert chat.params == params_1_a
+    assert completion_tokens == 5
+
+    resp_2 = chat.invoke(prompt_1, **params_1_c)  # type: ignore[arg-type]
+    completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    assert chat.params == params_1_a
+    assert completion_tokens == 6
+
+    resp_2 = chat.invoke(prompt_1)
+    completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    assert chat.params == params_1_a
+    assert completion_tokens == 4
+
+
+def test_init_and_invoke_with_params_3() -> None:
+    params_1_a = {"max_tokens": 2}
+    params_1_b = {"max_tokens": 5}
+    params_2_a = {"logprobs": False}
+    params_2_b = {"logprobs": True}
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params_1_a,
+        **params_2_a,  # type: ignore[arg-type]
+    )
+    resp_1 = chat.invoke(prompt_1, params=params_1_b, **params_2_b)  # type: ignore[arg-type]
+    completion_tokens = resp_1.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    logprobs = resp_1.response_metadata.get("logprobs")
+
+    assert chat.params == params_1_a | params_2_a
+    assert completion_tokens == 5
+    assert logprobs
+
+    resp_2 = chat.invoke(prompt_1)
+    completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    logprobs = resp_2.response_metadata.get("logprobs")
+
+    assert chat.params == params_1_a | params_2_a
+    assert completion_tokens == 2
+    assert not logprobs
+
+
+def test_init_and_invoke_with_params_4() -> None:
+    params_1_a = {"max_tokens": 4}
+    params_1_b = {"max_tokens": 5}
+    params_1_c = {"max_tokens": 6}
+
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params=params_1_a,
+    )
+    with pytest.raises(ValueError) as e:
+        chat.invoke(prompt_1, params=params_1_b, **params_1_c)  # type: ignore[arg-type]
+
+    assert (
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+        in str(e.value)
+    )
