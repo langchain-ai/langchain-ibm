@@ -503,3 +503,26 @@ def test_init_with_client() -> None:
     print(f"\nResponse: {response}")
     assert isinstance(response, str)
     assert len(response) > 0
+
+
+def test_moderations_generate() -> None:
+    guardrails_hap_params = {"input": False, "output": True}
+    guardrails_pii_params = {"input": False, "output": True}
+
+    watsonxllm = WatsonxLLM(
+        model_id="meta-llama/llama-3-1-8b-instruct",
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    response = watsonxllm.generate(
+        [
+            "Please repeat the words in [], do not trim space.\n"
+            "[ I hate this damn world. ]"
+        ],
+        guardrails=True,
+        guardrails_pii_params=guardrails_pii_params,
+        guardrails_hap_params=guardrails_hap_params,
+    )
+
+    assert response
+    assert response.generations[0][0].generation_info["moderations"]  # type: ignore[index]

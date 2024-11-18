@@ -323,9 +323,13 @@ class WatsonxLLM(BaseLLM):
             results = res.get("results")
             if results:
                 finish_reason = results[0].get("stop_reason")
+                moderations = results[0].get("moderations")
                 gen = Generation(
                     text=results[0].get("generated_text"),
-                    generation_info={"finish_reason": finish_reason},
+                    generation_info={
+                        "finish_reason": finish_reason,
+                        "moderations": moderations,
+                    },
                 )
                 generations.append([gen])
         final_token_usage = self._extract_token_usage(response)
@@ -345,6 +349,7 @@ class WatsonxLLM(BaseLLM):
             return GenerationChunk(text="")
 
         finish_reason = stream_response["results"][0].get("stop_reason", None)
+        moderations = stream_response["results"][0].get("moderations", None)
 
         return GenerationChunk(
             text=stream_response["results"][0]["generated_text"],
@@ -352,6 +357,7 @@ class WatsonxLLM(BaseLLM):
                 finish_reason=(
                     None if finish_reason == "not_finished" else finish_reason
                 ),
+                moderations=moderations,
                 llm_output={
                     "model_id": self.model_id,
                     "deployment_id": self.deployment_id,
