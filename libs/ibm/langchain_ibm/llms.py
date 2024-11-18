@@ -318,23 +318,26 @@ class WatsonxLLM(BaseLLM):
 
     def _create_llm_result(self, response: List[dict]) -> LLMResult:
         """Create the LLMResult from the choices and prompts."""
-        generations = []
-        for res in response:
-            results = res.get("results")
-            if results:
-                finish_reason = results[0].get("stop_reason")
-                moderations = results[0].get("moderations")
-                gen = Generation(
-                    text=results[0].get("generated_text"),
+        generations = [
+            [
+                Generation(
+                    text=result.get("generated_text", ""),
                     generation_info={
-                        "finish_reason": finish_reason,
-                        "moderations": moderations,
+                        "finish_reason": result.get("stop_reason"),
+                        **(
+                            {"moderations": result["moderations"]}
+                            if result.get("moderations")
+                            else {}
+                        ),
                     },
                 )
-                generations.append([gen])
-        final_token_usage = self._extract_token_usage(response)
+            ]
+            for res in response
+            if (results := res.get("results"))
+            for result in results
+        ]
         llm_output = {
-            "token_usage": final_token_usage,
+            "token_usage": self._extract_token_usage(response),
             "model_id": self.model_id,
             "deployment_id": self.deployment_id,
         }
@@ -345,24 +348,27 @@ class WatsonxLLM(BaseLLM):
         stream_response: Dict[str, Any],
     ) -> GenerationChunk:
         """Convert a stream response to a generation chunk."""
-        if not stream_response["results"]:
+        result = stream_response.get("results", [{}])[0]
+        if not result:
             return GenerationChunk(text="")
 
-        finish_reason = stream_response["results"][0].get("stop_reason", None)
-        moderations = stream_response["results"][0].get("moderations", None)
+        finish_reason = result.get("stop_reason")
+        finish_reason = None if finish_reason == "not_finished" else finish_reason
+
+        generation_info = {
+            "finish_reason": finish_reason,
+            "llm_output": {
+                "model_id": self.model_id,
+                "deployment_id": self.deployment_id,
+            },
+        }
+
+        if moderations := result.get("moderations"):
+            generation_info["moderations"] = moderations
 
         return GenerationChunk(
-            text=stream_response["results"][0]["generated_text"],
-            generation_info=dict(
-                finish_reason=(
-                    None if finish_reason == "not_finished" else finish_reason
-                ),
-                moderations=moderations,
-                llm_output={
-                    "model_id": self.model_id,
-                    "deployment_id": self.deployment_id,
-                },
-            ),
+            text=result.get("generated_text", ""),
+            generation_info=generation_info,
         )
 
     def _call(
