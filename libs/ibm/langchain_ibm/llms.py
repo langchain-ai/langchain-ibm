@@ -323,9 +323,11 @@ class WatsonxLLM(BaseLLM):
                 Generation(
                     text=result.get("generated_text", ""),
                     generation_info={"finish_reason": result.get("stop_reason")}
-                    | {"moderations": moderations}
-                    if (moderations := result.get("moderations"))
-                    else {},
+                    | (
+                        {"moderations": moderations}
+                        if (moderations := result.get("moderations"))
+                        else {}
+                    ),
                 )
             ]
             for res in response
