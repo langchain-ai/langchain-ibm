@@ -69,7 +69,8 @@ class WatsonxLLM(BaseLLM):
     """ID of the Watson Studio space."""
 
     url: SecretStr = Field(
-        alias="url", default_factory=secret_from_env("WATSONX_URL", default=None)
+        alias="url",
+        default_factory=secret_from_env("WATSONX_URL", default=None),  # type: ignore[assignment]
     )
     """URL to the Watson Machine Learning or CPD instance."""
 
