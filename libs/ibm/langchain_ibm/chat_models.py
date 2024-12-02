@@ -629,10 +629,6 @@ class ChatWatsonx(BaseChatModel):
                         " or pass 'apikey' or 'token'"
                         " as a named parameter."
                     )
-                elif self.apikey:
-                    check_for_attribute(self.apikey, "apikey", "WATSONX_APIKEY")
-                elif self.token:
-                    check_for_attribute(self.token, "token", "WATSONX_TOKEN")
             else:
                 if not self.token and not self.password and not self.apikey:
                     raise ValueError(
