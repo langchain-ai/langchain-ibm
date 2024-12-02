@@ -30,7 +30,8 @@ class WatsonxRerank(BaseDocumentCompressor):
     """ID of the Watson Studio space."""
 
     url: SecretStr = Field(
-        alias="url", default_factory=secret_from_env("WATSONX_URL", default=None)
+        alias="url",
+        default_factory=secret_from_env("WATSONX_URL", default=None),  # type: ignore[assignment]
     )
     """URL to the Watson Machine Learning or CPD instance."""
 
@@ -132,7 +133,15 @@ class WatsonxRerank(BaseDocumentCompressor):
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
             if "cloud.ibm.com" in self.url.get_secret_value():
-                check_for_attribute(self.apikey, "apikey", "WATSONX_APIKEY")
+                if not self.token and not self.apikey:
+                    raise ValueError(
+                        "Did not find 'apikey' or 'token',"
+                        " please add an environment variable"
+                        " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
+                        "which contains it,"
+                        " or pass 'apikey' or 'token'"
+                        " as a named parameter."
+                    )
             else:
                 if not self.token and not self.password and not self.apikey:
                     raise ValueError(

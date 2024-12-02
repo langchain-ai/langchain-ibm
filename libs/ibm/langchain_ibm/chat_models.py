@@ -430,7 +430,8 @@ class ChatWatsonx(BaseChatModel):
     """ID of the Watson Studio space."""
 
     url: SecretStr = Field(
-        alias="url", default_factory=secret_from_env("WATSONX_URL", default=None)
+        alias="url",
+        default_factory=secret_from_env("WATSONX_URL", default=None),  # type: ignore[assignment]
     )
     """URL to the Watson Machine Learning or CPD instance."""
 
@@ -507,6 +508,9 @@ class ChatWatsonx(BaseChatModel):
     
     We generally recommend altering this or top_p but not both."""
 
+    response_format: Optional[dict] = None
+    """The chat response format parameters."""
+
     top_p: Optional[float] = None
     """An alternative to sampling with temperature, called nucleus sampling, 
     where the model considers the results of the tokens with top_p probability 
@@ -514,6 +518,10 @@ class ChatWatsonx(BaseChatModel):
     are considered.
 
     We generally recommend altering this or temperature but not both."""
+
+    time_limit: Optional[int] = None
+    """Time limit in milliseconds - if not completed within this time, 
+    generation will stop."""
 
     verify: Union[str, bool, None] = None
     """You can pass one of following as verify:
@@ -596,8 +604,10 @@ class ChatWatsonx(BaseChatModel):
                     "max_tokens": self.max_tokens,
                     "n": self.n,
                     "presence_penalty": self.presence_penalty,
+                    "response_format": self.response_format,
                     "temperature": self.temperature,
                     "top_p": self.top_p,
+                    "time_limit": self.time_limit,
                 }.items()
                 if v is not None
             }
@@ -619,7 +629,15 @@ class ChatWatsonx(BaseChatModel):
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
             if "cloud.ibm.com" in self.url.get_secret_value():
-                check_for_attribute(self.apikey, "apikey", "WATSONX_APIKEY")
+                if not self.token and not self.apikey:
+                    raise ValueError(
+                        "Did not find 'apikey' or 'token',"
+                        " please add an environment variable"
+                        " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
+                        "which contains it,"
+                        " or pass 'apikey' or 'token'"
+                        " as a named parameter."
+                    )
             else:
                 if not self.token and not self.password and not self.apikey:
                     raise ValueError(
@@ -753,8 +771,10 @@ class ChatWatsonx(BaseChatModel):
             "max_tokens",
             "n",
             "presence_penalty",
+            "response_format",
             "temperature",
             "top_p",
+            "time_limit",
         ]:
             if kwargs.get(k) is not None:
                 param_updates[k] = kwargs.pop(k)
