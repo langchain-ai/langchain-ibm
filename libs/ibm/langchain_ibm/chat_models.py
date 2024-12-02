@@ -508,6 +508,9 @@ class ChatWatsonx(BaseChatModel):
     
     We generally recommend altering this or top_p but not both."""
 
+    response_format: Optional[dict] = None
+    """The chat response format parameters."""
+
     top_p: Optional[float] = None
     """An alternative to sampling with temperature, called nucleus sampling, 
     where the model considers the results of the tokens with top_p probability 
@@ -515,6 +518,10 @@ class ChatWatsonx(BaseChatModel):
     are considered.
 
     We generally recommend altering this or temperature but not both."""
+
+    time_limit: Optional[int] = None
+    """Time limit in milliseconds - if not completed within this time, 
+    generation will stop."""
 
     verify: Union[str, bool, None] = None
     """You can pass one of following as verify:
@@ -597,8 +604,10 @@ class ChatWatsonx(BaseChatModel):
                     "max_tokens": self.max_tokens,
                     "n": self.n,
                     "presence_penalty": self.presence_penalty,
+                    "response_format": self.response_format,
                     "temperature": self.temperature,
                     "top_p": self.top_p,
+                    "time_limit": self.time_limit,
                 }.items()
                 if v is not None
             }
@@ -762,8 +771,10 @@ class ChatWatsonx(BaseChatModel):
             "max_tokens",
             "n",
             "presence_penalty",
+            "response_format",
             "temperature",
             "top_p",
+            "time_limit",
         ]:
             if kwargs.get(k) is not None:
                 param_updates[k] = kwargs.pop(k)
