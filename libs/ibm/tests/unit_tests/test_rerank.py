@@ -24,8 +24,8 @@ def test_initialize_watsonxllm_cloud_bad_path() -> None:
     try:
         WatsonxRerank(model_id=MODEL_ID, url="https://us-south.ml.cloud.ibm.com")  # type: ignore[arg-type]
     except ValueError as e:
-        assert "apikey" in e.__str__()
-        assert "WATSONX_APIKEY" in e.__str__()
+        assert "apikey" in e.__str__() and "token" in e.__str__()
+        assert "WATSONX_APIKEY" in e.__str__() and "WATSONX_TOKEN" in e.__str__()
 
 
 def test_initialize_watsonxllm_cpd_bad_path_without_all() -> None:
