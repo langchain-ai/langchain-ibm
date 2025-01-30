@@ -721,7 +721,6 @@ class ChatWatsonx(BaseChatModel):
         default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
         base_generation_info: dict = {}
 
-        # TODO: ?
         is_first_chunk = True
 
         for chunk in self.watsonx_model.chat_stream(
