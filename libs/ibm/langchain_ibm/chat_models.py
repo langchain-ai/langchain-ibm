@@ -742,14 +742,6 @@ class ChatWatsonx(BaseChatModel):
                 run_manager.on_llm_new_token(
                     generation_chunk.text, chunk=generation_chunk, logprobs=logprobs
                 )
-            if hasattr(generation_chunk.message, "tool_calls") and isinstance(
-                generation_chunk.message.tool_calls, list
-            ):
-                first_tool_call = (
-                    generation_chunk.message.tool_calls[0]
-                    if generation_chunk.message.tool_calls
-                    else None
-                )
 
             is_first_chunk = False
 
