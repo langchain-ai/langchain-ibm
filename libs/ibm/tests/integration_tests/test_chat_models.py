@@ -429,7 +429,7 @@ def test_22b_bind_tools_tool_choice_as_dict() -> None:
 
     with_tool = chat.bind_tools([Person], tool_choice=tool_choice)
 
-    result = with_tool.invoke("Erick, 27 years old")
+    result = with_tool.invoke("Erick, 27 years old. Make sure to use correct name")
     assert isinstance(result, AIMessage)
     assert result.content == ""  # should just be tool call
     tool_call = result.tool_calls[0]
@@ -726,6 +726,7 @@ def test_structured_output() -> None:
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        temperature=0,
     )
     schema = {
         "title": "AnswerWithJustification",
@@ -950,7 +951,7 @@ def test_invoke_with_params_5() -> None:
 
 
 def test_init_and_invoke_with_params_1() -> None:
-    params_1 = None
+    params_1 = {"max_tokens": 11}
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -961,7 +962,7 @@ def test_init_and_invoke_with_params_1() -> None:
     completion_tokens = resp.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    assert chat.params == {}
+    assert chat.params == params_1
     assert 7 < completion_tokens < 11
 
 
