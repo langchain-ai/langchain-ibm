@@ -627,6 +627,83 @@ def test_streaming_tool_call() -> None:
     assert "tool_calls" not in acc.additional_kwargs
 
 
+def test_streaming_multiple_tool_call() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        temperature=0
+    )
+
+    from langchain_core.tools import tool
+    from typing import Literal
+
+    @tool("search")
+    def search(query: str):
+        """Call to search the web for capital of countries"""
+        return ["capital of america is washington D.C."]
+
+    @tool("get_weather")
+    def get_weather(city: Literal["nyc"]):
+        """Use this to get weather information."""
+        if city == "nyc":
+            return "It might be cloudy in nyc"
+        else:
+            raise ValueError("Unknown city")
+
+    tools = [search, get_weather]
+    tools_name = {el.name for el in tools}
+
+    tool_llm = chat.bind_tools(tools)
+
+    stream_response = tool_llm.stream("What is the weather in the NY and what is capital of USA?")
+
+    ai_message = None
+
+    for chunk in stream_response:
+        if ai_message is None:
+            ai_message = chunk
+        else:
+            ai_message += chunk
+        print(chunk.id, type(chunk.id))
+        assert isinstance(chunk, AIMessageChunk)
+        assert chunk.content == ""
+
+    assert ai_message.response_metadata.get('finish_reason') == 'tool_calls'
+    assert ai_message.response_metadata.get('model_name') == MODEL_ID_TOOL
+    assert ai_message.id is not None
+
+    # additional_kwargs
+    assert ai_message.additional_kwargs is not None
+    assert "tool_calls" in ai_message.additional_kwargs
+    assert len(ai_message.additional_kwargs["tool_calls"]) == 2
+    assert {el["function"]["name"] for el in ai_message.additional_kwargs["tool_calls"]} == tools_name
+
+    # tool_calls
+    assert all({el["id"] is not None for el in ai_message.tool_calls})
+    assert all({el["type"] == "tool_call" for el in ai_message.tool_calls})
+    assert {el["name"] for el in ai_message.tool_calls} == tools_name
+
+    generated_tools_args = [{"city": "nyc"}, {"query": "capital of USA"}]
+    assert {list(el["args"].keys())[0] for el in ai_message.tool_calls} == {list(el.keys())[0] for el in generated_tools_args}
+
+
+    # tool_call_chunks
+    predicted_tool_call_chunks = []
+    for i, el in enumerate(ai_message.tool_calls):
+        el |= {'type': 'tool_call_chunk'}
+        el['args'] = json.dumps(el['args'])
+        el |= {"index": i}
+        predicted_tool_call_chunks.append(el)
+
+    assert ai_message.tool_call_chunks == predicted_tool_call_chunks
+    assert json.loads(ai_message.additional_kwargs["tool_calls"][0]["function"]["arguments"]) == generated_tools_args[0]
+    assert json.loads(ai_message.additional_kwargs["tool_calls"][1]["function"]["arguments"]) == generated_tools_args[1]
+
+    #TODO: these tests should works when usage field will be fixed
+    # assert ai_message.usage_metadata is not None
+
+
 def test_structured_output() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
