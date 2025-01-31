@@ -233,14 +233,14 @@ def test_watsonxllm_stream() -> None:
 
     linked_text_stream = ""
     for chunk in stream_response:
-        assert isinstance(chunk, str), (
-            f"chunk expect type '{str}', actual '{type(chunk)}'"
-        )
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
         linked_text_stream += chunk
     print(f"Linked text stream: {linked_text_stream}")
-    assert response == linked_text_stream, (
-        "Linked text stream are not the same as generated text"
-    )
+    assert (
+        response == linked_text_stream
+    ), "Linked text stream are not the same as generated text"
 
 
 def test_watsonxllm_stream_with_kwargs() -> None:
@@ -252,9 +252,9 @@ def test_watsonxllm_stream_with_kwargs() -> None:
     stream_response = watsonxllm.stream("What color sunflower is?", raw_response=True)
 
     for chunk in stream_response:
-        assert isinstance(chunk, str), (
-            f"chunk expect type '{str}', actual '{type(chunk)}'"
-        )
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
 
 
 def test_watsonxllm_stream_with_params() -> None:
@@ -276,14 +276,14 @@ def test_watsonxllm_stream_with_params() -> None:
 
     linked_text_stream = ""
     for chunk in stream_response:
-        assert isinstance(chunk, str), (
-            f"chunk expect type '{str}', actual '{type(chunk)}'"
-        )
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
         linked_text_stream += chunk
     print(f"Linked text stream: {linked_text_stream}")
-    assert response == linked_text_stream, (
-        "Linked text stream are not the same as generated text"
-    )
+    assert (
+        response == linked_text_stream
+    ), "Linked text stream are not the same as generated text"
 
 
 def test_watsonxllm_stream_with_params_2() -> None:
@@ -300,9 +300,9 @@ def test_watsonxllm_stream_with_params_2() -> None:
     stream_response = watsonxllm.stream("What color sunflower is?", params=parameters)
 
     for chunk in stream_response:
-        assert isinstance(chunk, str), (
-            f"chunk expect type '{str}', actual '{type(chunk)}'"
-        )
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
         print(chunk)
 
 
@@ -323,9 +323,9 @@ def test_watsonxllm_stream_with_params_3() -> None:
     stream_response = watsonxllm.stream("What color sunflower is?", params=parameters_2)
 
     for chunk in stream_response:
-        assert isinstance(chunk, str), (
-            f"chunk expect type '{str}', actual '{type(chunk)}'"
-        )
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
         print(chunk)
 
 
@@ -346,9 +346,9 @@ def test_watsonxllm_stream_with_params_4() -> None:
     stream_response = watsonxllm.stream("What color sunflower is?", **parameters_2)  # type: ignore[arg-type]
 
     for chunk in stream_response:
-        assert isinstance(chunk, str), (
-            f"chunk expect type '{str}', actual '{type(chunk)}'"
-        )
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
         print(chunk)
 
 
