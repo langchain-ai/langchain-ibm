@@ -291,9 +291,13 @@ def _convert_delta_to_message_chunk(
         try:
             tool_call_chunks = [
                 tool_call_chunk(
-                    name=rtc["function"].get("name") if is_first_tool_chunk else None,
+                    name=rtc["function"].get("name")
+                    if is_first_tool_chunk or (rtc.get("id") is not None)
+                    else None,
                     args=rtc["function"].get("arguments"),
-                    id=rtc.get("id") if is_first_tool_chunk else None,
+                    # `id` is provided only for the first delta with unique tool_calls
+                    # (multiple tool calls scenario)
+                    id=rtc.get("id"),
                     index=rtc["index"],
                 )
                 for rtc in raw_tool_calls
