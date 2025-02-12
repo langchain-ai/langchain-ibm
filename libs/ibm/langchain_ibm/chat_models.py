@@ -395,19 +395,17 @@ class ChatWatsonx(BaseChatModel):
     Example:
         .. code-block:: python
 
-            from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
-            parameters = {
-                GenTextParamsMetaNames.DECODING_METHOD: "sample",
-                GenTextParamsMetaNames.MAX_NEW_TOKENS: 100,
-                GenTextParamsMetaNames.MIN_NEW_TOKENS: 1,
-                GenTextParamsMetaNames.TEMPERATURE: 0.5,
-                GenTextParamsMetaNames.TOP_K: 50,
-                GenTextParamsMetaNames.TOP_P: 1,
-            }
+            from ibm_watsonx_ai.foundation_models.schema import TextChatParameters
+
+            parameters = TextChatParameters(
+                max_tokens=100,
+                temperature=0.5,
+                top_p=1,
+                )
 
             from langchain_ibm import ChatWatsonx
             watsonx_llm = ChatWatsonx(
-                model_id="meta-llama/llama-3-70b-instruct",
+                model_id="meta-llama/llama-3-3-70b-instruct",
                 url="https://us-south.ml.cloud.ibm.com",
                 apikey="*****",
                 project_id="*****",
@@ -521,6 +519,16 @@ class ChatWatsonx(BaseChatModel):
     """Time limit in milliseconds - if not completed within this time, 
     generation will stop."""
 
+    logit_bias: Optional[dict] = None
+    """Increasing or decreasing probability of tokens being selected during generation."""
+
+    seed: Optional[int] = None
+    """Random number generator seed to use in sampling mode for experimental repeatability."""
+
+    stop: Optional[list[str]] = None
+    """Stop sequences are one or more strings which will cause the text generation to stop 
+    if/when they are produced as part of the output."""
+
     verify: Union[str, bool, None] = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
@@ -596,16 +604,8 @@ class ChatWatsonx(BaseChatModel):
             {
                 k: v
                 for k, v in {
-                    "frequency_penalty": self.frequency_penalty,
-                    "logprobs": self.logprobs,
-                    "top_logprobs": self.top_logprobs,
-                    "max_tokens": self.max_tokens,
-                    "n": self.n,
-                    "presence_penalty": self.presence_penalty,
-                    "response_format": self.response_format,
-                    "temperature": self.temperature,
-                    "top_p": self.top_p,
-                    "time_limit": self.time_limit,
+                    param: getattr(self, param)
+                    for param in ChatWatsonx._get_supported_chat_params()
                 }.items()
                 if v is not None
             }
@@ -750,18 +750,7 @@ class ChatWatsonx(BaseChatModel):
     @staticmethod
     def _merge_params(params: dict, kwargs: dict) -> dict:
         param_updates = {}
-        for k in [
-            "frequency_penalty",
-            "logprobs",
-            "top_logprobs",
-            "max_tokens",
-            "n",
-            "presence_penalty",
-            "response_format",
-            "temperature",
-            "top_p",
-            "time_limit",
-        ]:
+        for k in ChatWatsonx._get_supported_chat_params():
             if kwargs.get(k) is not None:
                 param_updates[k] = kwargs.pop(k)
 
@@ -818,6 +807,25 @@ class ChatWatsonx(BaseChatModel):
         }
 
         return ChatResult(generations=generations, llm_output=llm_output)
+
+    @staticmethod
+    def _get_supported_chat_params() -> list[str]:
+        # watsonx.ai Chat API doc: https://cloud.ibm.com/apidocs/watsonx-ai#text-chat 
+        return [
+            "frequency_penalty",
+            "logprobs",
+            "top_logprobs",
+            "max_tokens",
+            "n",
+            "presence_penalty",
+            "response_format",
+            "temperature",
+            "top_p",
+            "time_limit",
+            "logit_bias",
+            "seed",
+            "stop",
+        ]
 
     def bind_functions(
         self,
