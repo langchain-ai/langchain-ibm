@@ -331,7 +331,7 @@ def _convert_chunk_to_generation_chunk(
     choices = chunk.get("choices", [])
 
     usage_metadata: Optional[UsageMetadata] = (
-        _create_usage_metadata(token_usage) if token_usage else None
+        _create_usage_metadata(token_usage) if token_usage and not choices else None
     )
 
     if len(choices) == 0:
