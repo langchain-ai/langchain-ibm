@@ -1,6 +1,7 @@
 """Test ChatWatsonx API wrapper."""
 
 import os
+from typing import Any
 
 from langchain_ibm import ChatWatsonx
 
@@ -84,17 +85,19 @@ def test_initialize_chat_watsonx_cpd_bad_path_without_instance_id() -> None:
         assert "WATSONX_INSTANCE_ID" in e.__str__()
 
 
-def test_initialize_chat_watsonx_with_all_supported_params(mocker) -> None:
-    # All params values are taken from 
-    # `ibm_watsonx_ai.foundation_models.schema.TextChatParameters.get_sample_params()`
+def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
+    # All params values are taken from
+    # ibm_watsonx_ai.foundation_models.schema.TextChatParameters.get_sample_params()
 
-    from ibm_watsonx_ai.foundation_models.schema import TextChatParameters
-    from langchain_core.messages import ChatMessage
-    from langchain_core.outputs import ChatGeneration, ChatResult
+    from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
+        TextChatParameters,
+    )
 
     TOP_P = 0.8
 
-    def mock_modelinference_chat(*args, **kwargs) -> dict:
+    def mock_modelinference_chat(*args: Any, **kwargs: Any) -> dict:
+        """Mock ModelInference.chat method"""
+
         assert kwargs.get("params", None) == (
             TextChatParameters.get_sample_params()
             | dict(
@@ -103,19 +106,13 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker) -> None:
             | dict(top_p=TOP_P)
         )
         # logit_bias, seed and stop available in sdk since 1.2.7
+        return {"id": "123", "choices": [{"message": dict(content="Hi", role="ai")}]}
 
     with mocker.patch(
         "ibm_watsonx_ai.foundation_models.ModelInference.__init__", return_value=None
     ), mocker.patch(
         "ibm_watsonx_ai.foundation_models.ModelInference.chat",
         side_effect=mock_modelinference_chat,
-    ), mocker.patch.object(
-        ChatWatsonx,
-        "_create_chat_result",
-        return_value=ChatResult(
-            generations=[ChatGeneration(message=ChatMessage(content="Hi", role="ai"))],
-            llm_output={},
-        ),
     ):
         chat = ChatWatsonx(
             model_id="google/flan-ul2",
