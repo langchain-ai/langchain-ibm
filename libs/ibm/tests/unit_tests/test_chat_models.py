@@ -85,7 +85,9 @@ def test_initialize_chat_watsonx_cpd_bad_path_without_instance_id() -> None:
 
 
 def test_initialize_chat_watsonx_with_all_supported_params(mocker) -> None:
-    # All params values are taken from ibm_watsonx_ai.foundation_models.schema.TextChatParameters.get_sample_params().
+    # All params values are taken from 
+    # `ibm_watsonx_ai.foundation_models.schema.TextChatParameters.get_sample_params()`
+
     from ibm_watsonx_ai.foundation_models.schema import TextChatParameters
     from langchain_core.messages import ChatMessage
     from langchain_core.outputs import ChatGeneration, ChatResult
@@ -104,7 +106,7 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker) -> None:
 
     with mocker.patch(
         "ibm_watsonx_ai.foundation_models.ModelInference.__init__", return_value=None
-    ) as mock, mocker.patch(
+    ), mocker.patch(
         "ibm_watsonx_ai.foundation_models.ModelInference.chat",
         side_effect=mock_modelinference_chat,
     ), mocker.patch.object(

@@ -520,14 +520,16 @@ class ChatWatsonx(BaseChatModel):
     generation will stop."""
 
     logit_bias: Optional[dict] = None
-    """Increasing or decreasing probability of tokens being selected during generation."""
+    """Increasing or decreasing probability of tokens being selected 
+    during generation."""
 
     seed: Optional[int] = None
-    """Random number generator seed to use in sampling mode for experimental repeatability."""
+    """Random number generator seed to use in sampling mode 
+    for experimental repeatability."""
 
     stop: Optional[list[str]] = None
-    """Stop sequences are one or more strings which will cause the text generation to stop 
-    if/when they are produced as part of the output."""
+    """Stop sequences are one or more strings which will cause the text generation 
+    to stop if/when they are produced as part of the output."""
 
     verify: Union[str, bool, None] = None
     """You can pass one of following as verify:
@@ -810,7 +812,7 @@ class ChatWatsonx(BaseChatModel):
 
     @staticmethod
     def _get_supported_chat_params() -> list[str]:
-        # watsonx.ai Chat API doc: https://cloud.ibm.com/apidocs/watsonx-ai#text-chat 
+        # watsonx.ai Chat API doc: https://cloud.ibm.com/apidocs/watsonx-ai#text-chat
         return [
             "frequency_penalty",
             "logprobs",
