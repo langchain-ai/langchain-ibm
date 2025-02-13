@@ -667,7 +667,7 @@ def test_streaming_multiple_tool_call() -> None:
         if ai_message is None:
             ai_message = chunk
         else:
-            ai_message += chunk
+            ai_message += chunk  # type: ignore[assignment]
         print(chunk.id, type(chunk.id))
         assert isinstance(chunk, AIMessageChunk)
         assert chunk.content == ""
