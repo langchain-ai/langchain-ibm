@@ -274,6 +274,7 @@ def _convert_delta_to_message_chunk(
     _dict: Mapping[str, Any],
     default_class: Type[BaseMessageChunk],
     call_id: str,
+    is_first_tool_chunk: bool,
 ) -> BaseMessageChunk:
     id_ = call_id
     role = cast(str, _dict.get("role"))
@@ -290,8 +291,12 @@ def _convert_delta_to_message_chunk(
         try:
             tool_call_chunks = [
                 tool_call_chunk(
-                    name=rtc["function"].get("name"),
+                    name=rtc["function"].get("name")
+                    if is_first_tool_chunk or (rtc.get("id") is not None)
+                    else None,
                     args=rtc["function"].get("arguments"),
+                    # `id` is provided only for the first delta with unique tool_calls
+                    # (multiple tool calls scenario)
                     id=rtc.get("id"),
                     index=rtc["index"],
                 )
@@ -326,6 +331,7 @@ def _convert_delta_to_message_chunk(
 def _convert_chunk_to_generation_chunk(
     chunk: dict,
     default_chunk_class: Type,
+    is_first_tool_chunk: bool,
 ) -> Optional[ChatGenerationChunk]:
     token_usage = chunk.get("usage")
     choices = chunk.get("choices", [])
@@ -346,7 +352,7 @@ def _convert_chunk_to_generation_chunk(
         return None
 
     message_chunk = _convert_delta_to_message_chunk(
-        choice["delta"], default_chunk_class, chunk["id"]
+        choice["delta"], default_chunk_class, chunk["id"], is_first_tool_chunk
     )
     generation_info = {}
 
@@ -718,6 +724,8 @@ class ChatWatsonx(BaseChatModel):
 
         default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
 
+        is_first_tool_chunk = True
+
         for chunk in self.watsonx_model.chat_stream(
             messages=message_dicts, **(kwargs | {"params": updated_params})
         ):
@@ -726,6 +734,7 @@ class ChatWatsonx(BaseChatModel):
             generation_chunk = _convert_chunk_to_generation_chunk(
                 chunk,
                 default_chunk_class,
+                is_first_tool_chunk,
             )
             if generation_chunk is None:
                 continue
@@ -735,6 +744,16 @@ class ChatWatsonx(BaseChatModel):
                 run_manager.on_llm_new_token(
                     generation_chunk.text, chunk=generation_chunk, logprobs=logprobs
                 )
+            if hasattr(generation_chunk.message, "tool_calls") and isinstance(
+                generation_chunk.message.tool_calls, list
+            ):
+                first_tool_call = (
+                    generation_chunk.message.tool_calls[0]
+                    if generation_chunk.message.tool_calls
+                    else None
+                )
+                if isinstance(first_tool_call, dict) and first_tool_call.get("name"):
+                    is_first_tool_chunk = False
 
             yield generation_chunk
 

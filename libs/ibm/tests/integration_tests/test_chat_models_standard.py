@@ -60,6 +60,7 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
             "url": URL,
             "apikey": WX_APIKEY,
             "project_id": WX_PROJECT_ID,
+            "temperature": 0,
         }
 
     @pytest.mark.xfail(reason="Supported for vision model.")
