@@ -332,12 +332,15 @@ def _convert_chunk_to_generation_chunk(
     chunk: dict,
     default_chunk_class: Type,
     is_first_tool_chunk: bool,
+    _prompt_tokens_included: bool,
 ) -> Optional[ChatGenerationChunk]:
     token_usage = chunk.get("usage")
     choices = chunk.get("choices", [])
 
     usage_metadata: Optional[UsageMetadata] = (
-        _create_usage_metadata(token_usage) if token_usage and not choices else None
+        _create_usage_metadata(token_usage, _prompt_tokens_included)
+        if token_usage
+        else None
     )
 
     if len(choices) == 0:
@@ -725,6 +728,7 @@ class ChatWatsonx(BaseChatModel):
         default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
 
         is_first_tool_chunk = True
+        _prompt_tokens_included = False
 
         for chunk in self.watsonx_model.chat_stream(
             messages=message_dicts, **(kwargs | {"params": updated_params})
@@ -732,12 +736,13 @@ class ChatWatsonx(BaseChatModel):
             if not isinstance(chunk, dict):
                 chunk = chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk,
-                default_chunk_class,
-                is_first_tool_chunk,
+                chunk, default_chunk_class, is_first_tool_chunk, _prompt_tokens_included
             )
             if generation_chunk is None:
                 continue
+
+            if generation_chunk.message.usage_metadata:
+                _prompt_tokens_included = True
             default_chunk_class = generation_chunk.message.__class__
             logprobs = (generation_chunk.generation_info or {}).get("logprobs")
             if run_manager:
@@ -1183,8 +1188,11 @@ def _lc_invalid_tool_call_to_watsonx_tool_call(
 
 def _create_usage_metadata(
     oai_token_usage: dict,
+    _prompt_tokens_included: bool,
 ) -> UsageMetadata:
-    input_tokens = oai_token_usage.get("prompt_tokens", 0)
+    input_tokens = (
+        oai_token_usage.get("prompt_tokens", 0) if not _prompt_tokens_included else 0
+    )
     output_tokens = oai_token_usage.get("completion_tokens", 0)
     total_tokens = oai_token_usage.get("total_tokens", input_tokens + output_tokens)
     return UsageMetadata(
