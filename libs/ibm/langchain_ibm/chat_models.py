@@ -331,15 +331,16 @@ def _convert_delta_to_message_chunk(
 def _convert_chunk_to_generation_chunk(
     chunk: dict,
     default_chunk_class: Type,
-    base_generation_info: Optional[Dict],
-    is_first_chunk: bool,
     is_first_tool_chunk: bool,
+    _prompt_tokens_included: bool,
 ) -> Optional[ChatGenerationChunk]:
     token_usage = chunk.get("usage")
     choices = chunk.get("choices", [])
 
     usage_metadata: Optional[UsageMetadata] = (
-        _create_usage_metadata(token_usage, is_first_chunk) if token_usage else None
+        _create_usage_metadata(token_usage, _prompt_tokens_included)
+        if token_usage
+        else None
     )
 
     if len(choices) == 0:
@@ -356,7 +357,7 @@ def _convert_chunk_to_generation_chunk(
     message_chunk = _convert_delta_to_message_chunk(
         choice["delta"], default_chunk_class, chunk["id"], is_first_tool_chunk
     )
-    generation_info = {**base_generation_info} if base_generation_info else {}
+    generation_info = {}
 
     if finish_reason := choice.get("finish_reason"):
         generation_info["finish_reason"] = finish_reason
@@ -727,10 +728,9 @@ class ChatWatsonx(BaseChatModel):
         updated_params = self._merge_params(params, kwargs)
 
         default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
-        base_generation_info: dict = {}
 
-        is_first_chunk = True
         is_first_tool_chunk = True
+        _prompt_tokens_included = False
 
         for chunk in self.watsonx_model.chat_stream(
             messages=message_dicts, **(kwargs | {"params": updated_params})
@@ -738,14 +738,16 @@ class ChatWatsonx(BaseChatModel):
             if not isinstance(chunk, dict):
                 chunk = chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk,
-                default_chunk_class,
-                base_generation_info if is_first_chunk else {},
-                is_first_chunk,
-                is_first_tool_chunk,
+                chunk, default_chunk_class, is_first_tool_chunk, _prompt_tokens_included
             )
             if generation_chunk is None:
                 continue
+
+            if (
+                hasattr(generation_chunk.message, "usage_metadata")
+                and generation_chunk.message.usage_metadata
+            ):
+                _prompt_tokens_included = True
             default_chunk_class = generation_chunk.message.__class__
             logprobs = (generation_chunk.generation_info or {}).get("logprobs")
             if run_manager:
@@ -762,8 +764,6 @@ class ChatWatsonx(BaseChatModel):
                 )
                 if isinstance(first_tool_call, dict) and first_tool_call.get("name"):
                     is_first_tool_chunk = False
-
-            is_first_chunk = False
 
             yield generation_chunk
 
@@ -809,7 +809,7 @@ class ChatWatsonx(BaseChatModel):
             message = _convert_dict_to_message(res["message"], response["id"])
 
             if token_usage and isinstance(message, AIMessage):
-                message.usage_metadata = _create_usage_metadata(token_usage, True)
+                message.usage_metadata = _create_usage_metadata(token_usage, False)
             generation_info = generation_info or {}
             generation_info["finish_reason"] = (
                 res.get("finish_reason")
@@ -1200,9 +1200,12 @@ def _lc_invalid_tool_call_to_watsonx_tool_call(
 
 
 def _create_usage_metadata(
-    oai_token_usage: dict, is_first_chunk: bool
+    oai_token_usage: dict,
+    _prompt_tokens_included: bool,
 ) -> UsageMetadata:
-    input_tokens = oai_token_usage.get("prompt_tokens", 0) if is_first_chunk else 0
+    input_tokens = (
+        oai_token_usage.get("prompt_tokens", 0) if not _prompt_tokens_included else 0
+    )
     output_tokens = oai_token_usage.get("completion_tokens", 0)
     total_tokens = oai_token_usage.get("total_tokens", input_tokens + output_tokens)
     return UsageMetadata(
