@@ -741,7 +741,10 @@ class ChatWatsonx(BaseChatModel):
             if generation_chunk is None:
                 continue
 
-            if generation_chunk.message.usage_metadata:
+            if (
+                hasattr(generation_chunk.message, "usage_metadata")
+                and generation_chunk.message.usage_metadata
+            ):
                 _prompt_tokens_included = True
             default_chunk_class = generation_chunk.message.__class__
             logprobs = (generation_chunk.generation_info or {}).get("logprobs")
@@ -815,7 +818,7 @@ class ChatWatsonx(BaseChatModel):
             message = _convert_dict_to_message(res["message"], response["id"])
 
             if token_usage and isinstance(message, AIMessage):
-                message.usage_metadata = _create_usage_metadata(token_usage)
+                message.usage_metadata = _create_usage_metadata(token_usage, False)
             generation_info = generation_info or {}
             generation_info["finish_reason"] = (
                 res.get("finish_reason")
