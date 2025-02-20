@@ -20,7 +20,7 @@ from langchain_ibm.utils import check_for_attribute, extract_params
 
 logger = logging.getLogger(__name__)
 textgen_valid_params = [
-    value for key, value in GenTextParamsMetaNames.__dict__.items() if key.isupper()
+    key.lower() for key, value in GenTextParamsMetaNames.__dict__.items() if key.isupper()
 ]
 
 
