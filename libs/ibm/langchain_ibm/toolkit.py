@@ -19,10 +19,11 @@ from typing import (
 )
 
 from ibm_watsonx_ai import APIClient, Credentials
-from ibm_watsonx_ai.foundation_models.utils import Toolkit
+from ibm_watsonx_ai.foundation_models.utils import Tool, Toolkit
+from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.messages import ToolCall
 from langchain_core.runnables import RunnableConfig
-from langchain_core.tools.base import BaseTool, BaseToolkit, _prep_run_args
+from langchain_core.tools.base import BaseTool, BaseToolkit
 from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
@@ -31,9 +32,11 @@ from langchain_ibm.utils import check_for_attribute
 
 
 class ToolSchema(BaseModel):
-    """Input for ToolSchema."""
+    input: Union[str, dict] = Field()
+    """Input to be used when running a tool."""
 
-    input: str
+    config: Optional[dict] = Field(default=None)
+    """Configuration options that can be passed for some tools, must match the config schema for the tool."""
 
 
 class WatsonxTool(BaseTool):
@@ -46,17 +49,48 @@ class WatsonxTool(BaseTool):
     """Description of what the tool is used for."""
 
     agent_description: Optional[str] = None
-    """The precise instruction to agent LLMs and should be treated as part of the system prompt"""
+    """The precise instruction to agent LLMs and should be treated as part of the system prompt."""
 
-    # args_schema: Type[BaseModel] = SchemaClass
+    in_schema: Optional[Dict] = None
+    """Schema of the input that is provided when running the tool if applicable."""
 
-    def _run(self):
+    conf_schema: Optional[Dict] = None
+    """Schema of the config that can be provided when running the tool if applicable."""
+
+    args_schema: Type[BaseModel] = ToolSchema
+
+    watsonx_tool: Tool = Field(default=None, exclude=True)  #: :meta private:
+
+    watsonx_client: APIClient = Field(exclude=True)
+
+    # class BaseToolSchema(BaseModel):
+
+    @model_validator(mode="after")
+    def validate_tool(self) -> Self:
+        self.watsonx_tool = Tool(
+            api_client=self.watsonx_client,
+            name=self.name,
+            description=self.description,
+            agent_description=self.agent_description,
+            input_schema=self.in_schema,
+            config_schema=self.conf_schema,
+        )
+        return self
+
+    def _run(
+        self,
+        input: Union[str, dict],
+        config: Optional[dict] = None,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> dict:
         """Run the tool."""
-        pass
+        return self.watsonx_tool.run(input, config)
 
 
 class WatsonxToolkit(BaseToolkit):
     """IBM watsonx.ai Toolkit."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     project_id: Optional[str] = None
     """ID of the watsonx.ai Studio project."""
@@ -122,25 +156,36 @@ class WatsonxToolkit(BaseToolkit):
                 token=self.token.get_secret_value() if self.token else None,
                 verify=self.verify,
             )
-            api_client = APIClient(
+            self.watsonx_client = APIClient(
                 credentials=credentials,
                 project_id=self.project_id,
                 space_id=self.space_id,
             )
-            self.watsonx_toolkit = Toolkit(api_client)
+            self.watsonx_toolkit = Toolkit(self.watsonx_client)
 
         return self
 
     def get_tools(self) -> list[WatsonxTool]:
         """Get the tools in the toolkit."""
         tools = self.watsonx_toolkit.get_tools()
+        print(f"\nTools:\n{tools}")
 
         return [
             WatsonxTool(
+                watsonx_client=self.watsonx_client,
                 name=tool["name"],
                 description=tool["description"],
                 agent_description=tool.get("agent_description"),
-
+                in_schema=tool.get("input_schema"),
+                conf_schema=tool.get("config_schema"),
             )
             for tool in tools
         ]
+
+    def get_tool(self, tool_name: str) -> WatsonxTool:
+        """Get the tool with a given name."""
+        tools = self.get_tools()
+        for tool in tools:
+            if tool.name == tool_name:
+                return tool
+        raise ValueError(f"A tool with the given name ({tool_name}) was not found.")
