@@ -2,27 +2,15 @@
 
 import urllib.parse
 from typing import (
-    Any,
-    Callable,
     Dict,
-    Iterator,
-    List,
-    Literal,
-    Mapping,
     Optional,
-    Sequence,
-    Tuple,
     Type,
-    TypedDict,
     Union,
-    cast,
 )
 
-from ibm_watsonx_ai import APIClient, Credentials
-from ibm_watsonx_ai.foundation_models.utils import Tool, Toolkit
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
+from ibm_watsonx_ai.foundation_models.utils import Tool, Toolkit  # type: ignore
 from langchain_core.callbacks import CallbackManagerForToolRun
-from langchain_core.messages import ToolCall
-from langchain_core.runnables import RunnableConfig
 from langchain_core.tools.base import BaseTool, BaseToolkit
 from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
@@ -32,11 +20,12 @@ from langchain_ibm.utils import check_for_attribute
 
 
 class ToolSchema(BaseModel):
-    input: Union[str, dict] = Field()
+    input: Union[str, dict]
     """Input to be used when running a tool."""
 
-    config: Optional[dict] = Field(default=None)
-    """Configuration options that can be passed for some tools, must match the config schema for the tool."""
+    config: Optional[dict] = None
+    """Configuration options that can be passed for some tools, 
+    must match the config schema for the tool."""
 
 
 class WatsonxTool(BaseTool):
@@ -49,12 +38,13 @@ class WatsonxTool(BaseTool):
     """Description of what the tool is used for."""
 
     agent_description: Optional[str] = None
-    """The precise instruction to agent LLMs and should be treated as part of the system prompt."""
+    """The precise instruction to agent LLMs 
+    and should be treated as part of the system prompt."""
 
-    in_schema: Optional[Dict] = None
+    tool_input_schema: Optional[Dict] = None
     """Schema of the input that is provided when running the tool if applicable."""
 
-    conf_schema: Optional[Dict] = None
+    tool_config_schema: Optional[Dict] = None
     """Schema of the config that can be provided when running the tool if applicable."""
 
     args_schema: Type[BaseModel] = ToolSchema
@@ -63,8 +53,6 @@ class WatsonxTool(BaseTool):
 
     watsonx_client: APIClient = Field(exclude=True)
 
-    # class BaseToolSchema(BaseModel):
-
     @model_validator(mode="after")
     def validate_tool(self) -> Self:
         self.watsonx_tool = Tool(
@@ -72,8 +60,8 @@ class WatsonxTool(BaseTool):
             name=self.name,
             description=self.description,
             agent_description=self.agent_description,
-            input_schema=self.in_schema,
-            config_schema=self.conf_schema,
+            input_schema=self.tool_input_schema,
+            config_schema=self.tool_config_schema,
         )
         return self
 
@@ -89,8 +77,6 @@ class WatsonxTool(BaseTool):
 
 class WatsonxToolkit(BaseToolkit):
     """IBM watsonx.ai Toolkit."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     project_id: Optional[str] = None
     """ID of the watsonx.ai Studio project."""
@@ -124,6 +110,8 @@ class WatsonxToolkit(BaseToolkit):
     watsonx_toolkit: Toolkit = Field(default=None, exclude=True)  #: :meta private:
 
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
@@ -165,10 +153,9 @@ class WatsonxToolkit(BaseToolkit):
 
         return self
 
-    def get_tools(self) -> list[WatsonxTool]:
+    def get_tools(self) -> list[WatsonxTool]:  # type: ignore
         """Get the tools in the toolkit."""
         tools = self.watsonx_toolkit.get_tools()
-        print(f"\nTools:\n{tools}")
 
         return [
             WatsonxTool(
@@ -176,8 +163,8 @@ class WatsonxToolkit(BaseToolkit):
                 name=tool["name"],
                 description=tool["description"],
                 agent_description=tool.get("agent_description"),
-                in_schema=tool.get("input_schema"),
-                conf_schema=tool.get("config_schema"),
+                tool_input_schema=tool.get("input_schema"),
+                tool_config_schema=tool.get("config_schema"),
             )
             for tool in tools
         ]
