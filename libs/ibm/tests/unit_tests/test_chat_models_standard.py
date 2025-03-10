@@ -3,7 +3,7 @@ from typing import Type
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.service_instance import ServiceInstance  # type: ignore
 from langchain_core.language_models import BaseChatModel
-from langchain_standard_tests.unit_tests import ChatModelUnitTests
+from langchain_tests.unit_tests.chat_models import ChatModelUnitTests
 
 from langchain_ibm import ChatWatsonx
 
@@ -14,6 +14,8 @@ credentials = Credentials(api_key="api_key")
 client.credentials = credentials
 client.service_instance = ServiceInstance.__new__(ServiceInstance)
 client.service_instance._credentials = credentials
+client.default_space_id = None
+client.default_project_id = None
 
 
 class TestWatsonxStandard(ChatModelUnitTests):

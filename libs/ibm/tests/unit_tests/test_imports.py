@@ -6,6 +6,7 @@ EXPECTED_ALL = [
     "ChatWatsonx",
     "WatsonxRerank",
     "WatsonxToolkit",
+    "WatsonxTool",
 ]
 
 

@@ -134,7 +134,7 @@ class WatsonxToolkit(BaseToolkit):
                     )
             else:
                 raise ValueError(
-                    "Did not find '.cloud.ibm.com' in the URL. "
+                    "Did not find '.cloud.ibm.com' in the url. "
                     "Note that `WatsonxToolkit` is supported only on Cloud."
                 )
 
