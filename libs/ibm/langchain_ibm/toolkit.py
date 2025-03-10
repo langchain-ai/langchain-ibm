@@ -76,7 +76,45 @@ class WatsonxTool(BaseTool):
 
 
 class WatsonxToolkit(BaseToolkit):
-    """IBM watsonx.ai Toolkit."""
+    """IBM watsonx.ai Toolkit.
+
+    .. dropdown:: Setup
+        :open:
+
+        To use, you should have ``langchain_ibm`` python package installed,
+        and the environment variable ``WATSONX_APIKEY`` set with your API key, or pass
+        it as a named parameter to the constructor.
+
+        .. code-block:: bash
+
+            pip install -U langchain-ibm
+            export WATSONX_APIKEY="your-api-key"
+
+
+    Example:
+        .. code-block:: python
+
+            from langchain_ibm import WatsonxToolkit
+
+            watsonx_toolkit = WatsonxToolkit(
+                url="https://us-south.ml.cloud.ibm.com",
+                apikey="*****",
+                project_id="*****",
+            )
+            tools = watsonx_toolkit.get_tools()
+
+            google_search = watsonx_toolkit.get_tool("GoogleSearch")
+
+            config = {
+                "maxResults": 3,
+            }
+            input = {
+                "input": "Search IBM",
+                "config": config,
+            }
+            search_result = google_search.invoke(input=input)
+
+    """
 
     project_id: Optional[str] = None
     """ID of the watsonx.ai Studio project."""
