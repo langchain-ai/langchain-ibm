@@ -461,18 +461,18 @@ ibm-cos-sdk-core = "2.13.5"
 
 [[package]]
 name = "ibm-watsonx-ai"
-version = "1.2.7"
+version = "1.2.10"
 description = "IBM watsonx.ai API Client"
 optional = false
 python-versions = "<3.13,>=3.10"
 files = [
-    {file = "ibm_watsonx_ai-1.2.7-py3-none-any.whl", hash = "sha256:aa4f0f06600e7b63f8ecfc5ef730492a04ff3bc75bfe46bc538180d51d42f3cb"},
-    {file = "ibm_watsonx_ai-1.2.7.tar.gz", hash = "sha256:a402fddd4e16b6c6ad47046f476ad312ddb2fc01428fb25f0dedf2f2f0a8b542"},
+    {file = "ibm_watsonx_ai-1.2.10-py3-none-any.whl", hash = "sha256:a1b78a69a5d85987c607e807ce912d4262c383ac823e4de8f31fbd63422387b5"},
+    {file = "ibm_watsonx_ai-1.2.10.tar.gz", hash = "sha256:817882b0304d425e86076cc9cbd8c8606c003629f65c8d3d7366043bff7e4e32"},
 ]
 
 [package.dependencies]
 certifi = "*"
-httpx = "*"
+httpx = ">=0.27,<=0.28"
 ibm-cos-sdk = ">=2.12.0,<2.14.0"
 importlib-metadata = "*"
 lomond = "*"
@@ -575,13 +575,13 @@ files = [
 
 [[package]]
 name = "langchain-core"
-version = "0.3.35"
+version = "0.3.44"
 description = "Building applications with LLMs through composability"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "langchain_core-0.3.35-py3-none-any.whl", hash = "sha256:81a4097226e180fa6c64e2d2ab38dcacbbc23b64fc109fb15622910fe8951670"},
-    {file = "langchain_core-0.3.35.tar.gz", hash = "sha256:328688228ece259da734417d477994a69cf8202dea9ed4271f2d792e3575c6fc"},
+    {file = "langchain_core-0.3.44-py3-none-any.whl", hash = "sha256:d989ce8bd62f1d07765acd575e6ec1254aec0cf7775aaea39fe4af8102377459"},
+    {file = "langchain_core-0.3.44.tar.gz", hash = "sha256:7c0a01e78360f007cbca448178fe7e032404068e6431dbe8ce905f84febbdfa5"},
 ]
 
 [package.dependencies]
@@ -615,18 +615,19 @@ syrupy = ">=4,<5"
 
 [[package]]
 name = "langsmith"
-version = "0.3.8"
+version = "0.3.13"
 description = "Client library to connect to the LangSmith LLM Tracing and Evaluation Platform."
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "langsmith-0.3.8-py3-none-any.whl", hash = "sha256:fbb9dd97b0f090219447fca9362698d07abaeda1da85aa7cc6ec6517b36581b1"},
-    {file = "langsmith-0.3.8.tar.gz", hash = "sha256:97f9bebe0b7cb0a4f278e6ff30ae7d5ededff3883b014442ec6d7d575b02a0f1"},
+    {file = "langsmith-0.3.13-py3-none-any.whl", hash = "sha256:73aaf52bbc293b9415fff4f6dad68df40658081eb26c9cb2c7bd1ff57cedd695"},
+    {file = "langsmith-0.3.13.tar.gz", hash = "sha256:14014058cff408772acb93344e03cb64174837292d5f1ae09b2c8c1d8df45e92"},
 ]
 
 [package.dependencies]
 httpx = ">=0.23.0,<1"
 orjson = {version = ">=3.9.14,<4.0.0", markers = "platform_python_implementation != \"PyPy\""}
+packaging = ">=23.2"
 pydantic = [
     {version = ">=1,<3", markers = "python_full_version < \"3.12.4\""},
     {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
@@ -1350,13 +1351,13 @@ files = [
 
 [[package]]
 name = "syrupy"
-version = "4.8.1"
+version = "4.9.0"
 description = "Pytest Snapshot Test Utility"
 optional = false
 python-versions = ">=3.8.1"
 files = [
-    {file = "syrupy-4.8.1-py3-none-any.whl", hash = "sha256:274f97cbaf44175f5e478a2f3a53559d31f41c66c6bf28131695f94ac893ea00"},
-    {file = "syrupy-4.8.1.tar.gz", hash = "sha256:8da8c0311e6d92de0b15767768c6ab98982b7b4a4c67083c08fbac3fbad4d44c"},
+    {file = "syrupy-4.9.0-py3-none-any.whl", hash = "sha256:3028d60188df9b39079678501be7d72fe64d32e2bb53d78df87f5a84bde94d76"},
+    {file = "syrupy-4.9.0.tar.gz", hash = "sha256:7bd822492a6fa9f6f98832c2ca24f513b3e69a5690f4b2166bdb3b3941eef767"},
 ]
 
 [package.dependencies]
@@ -1434,13 +1435,13 @@ files = [
 
 [[package]]
 name = "types-requests"
-version = "2.32.0.20241016"
+version = "2.32.0.20250306"
 description = "Typing stubs for requests"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 files = [
-    {file = "types-requests-2.32.0.20241016.tar.gz", hash = "sha256:0d9cad2f27515d0e3e3da7134a1b6f28fb97129d86b867f24d9c726452634d95"},
-    {file = "types_requests-2.32.0.20241016-py3-none-any.whl", hash = "sha256:4195d62d6d3e043a4eaaf08ff8a62184584d2e8684e9d2aa178c7915a7da3747"},
+    {file = "types_requests-2.32.0.20250306-py3-none-any.whl", hash = "sha256:25f2cbb5c8710b2022f8bbee7b2b66f319ef14aeea2f35d80f18c9dbf3b60a0b"},
+    {file = "types_requests-2.32.0.20250306.tar.gz", hash = "sha256:0962352694ec5b2f95fda877ee60a159abdf84a0fc6fdace599f20acb41a03d1"},
 ]
 
 [package.dependencies]
