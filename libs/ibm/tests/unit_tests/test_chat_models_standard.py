@@ -14,6 +14,8 @@ credentials = Credentials(api_key="api_key")
 client.credentials = credentials
 client.service_instance = ServiceInstance.__new__(ServiceInstance)
 client.service_instance._credentials = credentials
+client.default_space_id = None
+client.default_project_id = None
 
 
 class TestWatsonxStandard(ChatModelUnitTests):
