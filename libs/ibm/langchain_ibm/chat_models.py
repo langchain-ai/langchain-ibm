@@ -623,6 +623,7 @@ class ChatWatsonx(BaseChatModel):
         if isinstance(self.watsonx_client, APIClient):
             watsonx_model = ModelInference(
                 model_id=self.model_id,
+                deployment_id=self.deployment_id,
                 params=self.params,
                 api_client=self.watsonx_client,
                 project_id=self.project_id,
