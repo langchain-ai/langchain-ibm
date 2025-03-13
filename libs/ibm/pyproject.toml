@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langchain-ibm"
-version = "0.3.7"
+version = "0.3.8"
 description = "An integration package connecting IBM watsonx.ai and LangChain"
 authors = ["IBM"]
 readme = "README.md"
@@ -13,7 +13,7 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 langchain-core = ">=0.3.0,<0.4"
-ibm-watsonx-ai = "^1.1.16"
+ibm-watsonx-ai = "^1.2.10"
 
 [tool.poetry.group.test]
 optional = true
