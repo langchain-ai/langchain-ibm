@@ -172,8 +172,8 @@ class WatsonxToolkit(BaseToolkit):
                     )
             else:
                 raise ValueError(
-                    "Did not find '.cloud.ibm.com' in the url. "
-                    "Note that `WatsonxToolkit` is supported only on Cloud."
+                    "Invalid 'url'. Please note that WatsonxToolkit is supported "
+                    "only on Cloud and is not yet available for IBM Cloud Pak for Data."
                 )
 
             credentials = Credentials(

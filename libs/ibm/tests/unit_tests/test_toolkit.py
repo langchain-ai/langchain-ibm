@@ -21,7 +21,6 @@ def test_initialize_watsonx_toolkit_cloud_bad_path() -> None:
         WatsonxToolkit(url="https://us-south.ml.cloudXXX.ibm.com")  # type: ignore[arg-type]
     except ValueError as e:
         assert "url" in e.__str__()
-        assert ".cloud.ibm.com" in e.__str__()
 
 
 def test_initialize_watsonx_toolkit_cloud_bad_api_key() -> None:
