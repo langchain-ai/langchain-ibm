@@ -13,10 +13,6 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 URL = "https://us-south.ml.cloud.ibm.com"
 
 wx_credentials = Credentials(url=URL, api_key=WX_APIKEY)
-wx_client = APIClient(
-    credentials=wx_credentials,
-    project_id=WX_PROJECT_ID,
-)
 
 
 class TestWatsonxToolsStandard(ToolsIntegrationTests):
@@ -44,7 +40,10 @@ class TestWatsonxToolsStandard(ToolsIntegrationTests):
                     }
                 },
             },
-            "watsonx_client": wx_client,
+            "watsonx_client": APIClient(
+                credentials=wx_credentials,
+                project_id=WX_PROJECT_ID,
+            ),
         }
 
     @property
