@@ -2,7 +2,7 @@ from typing import Type
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.service_instance import ServiceInstance  # type: ignore
-from langchain_standard_tests.unit_tests.embeddings import EmbeddingsUnitTests
+from langchain_tests.unit_tests.embeddings import EmbeddingsUnitTests
 
 from langchain_ibm import WatsonxEmbeddings
 
@@ -13,6 +13,7 @@ credentials = Credentials(api_key="api_key")
 client.credentials = credentials
 client.service_instance = ServiceInstance.__new__(ServiceInstance)
 client.service_instance._credentials = credentials
+client._httpx_client = None
 
 
 class TestWatsonxEmbeddingsStandard(EmbeddingsUnitTests):

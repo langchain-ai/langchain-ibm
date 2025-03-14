@@ -3,7 +3,8 @@ from typing import Dict, List, Literal, Type
 
 import pytest
 from langchain_core.language_models import BaseChatModel
-from langchain_standard_tests.integration_tests import ChatModelIntegrationTests
+from langchain_core.tools import BaseTool
+from langchain_tests.integration_tests.chat_models import ChatModelIntegrationTests
 
 from langchain_ibm import ChatWatsonx
 
@@ -14,6 +15,7 @@ URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "mistralai/mistral-large"
 MODEL_ID_IMAGE = "meta-llama/llama-3-2-11b-vision-instruct"
+MODEL_ID_DOUBLE_MSG_CONV = "meta-llama/llama-3-1-8b-instruct"
 
 
 class TestChatWatsonxStandard(ChatModelIntegrationTests):
@@ -63,6 +65,11 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
             "temperature": 0,
         }
 
+    @property
+    def has_structured_output(self) -> bool:
+        # Required until there is no 'structured_output_format' in the output.
+        return False
+
     @pytest.mark.xfail(reason="Supported for vision model.")
     def test_image_inputs(self, model: BaseChatModel) -> None:
         model.watsonx_model._inference.model_id = MODEL_ID_IMAGE  # type: ignore[attr-defined]
@@ -70,5 +77,15 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
         model.watsonx_model._inference.model_id = MODEL_ID  # type: ignore[attr-defined]
 
     @pytest.mark.xfail(reason="Not implemented tool_choice as `any`.")
-    def test_structured_few_shot_examples(self, model: BaseChatModel) -> None:
-        super().test_structured_few_shot_examples(model)
+    def test_structured_few_shot_examples(
+        self, model: BaseChatModel, my_adder_tool: BaseTool
+    ) -> None:
+        super().test_structured_few_shot_examples(model, my_adder_tool)
+
+    @pytest.mark.xfail(
+        reason="Base model does not support double messages conversation."
+    )
+    def test_double_messages_conversation(self, model: BaseChatModel) -> None:
+        model.watsonx_model._inference.model_id = MODEL_ID_DOUBLE_MSG_CONV  # type: ignore[attr-defined]
+        super().test_double_messages_conversation(model)
+        model.watsonx_model._inference.model_id = MODEL_ID  # type: ignore[attr-defined]
