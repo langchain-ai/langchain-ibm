@@ -2,6 +2,7 @@ from copy import deepcopy
 from typing import Any, Dict, Optional, Union
 
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema  # type: ignore
+from ibm_watsonx_ai.foundation_models.utils import Tool  # type: ignore
 from pydantic import SecretStr
 
 
@@ -57,3 +58,34 @@ def check_duplicate_chat_params(params: dict, kwargs: dict) -> None:
             f"Duplicate parameters found in params and keyword arguments: "
             f"{list(duplicate_keys)}"
         )
+
+def convert_to_ibm_watsonx_tool(utility_tool: Tool) -> dict:
+
+    def parse_parameters(input_schema: dict | None) -> dict:
+        if input_schema:
+            parameters = deepcopy(input_schema)
+        else:
+            parameters = {
+                "type": "object",
+                "properties": {
+                    "input": {
+                        "description": "Input to be used when running tool.",
+                        "type": "string",
+                    },
+                },
+                "required": ["input"],
+            }
+
+        return parameters
+
+    tool = {
+        "type": "function",
+        "function": {
+            "name": utility_tool.name,
+            "description": utility_tool.description,
+            "parameters": parse_parameters(
+                utility_tool.input_schema
+            ),
+        },
+    }
+    return tool

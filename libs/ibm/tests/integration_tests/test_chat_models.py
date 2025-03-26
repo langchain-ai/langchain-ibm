@@ -17,12 +17,12 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
 from pydantic import BaseModel
 
-from langchain_ibm import ChatWatsonx
+from langchain_ibm import ChatWatsonx, WatsonxToolkit
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
-URL = "https://us-south.ml.cloud.ibm.com"
+URL = "https://yp-qa.ml.cloud.ibm.com" # "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/granite-34b-code-instruct"
 MODEL_ID_TOOL = "mistralai/mistral-large"
@@ -526,6 +526,163 @@ def test_23_bind_tools_list_tool_choice_auto() -> None:
     resp = chat_with_tools.invoke(query)
     assert resp.content
     assert len(resp.tool_calls) == 0  # type: ignore
+
+def test_24a_bind_watsonx_tools() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    toolkit = WatsonxToolkit(
+        url=URL,
+    )
+    weather_tool = toolkit.get_tool("Weather")
+
+    tools = [
+        weather_tool
+    ]
+
+    llm_with_tools = chat.bind_tools(tools=tools)
+
+    response = llm_with_tools.invoke("what's the weather in san francisco, ca")
+    assert isinstance(response, AIMessage)
+    assert not response.content
+    assert isinstance(response.tool_calls, list)
+    assert len(response.tool_calls) == 1
+    tool_call = response.tool_calls[0]
+    assert tool_call["name"] == "Weather"
+    assert isinstance(tool_call["args"], dict)
+    assert "location" in tool_call["args"]
+
+def test_24b_bind_watsonx_tools_tool_choice_auto() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+
+    toolkit = WatsonxToolkit(
+        url=URL,
+    )
+    weather_tool = toolkit.get_tool("Weather")
+
+    tools = [
+        weather_tool
+    ]
+
+    llm_with_tools = chat.bind_tools(tools=tools, tool_choice="auto")
+
+    response = llm_with_tools.invoke("what's the weather in san francisco, ca")
+    assert isinstance(response, AIMessage)
+    assert not response.content
+    assert isinstance(response.tool_calls, list)
+    assert len(response.tool_calls) == 1
+    tool_call = response.tool_calls[0]
+    assert tool_call["name"] == "Weather"
+    assert isinstance(tool_call["args"], dict)
+    assert "location" in tool_call["args"]
+
+def test_25a_bind_watsonx_tools_tool_choice_as_dict() -> None:
+    """Test that tool choice is respected just passing in True."""
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
+    )
+
+    toolkit = WatsonxToolkit(
+        url=URL,
+    )
+    weather_tool = toolkit.get_tool("Weather")
+
+    tools = [
+        weather_tool
+    ]
+
+    tool_choice = {"type": "function", "function": {"name": "Weather"}}
+
+    with_tool = chat.bind_tools(tools, tool_choice=tool_choice)
+
+    result = with_tool.invoke("What's the weather in Boston?")
+    assert isinstance(result, AIMessage)
+    assert result.content == ""  # should just be tool call
+    tool_call = result.tool_calls[0]
+    assert tool_call["name"] == "Weather"
+    assert tool_call["args"] == {
+        "location": "Boston",
+    }
+
+def test_26a_bind_watsonx_tools_list_tool_choice_auto() -> None:
+    """Test that tool choice is respected just passing in True."""
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
+    )
+
+    toolkit = WatsonxToolkit(
+        url=URL,
+    )
+    weather_tool = toolkit.get_tool("Weather")
+    google_search_tool = toolkit.get_tool("GoogleSearch")
+
+    tools = [weather_tool, google_search_tool]
+    chat_with_tools = chat.bind_tools(tools, tool_choice="auto")
+
+    query = "What is the weather in Boston?"
+    resp = chat_with_tools.invoke(query)
+    assert resp.content == ""
+    assert len(resp.tool_calls) == 1  # type: ignore
+    tool_call = resp.tool_calls[0]  # type: ignore
+    assert tool_call["name"] == "Weather"
+
+    query = "Search for IBM"
+    resp = chat_with_tools.invoke(query)
+    assert resp.content == ""
+    assert len(resp.tool_calls) == 1  # type: ignore
+    tool_call = resp.tool_calls[0]  # type: ignore
+    assert tool_call["name"] == "GoogleSearch"
+
+    query = "How are you doing?"
+    resp = chat_with_tools.invoke(query)
+    assert resp.content
+    assert len(resp.tool_calls) == 0  # type: ignore
+
+
+def test_26b_bind_watsonx_tools_list_tool_choice_dict() -> None:
+    """Test that tool choice is respected just passing in True."""
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
+    )
+
+    toolkit = WatsonxToolkit(
+        url=URL,
+    )
+    weather_tool = toolkit.get_tool("Weather")
+    google_search_tool = toolkit.get_tool("GoogleSearch")
+
+    tools = [weather_tool, google_search_tool]
+
+    tool_choice = {
+        "type": "function",
+        "function": {
+            "name": "GoogleSearch",
+        },
+    }
+
+    chat_with_tools = chat.bind_tools(tools, tool_choice=tool_choice)
+
+    query = "What is the weather in Boston?"
+    resp = chat_with_tools.invoke(query)
+    assert resp.content == ""
+    assert len(resp.tool_calls) == 1  # type: ignore
+    tool_call = resp.tool_calls[0]  # type: ignore
+    assert tool_call["name"] == "GoogleSearch"
 
 
 def test_json_mode() -> None:
