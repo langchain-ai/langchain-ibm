@@ -166,9 +166,9 @@ class WatsonxToolkit(BaseToolkit):
             config = {
                 "maxResults": 3,
             }
+            google_search.set_config(config)
             input = {
                 "input": "Search IBM",
-                "config": config,
             }
             search_result = google_search.invoke(input=input)
 
