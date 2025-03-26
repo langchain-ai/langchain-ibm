@@ -2,12 +2,12 @@
 
 import urllib.parse
 from typing import (
+    Any,
     Dict,
     List,
     Optional,
     Type,
     Union,
-    Any,
 )
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
@@ -18,7 +18,14 @@ from ibm_watsonx_ai.foundation_models.utils import (
 from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.tools.base import BaseTool, BaseToolkit
 from langchain_core.utils.utils import secret_from_env
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator, create_model
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    create_model,
+    model_validator,
+)
 from typing_extensions import Self
 
 from langchain_ibm.utils import check_for_attribute, convert_to_ibm_watsonx_tool
@@ -38,7 +45,7 @@ def json_schema_to_pydantic_model(name: str, schema: Dict[str, Any]) -> BaseMode
             "number": float,
             "boolean": bool,
             "array": list,
-            "object": dict
+            "object": dict,
         }
         py_type = type_mapping.get(field_type, Any)
 
@@ -87,7 +94,9 @@ class WatsonxTool(BaseTool):
         )
         converted_tool = convert_to_ibm_watsonx_tool(self.watsonx_tool)
         json_schema = converted_tool["function"]["parameters"]
-        self.args_schema = json_schema_to_pydantic_model(name="ToolArgsSchema", schema=json_schema)
+        self.args_schema = json_schema_to_pydantic_model(
+            name="ToolArgsSchema", schema=json_schema
+        )
 
         return self
 
@@ -102,7 +111,9 @@ class WatsonxTool(BaseTool):
             input = kwargs.get("input") or args[0]
         else:
             input = {
-                k: v for k, v in kwargs.items() if k in self.tool_input_schema["properties"]
+                k: v
+                for k, v in kwargs.items()
+                if k in self.tool_input_schema["properties"]
             }
 
         return self.watsonx_tool.run(input, self.config)

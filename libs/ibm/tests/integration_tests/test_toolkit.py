@@ -10,7 +10,7 @@ from langchain_ibm import WatsonxToolkit
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 
-URL = "https://yp-qa.ml.cloud.ibm.com" # "https://us-south.ml.cloud.ibm.com"
+URL = "https://us-south.ml.cloud.ibm.com"
 
 TOOL_NAME_1 = "GoogleSearch"
 TOOL_NAME_2 = "Weather"

@@ -22,7 +22,7 @@ from langchain_ibm import ChatWatsonx, WatsonxToolkit
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
-URL = "https://yp-qa.ml.cloud.ibm.com" # "https://us-south.ml.cloud.ibm.com"
+URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/granite-34b-code-instruct"
 MODEL_ID_TOOL = "mistralai/mistral-large"
@@ -527,6 +527,7 @@ def test_23_bind_tools_list_tool_choice_auto() -> None:
     assert resp.content
     assert len(resp.tool_calls) == 0  # type: ignore
 
+
 def test_24a_bind_watsonx_tools() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -538,9 +539,7 @@ def test_24a_bind_watsonx_tools() -> None:
     )
     weather_tool = toolkit.get_tool("Weather")
 
-    tools = [
-        weather_tool
-    ]
+    tools = [weather_tool]
 
     llm_with_tools = chat.bind_tools(tools=tools)
 
@@ -554,6 +553,7 @@ def test_24a_bind_watsonx_tools() -> None:
     assert isinstance(tool_call["args"], dict)
     assert "location" in tool_call["args"]
 
+
 def test_24b_bind_watsonx_tools_tool_choice_auto() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -566,9 +566,7 @@ def test_24b_bind_watsonx_tools_tool_choice_auto() -> None:
     )
     weather_tool = toolkit.get_tool("Weather")
 
-    tools = [
-        weather_tool
-    ]
+    tools = [weather_tool]
 
     llm_with_tools = chat.bind_tools(tools=tools, tool_choice="auto")
 
@@ -581,6 +579,7 @@ def test_24b_bind_watsonx_tools_tool_choice_auto() -> None:
     assert tool_call["name"] == "Weather"
     assert isinstance(tool_call["args"], dict)
     assert "location" in tool_call["args"]
+
 
 def test_25a_bind_watsonx_tools_tool_choice_as_dict() -> None:
     """Test that tool choice is respected just passing in True."""
@@ -596,9 +595,7 @@ def test_25a_bind_watsonx_tools_tool_choice_as_dict() -> None:
     )
     weather_tool = toolkit.get_tool("Weather")
 
-    tools = [
-        weather_tool
-    ]
+    tools = [weather_tool]
 
     tool_choice = {"type": "function", "function": {"name": "Weather"}}
 
@@ -612,6 +609,7 @@ def test_25a_bind_watsonx_tools_tool_choice_as_dict() -> None:
     assert tool_call["args"] == {
         "location": "Boston",
     }
+
 
 def test_26a_bind_watsonx_tools_list_tool_choice_auto() -> None:
     """Test that tool choice is respected just passing in True."""
