@@ -89,7 +89,7 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
     # All params values are taken from
     # ibm_watsonx_ai.foundation_models.schema.TextChatParameters.get_sample_params()
 
-    from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-not-found]
+    from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-not-found, import-untyped]
         TextChatParameters,
     )
 
