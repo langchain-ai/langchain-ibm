@@ -11,10 +11,10 @@ from typing import (
 )
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
-from ibm_watsonx_ai.foundation_models.utils import (
+from ibm_watsonx_ai.foundation_models.utils import (  # type: ignore
     Tool,
     Toolkit,
-)  # type: ignore
+)
 from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.tools.base import BaseTool, BaseToolkit
 from langchain_core.utils.utils import secret_from_env
@@ -31,7 +31,7 @@ from typing_extensions import Self
 from langchain_ibm.utils import check_for_attribute, convert_to_ibm_watsonx_tool
 
 
-def json_schema_to_pydantic_model(name: str, schema: Dict[str, Any]) -> BaseModel:
+def json_schema_to_pydantic_model(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
     properties = schema.get("properties", {})
     fields = {}
 
@@ -51,7 +51,7 @@ def json_schema_to_pydantic_model(name: str, schema: Dict[str, Any]) -> BaseMode
 
         fields[field_name] = (py_type, ... if is_required else None)
 
-    return create_model(name, **fields)
+    return create_model(name, **fields)  # type: ignore[call-overload]
 
 
 class WatsonxTool(BaseTool):
@@ -102,9 +102,9 @@ class WatsonxTool(BaseTool):
 
     def _run(
         self,
-        *args,
+        *args: Any,
         run_manager: Optional[CallbackManagerForToolRun] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict:
         """Run the tool."""
         if self.tool_input_schema is None:
@@ -118,7 +118,7 @@ class WatsonxTool(BaseTool):
 
         return self.watsonx_tool.run(input, self.config)
 
-    def set_config(self, config: dict):
+    def set_config(self, config: dict) -> None:
         """Set config properties.
 
         Example:

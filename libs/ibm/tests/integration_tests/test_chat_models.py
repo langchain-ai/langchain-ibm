@@ -535,7 +535,7 @@ def test_24a_bind_watsonx_tools() -> None:
         project_id=WX_PROJECT_ID,
     )
     toolkit = WatsonxToolkit(
-        url=URL,
+        url=URL,  # type: ignore[arg-type]
     )
     weather_tool = toolkit.get_tool("Weather")
 
@@ -562,7 +562,7 @@ def test_24b_bind_watsonx_tools_tool_choice_auto() -> None:
     )
 
     toolkit = WatsonxToolkit(
-        url=URL,
+        url=URL,  # type: ignore[arg-type]
     )
     weather_tool = toolkit.get_tool("Weather")
 
@@ -591,7 +591,7 @@ def test_25a_bind_watsonx_tools_tool_choice_as_dict() -> None:
     )
 
     toolkit = WatsonxToolkit(
-        url=URL,
+        url=URL,  # type: ignore[arg-type]
     )
     weather_tool = toolkit.get_tool("Weather")
 
@@ -621,7 +621,7 @@ def test_26a_bind_watsonx_tools_list_tool_choice_auto() -> None:
     )
 
     toolkit = WatsonxToolkit(
-        url=URL,
+        url=URL,  # type: ignore[arg-type]
     )
     weather_tool = toolkit.get_tool("Weather")
     google_search_tool = toolkit.get_tool("GoogleSearch")
@@ -659,7 +659,7 @@ def test_26b_bind_watsonx_tools_list_tool_choice_dict() -> None:
     )
 
     toolkit = WatsonxToolkit(
-        url=URL,
+        url=URL,  # type: ignore[arg-type]
     )
     weather_tool = toolkit.get_tool("Weather")
     google_search_tool = toolkit.get_tool("GoogleSearch")
