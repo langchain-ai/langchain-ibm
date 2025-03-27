@@ -1,6 +1,7 @@
 """IBM watsonx.ai Toolkit wrapper."""
 
 import urllib.parse
+from copy import deepcopy
 from typing import (
     Any,
     Dict,
@@ -28,31 +29,7 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute, convert_to_watsonx_tool
-
-
-def json_schema_to_pydantic_model(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
-    properties = schema.get("properties", {})
-    fields = {}
-
-    type_mapping = {
-        "string": str,
-        "integer": int,
-        "number": float,
-        "boolean": bool,
-        "array": list,
-        "object": dict,
-    }
-
-    for field_name, field_schema in properties.items():
-        field_type = field_schema.get("type", "string")
-        is_required = field_name in schema.get("required", [])
-
-        py_type = type_mapping.get(field_type, Any)
-
-        fields[field_name] = (py_type, ... if is_required else None)
-
-    return create_model(name, **fields)  # type: ignore[call-overload]
+from langchain_ibm.utils import check_for_attribute
 
 
 class WatsonxTool(BaseTool):
@@ -93,7 +70,7 @@ class WatsonxTool(BaseTool):
             input_schema=self.tool_input_schema,
             config_schema=self.tool_config_schema,
         )
-        converted_tool = convert_to_watsonx_tool(self.watsonx_tool)
+        converted_tool = convert_to_watsonx_tool(self)
         json_schema = converted_tool["function"]["parameters"]
         self.args_schema = json_schema_to_pydantic_model(
             name="ToolArgsSchema", schema=json_schema
@@ -278,3 +255,102 @@ class WatsonxToolkit(BaseToolkit):
             if tool.name == tool_name:
                 return tool
         raise ValueError(f"A tool with the given name ({tool_name}) was not found.")
+
+
+def json_schema_to_pydantic_model(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
+    properties = schema.get("properties", {})
+    fields = {}
+
+    type_mapping = {
+        "string": str,
+        "integer": int,
+        "number": float,
+        "boolean": bool,
+        "array": list,
+        "object": dict,
+    }
+
+    for field_name, field_schema in properties.items():
+        field_type = field_schema.get("type", "string")
+        is_required = field_name in schema.get("required", [])
+
+        py_type = type_mapping.get(field_type, Any)
+
+        fields[field_name] = (py_type, ... if is_required else None)
+
+    return create_model(name, **fields)  # type: ignore[call-overload]
+
+
+def convert_to_watsonx_tool(tool: WatsonxTool) -> dict:
+    """Convert `WatsonxTool` to watsonx tool structure.
+
+    Args:
+        tool: `WatsonxTool` from `WatsonxToolkit`
+
+
+    Example:
+
+    .. code-block:: python
+
+        from langchain_ibm import WatsonxToolkit
+
+        watsonx_toolkit = WatsonxToolkit(
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="*****",
+        )
+        weather_tool = watsonx_toolkit.get_tool("Weather")
+        convert_to_watsonx_tool(weather_tool)
+
+        # Return
+        # {
+        #     "type": "function",
+        #     "function": {
+        #         "name": "Weather",
+        #         "description": "Find the weather for a city.",
+        #         "parameters": {
+        #             "type": "object",
+        #             "properties": {
+        #                 "location": {
+        #                     "title": "location",
+        #                     "description": "Name of the location",
+        #                     "type": "string",
+        #                 },
+        #                 "country": {
+        #                     "title": "country",
+        #                     "description": "Name of the state or country",
+        #                     "type": "string",
+        #                 },
+        #             },
+        #             "required": ["location"],
+        #         },
+        #     },
+        # }
+
+    """
+
+    def parse_parameters(input_schema: dict | None) -> dict:
+        if input_schema:
+            parameters = deepcopy(input_schema)
+        else:
+            parameters = {
+                "type": "object",
+                "properties": {
+                    "input": {
+                        "description": "Input to be used when running tool.",
+                        "type": "string",
+                    },
+                },
+                "required": ["input"],
+            }
+
+        return parameters
+
+    watsonx_tool = {
+        "type": "function",
+        "function": {
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": parse_parameters(tool.tool_input_schema),
+        },
+    }
+    return watsonx_tool
