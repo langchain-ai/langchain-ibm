@@ -53,7 +53,7 @@ def test_04_invoke_tool_with_config_schema() -> None:
     config = {
         "maxResults": 3,
     }
-    tool.set_config(config)
+    tool.set_tool_config(config)
 
     tool_input = {
         "input": "Search IBM",

@@ -28,25 +28,26 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute, convert_to_ibm_watsonx_tool
+from langchain_ibm.utils import check_for_attribute, convert_to_watsonx_tool
 
 
 def json_schema_to_pydantic_model(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
     properties = schema.get("properties", {})
     fields = {}
 
+    type_mapping = {
+        "string": str,
+        "integer": int,
+        "number": float,
+        "boolean": bool,
+        "array": list,
+        "object": dict,
+    }
+
     for field_name, field_schema in properties.items():
         field_type = field_schema.get("type", "string")
         is_required = field_name in schema.get("required", [])
 
-        type_mapping = {
-            "string": str,
-            "integer": int,
-            "number": float,
-            "boolean": bool,
-            "array": list,
-            "object": dict,
-        }
         py_type = type_mapping.get(field_type, Any)
 
         fields[field_name] = (py_type, ... if is_required else None)
@@ -73,12 +74,12 @@ class WatsonxTool(BaseTool):
     tool_config_schema: Optional[Dict] = None
     """Schema of the config that can be provided when running the tool if applicable."""
 
-    config: Optional[Dict] = None
+    tool_config: Optional[Dict] = None
     """Config properties to be used when running a tool if applicable."""
 
     args_schema: Type[BaseModel] = BaseModel
 
-    watsonx_tool: Tool = Field(default=None, exclude=True)  #: :meta private:
+    watsonx_tool: Optional[Tool] = Field(default=None, exclude=True)  #: :meta private:
 
     watsonx_client: APIClient = Field(exclude=True)
 
@@ -92,7 +93,7 @@ class WatsonxTool(BaseTool):
             input_schema=self.tool_input_schema,
             config_schema=self.tool_config_schema,
         )
-        converted_tool = convert_to_ibm_watsonx_tool(self.watsonx_tool)
+        converted_tool = convert_to_watsonx_tool(self.watsonx_tool)
         json_schema = converted_tool["function"]["parameters"]
         self.args_schema = json_schema_to_pydantic_model(
             name="ToolArgsSchema", schema=json_schema
@@ -116,22 +117,23 @@ class WatsonxTool(BaseTool):
                 if k in self.tool_input_schema["properties"]
             }
 
-        return self.watsonx_tool.run(input, self.config)
+        return self.watsonx_tool.run(input, self.tool_config)  # type: ignore[union-attr]
 
-    def set_config(self, config: dict) -> None:
-        """Set config properties.
+    def set_tool_config(self, tool_config: dict) -> None:
+        """Set tool config properties.
 
         Example:
         .. code-block:: python
 
             google_search = watsonx_toolkit.get_tool("GoogleSearch")
-            config = {
+            print(google_search.tool_config_schema)
+            tool_config = {
                 "maxResults": 3
             }
-            google_search.set_config(config)
+            google_search.set_tool_config(tool_config)
 
         """
-        self.config = config
+        self.tool_config = tool_config
 
 
 class WatsonxToolkit(BaseToolkit):
@@ -161,16 +163,16 @@ class WatsonxToolkit(BaseToolkit):
             )
             tools = watsonx_toolkit.get_tools()
 
-            google_search = watsonx_toolkit.get_tool("GoogleSearch")
+            google_search = watsonx_toolkit.get_tool(tool_name="GoogleSearch")
 
-            config = {
+            tool_config = {
                 "maxResults": 3,
             }
-            google_search.set_config(config)
+            google_search.set_tool_config(tool_config)
             input = {
                 "input": "Search IBM",
             }
-            search_result = google_search.invoke(input=input)
+            search_result = google_search.invoke(input)
 
     """
 
@@ -206,7 +208,9 @@ class WatsonxToolkit(BaseToolkit):
     tools: List[WatsonxTool] = []
     """Tools in the toolkit."""
 
-    watsonx_toolkit: Toolkit = Field(default=None, exclude=True)  #: :meta private:
+    watsonx_toolkit: Optional[Toolkit] = Field(
+        default=None, exclude=True
+    )  #: :meta private:
 
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 

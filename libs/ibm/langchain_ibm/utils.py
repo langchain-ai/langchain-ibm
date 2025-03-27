@@ -60,7 +60,7 @@ def check_duplicate_chat_params(params: dict, kwargs: dict) -> None:
         )
 
 
-def convert_to_ibm_watsonx_tool(utility_tool: Tool) -> dict:
+def convert_to_watsonx_tool(utility_tool: Tool) -> dict:
     def parse_parameters(input_schema: dict | None) -> dict:
         if input_schema:
             parameters = deepcopy(input_schema)
