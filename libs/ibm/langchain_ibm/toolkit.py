@@ -22,6 +22,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     SecretStr,
     create_model,
     model_validator,
@@ -55,13 +56,13 @@ class WatsonxTool(BaseTool):
 
     args_schema: Type[BaseModel] = BaseModel
 
-    watsonx_tool: Optional[Tool] = Field(default=None, exclude=True)  #: :meta private:
+    _watsonx_tool: Optional[Tool] = PrivateAttr(default=None)  #: :meta private:
 
     watsonx_client: APIClient = Field(exclude=True)
 
     @model_validator(mode="after")
     def validate_tool(self) -> Self:
-        self.watsonx_tool = Tool(
+        self._watsonx_tool = Tool(
             api_client=self.watsonx_client,
             name=self.name,
             description=self.description,
@@ -93,7 +94,7 @@ class WatsonxTool(BaseTool):
                 if k in self.tool_input_schema["properties"]
             }
 
-        return self.watsonx_tool.run(input, self.tool_config)  # type: ignore[union-attr]
+        return self._watsonx_tool.run(input, self.tool_config)  # type: ignore[union-attr]
 
     def set_tool_config(self, tool_config: dict) -> None:
         """Set tool config properties.
@@ -181,12 +182,10 @@ class WatsonxToolkit(BaseToolkit):
         * True - default path to truststore will be taken
         * False - no verification will be made"""
 
-    tools: Optional[List[WatsonxTool]] = None
+    _tools: Optional[List[WatsonxTool]] = None
     """Tools in the toolkit."""
 
-    watsonx_toolkit: Optional[Toolkit] = Field(
-        default=None, exclude=True
-    )  #: :meta private:
+    _watsonx_toolkit: Optional[Toolkit] = PrivateAttr(default=None)  #: :meta private:
 
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 
@@ -196,7 +195,7 @@ class WatsonxToolkit(BaseToolkit):
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
         if isinstance(self.watsonx_client, APIClient):
-            self.watsonx_toolkit = Toolkit(self.watsonx_client)
+            self._watsonx_toolkit = Toolkit(self.watsonx_client)
         else:
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
@@ -228,9 +227,9 @@ class WatsonxToolkit(BaseToolkit):
                 project_id=self.project_id,
                 space_id=self.space_id,
             )
-            self.watsonx_toolkit = Toolkit(self.watsonx_client)
+            self._watsonx_toolkit = Toolkit(self.watsonx_client)
 
-        self.tools = [
+        self._tools = [
             WatsonxTool(
                 watsonx_client=self.watsonx_client,
                 name=tool["name"],
@@ -239,14 +238,14 @@ class WatsonxToolkit(BaseToolkit):
                 tool_input_schema=tool.get("input_schema"),
                 tool_config_schema=tool.get("config_schema"),
             )
-            for tool in self.watsonx_toolkit.get_tools()
+            for tool in self._watsonx_toolkit.get_tools()
         ]
 
         return self
 
     def get_tools(self) -> list[WatsonxTool]:  # type: ignore
         """Get the tools in the toolkit."""
-        return self.tools  # type: ignore[return-value]
+        return self._tools  # type: ignore[return-value]
 
     def get_tool(self, tool_name: str) -> WatsonxTool:
         """Get the tool with a given name."""
