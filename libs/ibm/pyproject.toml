@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langchain-ibm"
-version = "0.3.8"
+version = "0.3.9"
 description = "An integration package connecting IBM watsonx.ai and LangChain"
 authors = ["IBM"]
 readme = "README.md"
