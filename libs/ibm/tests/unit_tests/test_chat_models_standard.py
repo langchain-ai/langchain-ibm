@@ -17,6 +17,7 @@ client.service_instance._credentials = credentials
 client.default_space_id = None
 client.default_project_id = None
 client._httpx_client = None
+client._async_httpx_client = None
 
 
 class TestWatsonxStandard(ChatModelUnitTests):

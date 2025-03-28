@@ -2,30 +2,34 @@
 
 import urllib.parse
 from typing import (
+    Any,
     Dict,
+    List,
     Optional,
     Type,
     Union,
 )
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
-from ibm_watsonx_ai.foundation_models.utils import Tool, Toolkit  # type: ignore
+from ibm_watsonx_ai.foundation_models.utils import (  # type: ignore
+    Tool,
+    Toolkit,
+)
 from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.tools.base import BaseTool, BaseToolkit
 from langchain_core.utils.utils import secret_from_env
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    SecretStr,
+    create_model,
+    model_validator,
+)
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute
-
-
-class ToolSchema(BaseModel):
-    input: Union[str, dict]
-    """Input to be used when running a tool."""
-
-    config: Optional[dict] = None
-    """Configuration options that can be passed for some tools, 
-    must match the config schema for the tool."""
+from langchain_ibm.utils import check_for_attribute, convert_to_watsonx_tool
 
 
 class WatsonxTool(BaseTool):
@@ -47,15 +51,18 @@ class WatsonxTool(BaseTool):
     tool_config_schema: Optional[Dict] = None
     """Schema of the config that can be provided when running the tool if applicable."""
 
-    args_schema: Type[BaseModel] = ToolSchema
+    tool_config: Optional[Dict] = None
+    """Config properties to be used when running a tool if applicable."""
 
-    watsonx_tool: Tool = Field(default=None, exclude=True)  #: :meta private:
+    args_schema: Type[BaseModel] = BaseModel
+
+    _watsonx_tool: Optional[Tool] = PrivateAttr(default=None)  #: :meta private:
 
     watsonx_client: APIClient = Field(exclude=True)
 
     @model_validator(mode="after")
     def validate_tool(self) -> Self:
-        self.watsonx_tool = Tool(
+        self._watsonx_tool = Tool(
             api_client=self.watsonx_client,
             name=self.name,
             description=self.description,
@@ -63,16 +70,47 @@ class WatsonxTool(BaseTool):
             input_schema=self.tool_input_schema,
             config_schema=self.tool_config_schema,
         )
+        converted_tool = convert_to_watsonx_tool(self)
+        json_schema = converted_tool["function"]["parameters"]
+        self.args_schema = json_schema_to_pydantic_model(
+            name="ToolArgsSchema", schema=json_schema
+        )
+
         return self
 
     def _run(
         self,
-        input: Union[str, dict],
-        config: Optional[dict] = None,
+        *args: Any,
         run_manager: Optional[CallbackManagerForToolRun] = None,
+        **kwargs: Any,
     ) -> dict:
         """Run the tool."""
-        return self.watsonx_tool.run(input, config)
+        if self.tool_input_schema is None:
+            input = kwargs.get("input") or args[0]
+        else:
+            input = {
+                k: v
+                for k, v in kwargs.items()
+                if k in self.tool_input_schema["properties"]
+            }
+
+        return self._watsonx_tool.run(input, self.tool_config)  # type: ignore[union-attr]
+
+    def set_tool_config(self, tool_config: dict) -> None:
+        """Set tool config properties.
+
+        Example:
+        .. code-block:: python
+
+            google_search = watsonx_toolkit.get_tool("GoogleSearch")
+            print(google_search.tool_config_schema)
+            tool_config = {
+                "maxResults": 3
+            }
+            google_search.set_tool_config(tool_config)
+
+        """
+        self.tool_config = tool_config
 
 
 class WatsonxToolkit(BaseToolkit):
@@ -99,20 +137,19 @@ class WatsonxToolkit(BaseToolkit):
             watsonx_toolkit = WatsonxToolkit(
                 url="https://us-south.ml.cloud.ibm.com",
                 apikey="*****",
-                project_id="*****",
             )
             tools = watsonx_toolkit.get_tools()
 
-            google_search = watsonx_toolkit.get_tool("GoogleSearch")
+            google_search = watsonx_toolkit.get_tool(tool_name="GoogleSearch")
 
-            config = {
+            tool_config = {
                 "maxResults": 3,
             }
+            google_search.set_tool_config(tool_config)
             input = {
                 "input": "Search IBM",
-                "config": config,
             }
-            search_result = google_search.invoke(input=input)
+            search_result = google_search.invoke(input)
 
     """
 
@@ -145,7 +182,10 @@ class WatsonxToolkit(BaseToolkit):
         * True - default path to truststore will be taken
         * False - no verification will be made"""
 
-    watsonx_toolkit: Toolkit = Field(default=None, exclude=True)  #: :meta private:
+    _tools: Optional[List[WatsonxTool]] = None
+    """Tools in the toolkit."""
+
+    _watsonx_toolkit: Optional[Toolkit] = PrivateAttr(default=None)  #: :meta private:
 
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 
@@ -155,7 +195,7 @@ class WatsonxToolkit(BaseToolkit):
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
         if isinstance(self.watsonx_client, APIClient):
-            self.watsonx_toolkit = Toolkit(self.watsonx_client)
+            self._watsonx_toolkit = Toolkit(self.watsonx_client)
         else:
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
@@ -187,15 +227,9 @@ class WatsonxToolkit(BaseToolkit):
                 project_id=self.project_id,
                 space_id=self.space_id,
             )
-            self.watsonx_toolkit = Toolkit(self.watsonx_client)
+            self._watsonx_toolkit = Toolkit(self.watsonx_client)
 
-        return self
-
-    def get_tools(self) -> list[WatsonxTool]:  # type: ignore
-        """Get the tools in the toolkit."""
-        tools = self.watsonx_toolkit.get_tools()
-
-        return [
+        self._tools = [
             WatsonxTool(
                 watsonx_client=self.watsonx_client,
                 name=tool["name"],
@@ -204,13 +238,42 @@ class WatsonxToolkit(BaseToolkit):
                 tool_input_schema=tool.get("input_schema"),
                 tool_config_schema=tool.get("config_schema"),
             )
-            for tool in tools
+            for tool in self._watsonx_toolkit.get_tools()
         ]
+
+        return self
+
+    def get_tools(self) -> list[WatsonxTool]:  # type: ignore
+        """Get the tools in the toolkit."""
+        return self._tools  # type: ignore[return-value]
 
     def get_tool(self, tool_name: str) -> WatsonxTool:
         """Get the tool with a given name."""
-        tools = self.get_tools()
-        for tool in tools:
+        for tool in self.get_tools():
             if tool.name == tool_name:
                 return tool
         raise ValueError(f"A tool with the given name ({tool_name}) was not found.")
+
+
+def json_schema_to_pydantic_model(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
+    properties = schema.get("properties", {})
+    fields = {}
+
+    type_mapping = {
+        "string": str,
+        "integer": int,
+        "number": float,
+        "boolean": bool,
+        "array": list,
+        "object": dict,
+    }
+
+    for field_name, field_schema in properties.items():
+        field_type = field_schema.get("type", "string")
+        is_required = field_name in schema.get("required", [])
+
+        py_type = type_mapping.get(field_type, Any)
+
+        fields[field_name] = (py_type, ... if is_required else None)
+
+    return create_model(name, **fields)  # type: ignore[call-overload]

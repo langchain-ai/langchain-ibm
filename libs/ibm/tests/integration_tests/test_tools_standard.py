@@ -56,7 +56,4 @@ class TestWatsonxToolsStandard(ToolsIntegrationTests):
         """
         return {
             "input": "Search IBM",
-            "config": {
-                "maxResults": 3,
-            },
         }
