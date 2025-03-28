@@ -181,7 +181,7 @@ class WatsonxToolkit(BaseToolkit):
         * True - default path to truststore will be taken
         * False - no verification will be made"""
 
-    tools: List[WatsonxTool] = []
+    tools: Optional[List[WatsonxTool]] = None
     """Tools in the toolkit."""
 
     watsonx_toolkit: Optional[Toolkit] = Field(
@@ -246,7 +246,7 @@ class WatsonxToolkit(BaseToolkit):
 
     def get_tools(self) -> list[WatsonxTool]:  # type: ignore
         """Get the tools in the toolkit."""
-        return self.tools
+        return self.tools  # type: ignore[return-value]
 
     def get_tool(self, tool_name: str) -> WatsonxTool:
         """Get the tool with a given name."""
