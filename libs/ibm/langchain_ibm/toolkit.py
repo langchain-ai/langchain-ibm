@@ -182,7 +182,7 @@ class WatsonxToolkit(BaseToolkit):
         * True - default path to truststore will be taken
         * False - no verification will be made"""
 
-    _tools: Optional[List[WatsonxTool]] = None
+    _tools: Optional[List["WatsonxTool"]] = None
     """Tools in the toolkit."""
 
     _watsonx_toolkit: Optional[Toolkit] = PrivateAttr(default=None)  #: :meta private:
