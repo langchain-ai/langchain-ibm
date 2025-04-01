@@ -273,10 +273,18 @@ class DB2VS(VectorStore):
           ids: Optional list of ids for the texts that are being added to
           the vector store.
           kwargs: vectorstore specific parameters
+        Return:
+          List of ids from adding the texts into the vectorstore.
         """
 
         texts = list(texts)
         if ids:
+            if len(ids) != len(texts):
+                msg = (
+                    f"ids must be the same length as texts. "
+                    f"Got {len(ids)} ids and {len(texts)} texts."
+                )
+                raise ValueError(msg)
             # If ids are provided, hash them to maintain consistency
             processed_ids = [
                 hashlib.sha256(_id.encode()).hexdigest()[:16].upper() for _id in ids
