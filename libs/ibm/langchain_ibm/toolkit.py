@@ -72,7 +72,7 @@ class WatsonxTool(BaseTool):
         )
         converted_tool = convert_to_watsonx_tool(self)
         json_schema = converted_tool["function"]["parameters"]
-        self.args_schema = json_schema_to_pydantic_model(
+        self.args_schema = _json_schema_to_pydantic_model(
             name="ToolArgsSchema", schema=json_schema
         )
 
@@ -255,7 +255,9 @@ class WatsonxToolkit(BaseToolkit):
         raise ValueError(f"A tool with the given name ({tool_name}) was not found.")
 
 
-def json_schema_to_pydantic_model(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
+def _json_schema_to_pydantic_model(
+    name: str, schema: Dict[str, Any]
+) -> Type[BaseModel]:
     properties = schema.get("properties", {})
     fields = {}
 
