@@ -278,6 +278,14 @@ class DB2VS(VectorStore):
         """
 
         texts = list(texts)
+
+        if metadatas and len(metadatas) != len(texts):
+            msg = (
+                f"metadatas must be the same length as texts. "
+                f"Got {len(metadatas)} metadatas and {len(texts)} texts."
+            )
+            raise ValueError(msg)
+        
         if ids:
             if len(ids) != len(texts):
                 msg = (
