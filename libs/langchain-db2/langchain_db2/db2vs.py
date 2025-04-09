@@ -351,12 +351,14 @@ class DB2VS(VectorStore):
         #     self.client.commit()
         
         cursor = self.client.cursor()
-        for doc in docs:
-            qu = f"INSERT INTO {self.table_name} (id, embedding, metadata, text) VALUES ('{doc[0]}', VECTOR('{doc[1]}', {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON('{doc[2]}'), '{doc[3]}')"
-            print(qu) #<<<<<<<<<<
-            cursor.execute(qu)
-        cursor.execute("COMMIT")
-        cursor.close()
+        try:
+            for doc in docs:
+                qu = f"INSERT INTO {self.table_name} (id, embedding, metadata, text) VALUES ('{doc[0]}', VECTOR('{doc[1]}', {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON('{doc[2]}'), '{doc[3]}')"
+                print(qu) #<<<<<<<<<<
+                cursor.execute(qu)
+            cursor.execute("COMMIT")
+        finally:
+            cursor.close()
         return processed_ids
 
     def similarity_search(
