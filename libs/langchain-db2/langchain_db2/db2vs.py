@@ -116,14 +116,15 @@ def _create_table(client: Connection, table_name: str, embedding_dim: int) -> No
     }
 
     if not _table_exists(client, table_name):
-        cursor = client.cursor()
-        try:    
-            ddl_body = ", ".join(
-                f"{col_name} {col_type}" for col_name, col_type in cols_dict.items()
-            )
-            ddl = f"CREATE TABLE {table_name} ({ddl_body})"
+        cursor = client.cursor()         
+        ddl_body = ", ".join(
+            f"{col_name} {col_type}" for col_name, col_type in cols_dict.items()
+        )
+        ddl = f"CREATE TABLE {table_name} ({ddl_body})"
+        try: 
             cursor.execute(ddl)
-            print(ddl) #<<<<<<<
+            cursor.execute("COMMIT")
+            print(ddl) #<<<<<<< (this kind of lines will be removed before delivery)
             logger.info(f"Table {table_name} created successfully...")
         finally:
             cursor.close()
@@ -132,8 +133,8 @@ def _create_table(client: Connection, table_name: str, embedding_dim: int) -> No
 
 
 @_handle_exceptions
-def drop_table_purge(client: Connection, table_name: str) -> None:
-    """Drop a table and purge it from the database.
+def drop_table(client: Connection, table_name: str) -> None:
+    """Drop a table from the database.
 
     Args:
         client: The ibm_db_dbi connection object.
@@ -144,9 +145,10 @@ def drop_table_purge(client: Connection, table_name: str) -> None:
     """
     if _table_exists(client, table_name):
         cursor = client.cursor()
-        try:
-            ddl = f"DROP TABLE {table_name}"
+        ddl = f"DROP TABLE {table_name}"
+        try: 
             cursor.execute(ddl)
+            cursor.execute("COMMIT")
             logger.info(f"Table {table_name} dropped successfully...")
         finally:
             cursor.close()
@@ -158,7 +160,7 @@ def drop_table_purge(client: Connection, table_name: str) -> None:
 class DB2VS(VectorStore):
     """`DB2VS` vector store.
 
-    To use, you should have both:
+    To use, you should have:
     - the ``ibm_db`` python package installed
     - a connection to db2 database with vector store feature (v12.1.2+)
     """
@@ -190,8 +192,8 @@ class DB2VS(VectorStore):
             if not isinstance(embedding_function, Embeddings):
                 logger.warning(
                     "`embedding_function` is expected to be an Embeddings "
-                    "object, support "
-                    "for passing in a function will soon be removed."
+                    "object, support for passing in a function will soon "
+                    "be removed."
                 )
             self.embedding_function = embedding_function
             self.query = query
@@ -339,7 +341,6 @@ class DB2VS(VectorStore):
         print(docs) ####<<<<<<<<<<
         # TODO: enable the executemany() when the python-ibm_db and ODBC team 
         # implement their code for new vector data type:
-        # pdb.set_trace()
         # Currently db2 have to use VECTOR([], length, FLOAT32)
         # with self.client.cursor() as cursor:
         #     cursor.executemany(
@@ -348,16 +349,14 @@ class DB2VS(VectorStore):
         #         docs,
         #     )
         #     self.client.commit()
-
+        
+        cursor = self.client.cursor()
         for doc in docs:
             qu = f"INSERT INTO {self.table_name} (id, embedding, metadata, text) VALUES ('{doc[0]}', VECTOR('{doc[1]}', {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON('{doc[2]}'), '{doc[3]}')"
             print(qu) #<<<<<<<<<<
-            cursor = self.client.cursor()
-            try:
-                cursor.execute(qu)
-            finally:
-                cursor.close()
-        self.client.commit()
+            cursor.execute(qu)
+        cursor.execute("COMMIT")
+        cursor.close()
         return processed_ids
 
     def similarity_search(
@@ -688,7 +687,7 @@ class DB2VS(VectorStore):
         cursor = self.client.cursor()
         try:
             cursor.execute(ddl, hashed_ids)
-            self.client.commit()
+            cursor.execute("COMMIT")
         finally:
             cursor.close()
             
@@ -720,7 +719,7 @@ class DB2VS(VectorStore):
 
         query = kwargs.get("query", "What is a DB2 database")
 
-        drop_table_purge(client, table_name)
+        drop_table(client, table_name)
 
         vss = cls(
             client=client,
