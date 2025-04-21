@@ -124,7 +124,6 @@ def _create_table(client: Connection, table_name: str, embedding_dim: int) -> No
         try: 
             cursor.execute(ddl)
             cursor.execute("COMMIT")
-            print(ddl) #<<<<<<< (this kind of lines will be removed before delivery)
             logger.info(f"Table {table_name} created successfully...")
         finally:
             cursor.close()
@@ -338,7 +337,6 @@ class DB2VS(VectorStore):
             )
         ]
 
-        print(docs) ####<<<<<<<<<<
         # TODO: enable the executemany() when the python-ibm_db and ODBC team 
         # implement their code for new vector data type:
         # Currently db2 have to use VECTOR([], length, FLOAT32)
@@ -354,7 +352,6 @@ class DB2VS(VectorStore):
         try:
             for doc in docs:
                 qu = f"INSERT INTO {self.table_name} (id, embedding, metadata, text) VALUES ('{doc[0]}', VECTOR('{doc[1]}', {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON('{doc[2]}'), '{doc[3]}')"
-                print(qu) #<<<<<<<<<<
                 cursor.execute(qu)
             cursor.execute("COMMIT")
         finally:
@@ -431,16 +428,14 @@ class DB2VS(VectorStore):
         ORDER BY distance
         FETCH FIRST {k} ROWS ONLY
         """
-        # no APPROX in "FETCH APPROX FIRST" now <<<<<<
+        # TODO: No APPROX in "FETCH APPROX FIRST" now. This will be added once
+        # approximate nearest neighbors search in db2 is implemented.
 
         # Execute the query
         cursor = self.client.cursor()
         try:
-            print(query) #<<<<<<<<<
             cursor.execute(query)
             results = cursor.fetchall()
-            
-            print(results) #<<<<<<<<<
 
             # Filter results if filter is provided
             for result in results:
@@ -490,7 +485,8 @@ class DB2VS(VectorStore):
         ORDER BY distance
         FETCH FIRST {k} ROWS ONLY
         """
-        # no APPROX in "FETCH APPROX FIRST" now <<<<<<
+        # TODO: No APPROX in "FETCH APPROX FIRST" now. This will be added once
+        # approximate nearest neighbors search in db2 is implemented.
 
         # Execute the query
         cursor = self.client.cursor()
@@ -684,8 +680,6 @@ class DB2VS(VectorStore):
         placeholders = ", ".join(["?" for i in range(len(hashed_ids))])
 
         ddl = f"DELETE FROM {self.table_name} WHERE id IN ({placeholders})"
-        print(ddl) #<<<<<<<<<
-        print(hashed_ids) #<<<<<<<<<
         cursor = self.client.cursor()
         try:
             cursor.execute(ddl, hashed_ids)
