@@ -59,11 +59,9 @@ runs:
         # Delete and recreate the softlinks pipx expects to have.
         rm /opt/pipx/venvs/poetry/bin/python
         cd /opt/pipx/venvs/poetry/bin
-        ln -s "$(which "python$PYTHON_VERSION")" python
-        chmod +x python
+        ln -sf "$(which "python$PYTHON_VERSION")" python
         cd /opt/pipx_bin/
-        ln -s /opt/pipx/venvs/poetry/bin/poetry poetry
-        chmod +x poetry
+        ln -sf /opt/pipx/venvs/poetry/bin/poetry poetry
 
         # Ensure everything got set up correctly.
         /opt/pipx/venvs/poetry/bin/python --version
@@ -76,7 +74,7 @@ runs:
         POETRY_VERSION: ${{ inputs.poetry-version }}
         PYTHON_VERSION: ${{ inputs.python-version }}
       # Install poetry using the python version installed by setup-python step.
-      run: pipx install "poetry==$POETRY_VERSION" --python '${{ steps.setup-python.outputs.python-path }}' --pip-args '--upgrade pip<25' --verbose
+      run: pipx install "poetry==$POETRY_VERSION" --python '${{ steps.setup-python.outputs.python-path }}' --verbose
 
     - name: Restore pip and poetry cached dependencies
       uses: actions/cache@v4
