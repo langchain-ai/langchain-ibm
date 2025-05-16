@@ -27,7 +27,6 @@ pytest-watcher = "^0.3.4"
 pytest-asyncio = "^0.21.1"
 pytest-cov = "^4.1.0"
 langchain-tests = "0.3.13"
-numpy = "^1.26.2"
 
 [tool.poetry.group.codespell]
 optional = true
