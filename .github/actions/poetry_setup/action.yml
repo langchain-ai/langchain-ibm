@@ -80,6 +80,7 @@ runs:
       shell: bash
       env:
         POETRY_VERSION: ${{ inputs.poetry-version }}
+        PIPX_DEFAULT_PYTHON: ${{ steps.setup-python.outputs.python-path }}
       run: |
         pipx install "poetry==${{ inputs.poetry-version }}" --python "${{ steps.setup-python.outputs.python-path }}" --verbose
 
