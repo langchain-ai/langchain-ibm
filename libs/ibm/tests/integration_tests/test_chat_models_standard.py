@@ -14,6 +14,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "mistralai/mistral-large"
+MODEL_ID_2 = "meta-llama/llama-3-3-70b-instruct"
 MODEL_ID_IMAGE = "meta-llama/llama-3-2-11b-vision-instruct"
 MODEL_ID_DOUBLE_MSG_CONV = "meta-llama/llama-3-1-8b-instruct"
 
@@ -69,6 +70,18 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
     def has_structured_output(self) -> bool:
         # Required until there is no 'structured_output_format' in the output.
         return False
+
+    @pytest.mark.xfail(reason="Supported for model 2.")
+    def test_tool_message_histories_list_content(self, model: BaseChatModel, my_adder_tool: BaseTool) -> None:
+        model.watsonx_model._inference.model_id = MODEL_ID_2  # type: ignore[attr-defined]
+        super().test_tool_message_histories_list_content(model, my_adder_tool)
+        model.watsonx_model._inference.model_id = MODEL_ID  # type: ignore[attr-defined]
+
+    @pytest.mark.xfail(reason="Supported for vision model 2.")
+    def test_message_with_name(self, model: BaseChatModel) -> None:
+        model.watsonx_model._inference.model_id = MODEL_ID_2  # type: ignore[attr-defined]
+        super().test_message_with_name(model)
+        model.watsonx_model._inference.model_id = MODEL_ID  # type: ignore[attr-defined]
 
     @pytest.mark.xfail(reason="Supported for vision model.")
     def test_image_inputs(self, model: BaseChatModel) -> None:
