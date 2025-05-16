@@ -72,7 +72,9 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
         return False
 
     @pytest.mark.xfail(reason="Supported for model 2.")
-    def test_tool_message_histories_list_content(self, model: BaseChatModel, my_adder_tool: BaseTool) -> None:
+    def test_tool_message_histories_list_content(
+        self, model: BaseChatModel, my_adder_tool: BaseTool
+    ) -> None:
         model.watsonx_model._inference.model_id = MODEL_ID_2  # type: ignore[attr-defined]
         super().test_tool_message_histories_list_content(model, my_adder_tool)
         model.watsonx_model._inference.model_id = MODEL_ID  # type: ignore[attr-defined]
