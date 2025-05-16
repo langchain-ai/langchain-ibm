@@ -59,11 +59,9 @@ runs:
         # Delete and recreate the softlinks pipx expects to have.
         rm /opt/pipx/venvs/poetry/bin/python
         cd /opt/pipx/venvs/poetry/bin
-        ln -s "$(which "python$PYTHON_VERSION")" python
-        chmod +x python
+        ln -sf "$(which "python$PYTHON_VERSION")" python
         cd /opt/pipx_bin/
-        ln -s /opt/pipx/venvs/poetry/bin/poetry poetry
-        chmod +x poetry
+        ln -sf /opt/pipx/venvs/poetry/bin/poetry poetry
 
         # Ensure everything got set up correctly.
         /opt/pipx/venvs/poetry/bin/python --version
