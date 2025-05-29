@@ -1,4 +1,4 @@
-"""Test DB2 AI Vector Search functionality."""
+"""Test Db2 AI Vector Search functionality."""
 
 # import required modules
 import sys

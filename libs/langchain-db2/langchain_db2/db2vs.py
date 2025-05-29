@@ -173,7 +173,7 @@ class DB2VS(VectorStore):
         ],
         table_name: str,
         distance_strategy: DistanceStrategy = DistanceStrategy.EUCLIDEAN_DISTANCE,
-        query: Optional[str] = "What is a DB2 database",
+        query: Optional[str] = "What is a Db2 database",
         params: Optional[Dict[str, Any]] = None,
     ):
         try:
@@ -713,7 +713,7 @@ class DB2VS(VectorStore):
                 f"Expected DistanceStrategy got {type(distance_strategy).__name__} "
             )
 
-        query = kwargs.get("query", "What is a DB2 database")
+        query = kwargs.get("query", "What is a Db2 database")
 
         drop_table(client, table_name)
 

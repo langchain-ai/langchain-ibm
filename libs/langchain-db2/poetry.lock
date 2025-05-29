@@ -813,7 +813,7 @@ typing = ["types-PyYAML", "types-requests", "types-simplejson", "types-toml", "t
 [[package]]
 name = "ibm-db"
 version = "3.2.6"
-description = "Python DBI driver for DB2 (LUW, zOS, i5)"
+description = "Python DBI driver for Db2 (LUW, zOS, i5)"
 optional = false
 python-versions = "*"
 groups = ["main"]

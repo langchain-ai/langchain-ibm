@@ -1,6 +1,6 @@
 # langchain-db2
 
-This package contains the LangChain integration with the connector to DB2 vector store. This will allow user to leverage the vector store and vector search ablility of the IBM DB2 relational datebase.
+This package contains the LangChain integration with the connector to Db2 vector store. This will allow user to leverage the vector store and vector search ablility of the IBM Db2 relational datebase.
 
 ## Installation
 
