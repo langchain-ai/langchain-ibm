@@ -137,6 +137,15 @@ def test_chat_generate_with_few_inputs() -> None:
         assert generation[0].text
 
 
+async def test_chat_agenerate() -> None:
+    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
+    message = HumanMessage(content="Hello")
+    response = await chat.agenerate([[message], [message]])
+    assert response
+    for generation in response.generations:
+        assert generation[0].text
+
+
 def test_chat_invoke_with_few_various_inputs() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID,
@@ -177,6 +186,24 @@ def test_chat_stream() -> None:
     response = chat.stream("What's the weather in san francisco")
     for chunk in response:
         assert isinstance(chunk.content, str)
+
+
+async def test_chat_astream() -> None:
+    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
+    messages = [
+        ("user", "You are a helpful assistant that translates English to French."),
+        (
+            "human",
+            "Translate this sentence from English to French. I love programming.",
+        ),
+    ]
+    num_tokens = 0
+
+    async for chunk in chat.astream(messages):
+        assert chunk is not None
+        assert isinstance(chunk, AIMessageChunk)
+        num_tokens += len(chunk.content)
+    assert num_tokens > 0
 
 
 def test_chat_invoke_with_streaming() -> None:
