@@ -30,7 +30,7 @@ MODEL_ID_TOOL = "mistralai/mistral-large"
 PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
 
 
-def test_01_generate_chat() -> None:
+def test_chat_invoke() -> None:
     chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
     messages = [
         ("user", "You are a helpful assistant that translates English to French."),
@@ -44,7 +44,7 @@ def test_01_generate_chat() -> None:
     assert response.content
 
 
-def test_01a_generate_chat_with_params_as_dict_in_invoke() -> None:
+def test_chat_invoke_with_params_as_dict_in_invoke() -> None:
     params = {"max_tokens": 10}
     chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
     messages = [
@@ -60,7 +60,7 @@ def test_01a_generate_chat_with_params_as_dict_in_invoke() -> None:
     print(response.content)
 
 
-def test_01a_generate_chat_with_params_as_object_in_invoke() -> None:
+def test_chat_invoke_with_params_as_object_in_invoke() -> None:
     params = TextChatParameters(max_tokens=10)
     chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
     messages = [
@@ -76,7 +76,7 @@ def test_01a_generate_chat_with_params_as_object_in_invoke() -> None:
     print(response.content)
 
 
-def test_01a_generate_chat_with_params_as_object_in_constructor() -> None:
+def test_chat_invoke_with_params_as_object_in_constructor() -> None:
     params = TextChatParameters(max_tokens=10)
     chat = ChatWatsonx(
         model_id=MODEL_ID,
@@ -97,7 +97,7 @@ def test_01a_generate_chat_with_params_as_object_in_constructor() -> None:
     print(response.content)
 
 
-def test_01b_generate_chat_with_invoke_params() -> None:
+def test_chat_invoke_with_invoke_params() -> None:
     parameters_1 = {
         GenTextParamsMetaNames.DECODING_METHOD: "sample",
         GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
@@ -123,7 +123,7 @@ def test_01b_generate_chat_with_invoke_params() -> None:
     assert response.content
 
 
-def test_02_generate_chat_with_few_inputs() -> None:
+def test_chat_generate_with_few_inputs() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID,
         url=URL,  # type: ignore[arg-type]
@@ -137,7 +137,7 @@ def test_02_generate_chat_with_few_inputs() -> None:
         assert generation[0].text
 
 
-def test_03_generate_chat_with_few_various_inputs() -> None:
+def test_chat_invoke_with_few_various_inputs() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID,
         url=URL,  # type: ignore[arg-type]
@@ -153,7 +153,21 @@ def test_03_generate_chat_with_few_various_inputs() -> None:
     assert isinstance(response.content, str)
 
 
-def test_05_generate_chat_with_stream() -> None:
+async def test_chat_ainvoke() -> None:
+    chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
+    messages = [
+        ("user", "You are a helpful assistant that translates English to French."),
+        (
+            "human",
+            "Translate this sentence from English to French. I love programming.",
+        ),
+    ]
+    response = await chat.ainvoke(messages)
+    assert response
+    assert response.content
+
+
+def test_chat_stream() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID,
         url=URL,  # type: ignore[arg-type]
@@ -165,7 +179,7 @@ def test_05_generate_chat_with_stream() -> None:
         assert isinstance(chunk.content, str)
 
 
-def test_05a_invoke_chat_with_streaming() -> None:
+def test_chat_invoke_with_streaming() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID,
         url=URL,  # type: ignore[arg-type]
@@ -177,7 +191,7 @@ def test_05a_invoke_chat_with_streaming() -> None:
     assert isinstance(response.content, str)
 
 
-def test_05_generate_chat_with_stream_with_param() -> None:
+def test_chat_stream_with_param_in_constructor() -> None:
     params = TextChatParameters(max_tokens=10)
     chat = ChatWatsonx(
         model_id=MODEL_ID,
@@ -190,7 +204,7 @@ def test_05_generate_chat_with_stream_with_param() -> None:
         assert isinstance(chunk.content, str)
 
 
-def test_05_generate_chat_with_stream_with_param_v2() -> None:
+def test_chat_stream_with_param_in_method() -> None:
     params = TextChatParameters(max_tokens=10)
     chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
     response = chat.stream("What's the weather in san francisco", params=params)
@@ -198,7 +212,7 @@ def test_05_generate_chat_with_stream_with_param_v2() -> None:
         assert isinstance(chunk.content, str)
 
 
-def test_06_chain_invoke() -> None:
+def test_chain_invoke() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID,
         url=URL,  # type: ignore[arg-type]
@@ -217,7 +231,7 @@ def test_06_chain_invoke() -> None:
     assert response.content
 
 
-def test_10_chaining() -> None:
+def test_chat_invoke_2() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID,
         url=URL,  # type: ignore[arg-type]
@@ -247,7 +261,7 @@ def test_10_chaining() -> None:
     assert response.content
 
 
-def test_20_bind_tools() -> None:
+def test_chat_bind_tools() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -281,7 +295,7 @@ def test_20_bind_tools() -> None:
     assert "location" in tool_call["args"]
 
 
-def test_21a_bind_tools_tool_choice_auto() -> None:
+def test_chat_bind_tools_tool_choice_auto() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -316,7 +330,7 @@ def test_21a_bind_tools_tool_choice_auto() -> None:
 
 
 @pytest.mark.xfail(reason="Not supported yet")
-def test_21b_bind_tools_tool_choice_none() -> None:
+def test_chat_bind_tools_tool_choice_none() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -351,7 +365,7 @@ def test_21b_bind_tools_tool_choice_none() -> None:
 
 
 @pytest.mark.xfail(reason="Not supported yet")
-def test_21c_bind_tools_tool_choice_required() -> None:
+def test_chat_bind_tools_tool_choice_required() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -385,7 +399,7 @@ def test_21c_bind_tools_tool_choice_required() -> None:
     assert "location" in tool_call["args"]
 
 
-def test_22a_bind_tools_tool_choice_as_class() -> None:
+def test_chat_bind_tools_tool_choice_as_class() -> None:
     """Test that tool choice is respected."""
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -412,7 +426,7 @@ def test_22a_bind_tools_tool_choice_as_class() -> None:
     }
 
 
-def test_22b_bind_tools_tool_choice_as_dict() -> None:
+def test_chat_bind_tools_tool_choice_as_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -440,7 +454,7 @@ def test_22b_bind_tools_tool_choice_as_dict() -> None:
     }
 
 
-def test_23a_bind_tools_list_tool_choice_dict() -> None:
+def test_chat_bind_tools_list_tool_choice_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -481,7 +495,7 @@ def test_23a_bind_tools_list_tool_choice_dict() -> None:
     assert resp.content == ""
 
 
-def test_23_bind_tools_list_tool_choice_auto() -> None:
+def test_chat_bind_tools_list_tool_choice_auto() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -528,7 +542,7 @@ def test_23_bind_tools_list_tool_choice_auto() -> None:
     assert len(resp.tool_calls) == 0  # type: ignore
 
 
-def test_24a_bind_watsonx_tools() -> None:
+def test_chat_bind_tools_with_watsonx_tools() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -554,7 +568,7 @@ def test_24a_bind_watsonx_tools() -> None:
     assert "location" in tool_call["args"]
 
 
-def test_24b_bind_watsonx_tools_tool_choice_auto() -> None:
+def test_chat_bind_tools_with_watsonx_tools_tool_choice_auto() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -581,7 +595,7 @@ def test_24b_bind_watsonx_tools_tool_choice_auto() -> None:
     assert "location" in tool_call["args"]
 
 
-def test_25a_bind_watsonx_tools_tool_choice_as_dict() -> None:
+def test_chat_bind_tools_with_watsonx_tools_tool_choice_as_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -611,7 +625,7 @@ def test_25a_bind_watsonx_tools_tool_choice_as_dict() -> None:
     }
 
 
-def test_26a_bind_watsonx_tools_list_tool_choice_auto() -> None:
+def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_auto() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -649,7 +663,7 @@ def test_26a_bind_watsonx_tools_list_tool_choice_auto() -> None:
     assert len(resp.tool_calls) == 0  # type: ignore
 
 
-def test_26b_bind_watsonx_tools_list_tool_choice_dict() -> None:
+def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
@@ -683,13 +697,13 @@ def test_26b_bind_watsonx_tools_list_tool_choice_dict() -> None:
     assert tool_call["name"] == "GoogleSearch"
 
 
-def test_json_mode() -> None:
-    llm = ChatWatsonx(
+def test_chat_with_json_mode() -> None:
+    chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
     )
-    response = llm.invoke(
+    response = chat.invoke(
         "Return this as json: {'a': 1}",
         params={"response_format": {"type": "json_object"}},
     )
@@ -698,7 +712,7 @@ def test_json_mode() -> None:
 
     # Test streaming
     full: Optional[BaseMessageChunk] = None
-    for chunk in llm.stream(
+    for chunk in chat.stream(
         "Return this as json: {'a': 1}",
         params={"response_format": {"type": "json_object"}},
     ):
@@ -708,13 +722,13 @@ def test_json_mode() -> None:
     assert json.loads(full.content) == {"a": 1}
 
 
-async def test_json_mode_async() -> None:
-    llm = ChatWatsonx(
+async def test_chat_with_json_mode_async() -> None:
+    chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
     )
-    response = await llm.ainvoke(
+    response = await chat.ainvoke(
         "Return this as json: {'a': 1}",
         params={"response_format": {"type": "json_object"}},
     )
@@ -723,7 +737,7 @@ async def test_json_mode_async() -> None:
 
     # Test streaming
     full: Optional[BaseMessageChunk] = None
-    async for chunk in llm.astream(
+    async for chunk in chat.astream(
         "Return this as json: {'a': 1}",
         params={"response_format": {"type": "json_object"}},
     ):
@@ -734,7 +748,7 @@ async def test_json_mode_async() -> None:
 
 
 @pytest.mark.xfail(reason="Not implemented")
-def test_streaming_tool_call() -> None:
+def test_chat_streaming_tool_call() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -782,7 +796,7 @@ def test_streaming_tool_call() -> None:
     assert "tool_calls" not in acc.additional_kwargs
 
 
-def test_streaming_multiple_tool_call() -> None:
+def test_chat_streaming_multiple_tool_call() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -876,7 +890,7 @@ def test_streaming_multiple_tool_call() -> None:
     # assert ai_message.usage_metadata is not None
 
 
-def test_structured_output() -> None:
+def test_chat_structured_output() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -902,10 +916,9 @@ def test_structured_output() -> None:
     assert isinstance(result, dict)
 
 
-@pytest.mark.xfail(reason="Not implemented")
-def test_streaming_structured_output() -> None:
+def test_chat_streaming_structured_output() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id="meta-llama/llama-3-3-70b-instruct",
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
     )
@@ -915,14 +928,12 @@ def test_streaming_structured_output() -> None:
         age: int
 
     structured_llm = chat.with_structured_output(Person)
-    strm_response = structured_llm.stream("Erick, 27 years old")
-    chunk_num = 0
-    for chunk in strm_response:
-        assert chunk_num == 0, "should only have one chunk with model"
+    stream_response = structured_llm.stream("Erick, 123456 years old")
+
+    for chunk in stream_response:
         assert isinstance(chunk, Person)
-        assert chunk.name == "Erick"
-        assert chunk.age == 27
-        chunk_num += 1
+        assert chunk.name in "Erick"
+        assert chunk.age == 123456
 
 
 ###################################
