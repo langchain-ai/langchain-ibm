@@ -25,14 +25,13 @@ if TYPE_CHECKING:
     from ibm_db_dbi import Connection
 
 import numpy as np
-from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
-from langchain_core.vectorstores import VectorStore
-
 from langchain_community.vectorstores.utils import (
     DistanceStrategy,
     maximal_marginal_relevance,
 )
+from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_core.vectorstores import VectorStore
 
 logger = logging.getLogger(__name__)
 log_level = os.getenv("LOG_LEVEL", "ERROR").upper()
@@ -116,12 +115,12 @@ def _create_table(client: Connection, table_name: str, embedding_dim: int) -> No
     }
 
     if not _table_exists(client, table_name):
-        cursor = client.cursor()         
+        cursor = client.cursor()
         ddl_body = ", ".join(
             f"{col_name} {col_type}" for col_name, col_type in cols_dict.items()
         )
         ddl = f"CREATE TABLE {table_name} ({ddl_body})"
-        try: 
+        try:
             cursor.execute(ddl)
             cursor.execute("COMMIT")
             logger.info(f"Table {table_name} created successfully...")
@@ -145,7 +144,7 @@ def drop_table(client: Connection, table_name: str) -> None:
     if _table_exists(client, table_name):
         cursor = client.cursor()
         ddl = f"DROP TABLE {table_name}"
-        try: 
+        try:
             cursor.execute(ddl)
             cursor.execute("COMMIT")
             logger.info(f"Table {table_name} dropped successfully...")
@@ -286,7 +285,7 @@ class DB2VS(VectorStore):
                 f"Got {len(metadatas)} metadatas and {len(texts)} texts."
             )
             raise ValueError(msg)
-        
+
         if ids:
             if len(ids) != len(texts):
                 msg = (
@@ -298,7 +297,7 @@ class DB2VS(VectorStore):
             processed_ids = [
                 hashlib.sha256(_id.encode()).hexdigest()[:16].upper() for _id in ids
             ]
-        elif metadatas: 
+        elif metadatas:
             if all("id" in metadata for metadata in metadatas):
                 # If no ids are provided but metadatas with ids are, generate
                 # ids from metadatas
@@ -311,9 +310,17 @@ class DB2VS(VectorStore):
                 processed_ids = []
                 for metadata in metadatas:
                     if "id" in metadata:
-                        processed_ids.append(hashlib.sha256(metadata["id"].encode()).hexdigest()[:16].upper())
+                        processed_ids.append(
+                            hashlib.sha256(metadata["id"].encode())
+                            .hexdigest()[:16]
+                            .upper()
+                        )
                     else:
-                        processed_ids.append(hashlib.sha256(str(uuid.uuid4()).encode()).hexdigest()[:16].upper())
+                        processed_ids.append(
+                            hashlib.sha256(str(uuid.uuid4()).encode())
+                            .hexdigest()[:16]
+                            .upper()
+                        )
         else:
             # Generate new ids if none are provided
             generated_ids = [
@@ -331,7 +338,7 @@ class DB2VS(VectorStore):
         embeddingLen = self.get_embedding_dimension()
         docs: List[Tuple[Any, Any, Any, Any]]
         docs = [
-            (id_, f'{embedding}', json.dumps(metadata), text)
+            (id_, f"{embedding}", json.dumps(metadata), text)
             for id_, embedding, metadata, text in zip(
                 processed_ids, embeddings, metadatas, texts
             )
@@ -355,12 +362,12 @@ class DB2VS(VectorStore):
         **kwargs: Any,
     ) -> List[Document]:
         """Return docs most similar to query.
-            Args:
-                query: str, 
-                k: int, the number for documents to retrieve
-                filter: Optional, the filter to apply
-            Return:
-                List[Document]: documents most similar to a query
+        Args:
+            query: str,
+            k: int, the number for documents to retrieve
+            filter: Optional, the filter to apply
+        Return:
+            List[Document]: documents most similar to a query
         """
         if isinstance(self.embedding_function, Embeddings):
             embedding = self.embedding_function.embed_query(query)
@@ -462,7 +469,7 @@ class DB2VS(VectorStore):
 
         documents = []
         embeddingLen = self.get_embedding_dimension()
-        
+
         query = f"""
         SELECT id,
           text,
@@ -484,7 +491,7 @@ class DB2VS(VectorStore):
             results = cursor.fetchall()
 
             for result in results:
-                page_content_str = (result[1] if result[1] is not None else "")
+                page_content_str = result[1] if result[1] is not None else ""
                 metadata = json.loads(result[2] if result[2] is not None else "{}")
 
                 # Apply filter if provided and matches; otherwise, add all
@@ -675,7 +682,6 @@ class DB2VS(VectorStore):
             cursor.execute("COMMIT")
         finally:
             cursor.close()
-            
 
     @classmethod
     @_handle_exceptions

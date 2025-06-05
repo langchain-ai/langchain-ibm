@@ -4,6 +4,7 @@ from langchain_core.embeddings.fake import DeterministicFakeEmbedding
 
 from langchain_db2.db2vs import DB2VS
 
+
 def test_init() -> None:
     """Test that the DB2VS class can be initialized."""
     client = MagicMock()

@@ -5,17 +5,19 @@ import sys
 import threading
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores.utils import DistanceStrategy
+
 from langchain_db2.db2vs import (
     DB2VS,
     _create_table,
     _table_exists,
     drop_table,
 )
-from langchain_community.vectorstores.utils import DistanceStrategy
 
 database = ""
 username = ""
 password = ""
+
 
 ############################
 ####### table_exists #######
@@ -35,7 +37,7 @@ def test_table_exists_test() -> None:
     _create_table(connection, "TB1", 8148)
 
     # 2. Existing Table
-    # expectation:true    
+    # expectation:true
     assert _table_exists(connection, "TB1")
 
     # 3. Non-Existing Table
@@ -43,7 +45,7 @@ def test_table_exists_test() -> None:
     assert _table_exists(connection, "TableNonExist") == False
 
     # 4. Invalid Table Name
-    # Expectation: SQL0104N 
+    # Expectation: SQL0104N
     try:
         _table_exists(connection, "123")
     except Exception:
@@ -126,7 +128,7 @@ def test_create_table_test() -> None:
 
     # 5. New Table - T1
     #    Dimension - 65536
-    # Expectation: SQL0604N  VECTOR column exceed the supported 
+    # Expectation: SQL0604N  VECTOR column exceed the supported
     # dimension length.
     try:
         _create_table(connection, "T1", 65536)
@@ -219,6 +221,7 @@ def test_create_table_test() -> None:
 
     connection.commit()
 
+
 ##################################
 ####### add_texts ################
 ##################################
@@ -232,7 +235,7 @@ def test_add_texts_test() -> None:
         connection = ibm_db_dbi.connect(database, username, password)
     except Exception:
         sys.exit(1)
-    
+
     # 1. Add 2 records to table
     # Expectation: Successful
     texts = ["David", "Vectoria"]
@@ -245,7 +248,7 @@ def test_add_texts_test() -> None:
     vs_obj.add_texts(texts, metadata)
     drop_table(connection, "TB1")
 
-    # 2-1. Add 2 records to table with metadata but no id inside it 
+    # 2-1. Add 2 records to table with metadata but no id inside it
     # Expectation: Successful, new ID will be generated
     metadataNoID = [
         {"link": "Document Example Test 1"},
@@ -348,9 +351,7 @@ def test_add_texts_test() -> None:
         model = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-mpnet-base-v2"
         )
-        vs_obj = DB2VS(
-            connection, model, "TB11", DistanceStrategy.EUCLIDEAN_DISTANCE
-        )
+        vs_obj = DB2VS(connection, model, "TB11", DistanceStrategy.EUCLIDEAN_DISTANCE)
         texts5 = [val]
         ids11 = texts5
         vs_obj.add_texts(texts5, ids=ids11)
@@ -369,9 +370,7 @@ def test_add_texts_test() -> None:
         model = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-mpnet-base-v2"
         )
-        vs_obj = DB2VS(
-            connection, model, "TB12", DistanceStrategy.EUCLIDEAN_DISTANCE
-        )
+        vs_obj = DB2VS(connection, model, "TB12", DistanceStrategy.EUCLIDEAN_DISTANCE)
         texts = [val]
         ids12 = texts
         vs_obj.add_texts(texts, ids=ids12)
@@ -407,7 +406,13 @@ def test_embed_documents_test() -> None:
     # Expectation: Successful. Vector Printed
     model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     vs_obj = DB2VS(connection, model, "TB7", DistanceStrategy.EUCLIDEAN_DISTANCE)
-    print(vs_obj._embed_documents(["Sam",]))
+    print(
+        vs_obj._embed_documents(
+            [
+                "Sam",
+            ]
+        )
+    )
 
     # 2. Embed List of string
     # Expectation: Successful. Vector Printed
@@ -415,6 +420,7 @@ def test_embed_documents_test() -> None:
     drop_table(connection, "TB7")
 
     connection.commit()
+
 
 ##################################
 ####### embed_query(text) ########
@@ -443,6 +449,7 @@ def test_embed_query_test() -> None:
 
     connection.commit()
 
+
 ##################################
 ####### perform_search ###########
 ##################################
@@ -456,7 +463,7 @@ def test_perform_search_test() -> None:
         connection = ibm_db_dbi.connect(database, username, password)
     except Exception:
         sys.exit(1)
-    
+
     model1 = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-mpnet-base-v2"
     )
