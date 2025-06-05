@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Union
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
@@ -522,6 +532,26 @@ class WatsonxLLM(BaseLLM):
 
             if run_manager:
                 run_manager.on_llm_new_token(chunk.text, chunk=chunk)
+            yield chunk
+
+    async def _astream(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[GenerationChunk]:
+        params, kwargs = self._get_chat_params(stop=stop, **kwargs)
+        params = self._validate_chat_params(params)
+        async for stream_resp in await self.watsonx_model.agenerate_stream(
+            prompt=prompt, params=params
+        ):
+            if not isinstance(stream_resp, dict):
+                stream_resp = stream_resp.dict()
+            chunk = self._stream_response_to_generation_chunk(stream_resp)
+
+            if run_manager:
+                await run_manager.on_llm_new_token(chunk.text, chunk=chunk)
             yield chunk
 
     def get_num_tokens(self, text: str) -> int:

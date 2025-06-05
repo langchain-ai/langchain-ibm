@@ -244,6 +244,25 @@ def test_watsonxllm_stream() -> None:
     ), "Linked text stream are not the same as generated text"
 
 
+async def test_watsonxllm_astream() -> None:
+    watsonxllm = WatsonxLLM(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+
+    stream_response = watsonxllm.astream("What color sunflower is?")
+
+    linked_text_stream = ""
+    async for chunk in stream_response:
+        assert isinstance(
+            chunk, str
+        ), f"chunk expect type '{str}', actual '{type(chunk)}'"
+        linked_text_stream += chunk
+
+    assert len(linked_text_stream) > 0
+
+
 def test_watsonxllm_stream_with_kwargs() -> None:
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
