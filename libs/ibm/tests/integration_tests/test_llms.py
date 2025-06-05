@@ -18,7 +18,8 @@ from langchain_ibm import WatsonxLLM
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
-MODEL_ID = "google/flan-ul2"
+MODEL_ID = "ibm/granite-3-3-8b-instruct"
+MODEL_ID_2 = "google/flan-ul2"
 
 
 def test_watsonxllm_invoke() -> None:
@@ -37,7 +38,7 @@ def test_watsonxllm_invoke_with_params() -> None:
     parameters = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 4}
 
     watsonxllm = WatsonxLLM(
-        model_id=MODEL_ID,
+        model_id=MODEL_ID_2,
         url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
         params=parameters,
@@ -117,7 +118,7 @@ def test_watsonxllm_invoke_with_params_5_diff() -> None:
     }
 
     watsonxllm = WatsonxLLM(
-        model_id=MODEL_ID,
+        model_id=MODEL_ID_2,
         url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
         params=parameters_1,
@@ -510,7 +511,7 @@ def test_moderations_generate() -> None:
     guardrails_pii_params = {"input": False, "output": True}
 
     watsonxllm = WatsonxLLM(
-        model_id="meta-llama/llama-3-1-8b-instruct",
+        model_id="meta-llama/llama-3-3-70b-instruct",
         url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
     )
