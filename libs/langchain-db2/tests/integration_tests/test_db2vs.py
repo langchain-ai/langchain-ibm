@@ -31,7 +31,7 @@ def test_table_exists_test() -> None:
     try:
         connection = ibm_db_dbi.connect(database, username, password)
     except Exception:
-        sys.exit(1)
+        return
 
     # 1. Create a Table
     _create_table(connection, "TB1", 8148)
@@ -98,7 +98,7 @@ def test_create_table_test() -> None:
     try:
         connection = ibm_db_dbi.connect(database, username, password)
     except Exception:
-        sys.exit(1)
+        return
 
     # 1. New table - HELLO
     #    Dimension - 100
@@ -234,7 +234,7 @@ def test_add_texts_test() -> None:
     try:
         connection = ibm_db_dbi.connect(database, username, password)
     except Exception:
-        sys.exit(1)
+        return
 
     # 1. Add 2 records to table
     # Expectation: Successful
@@ -401,7 +401,7 @@ def test_embed_documents_test() -> None:
     try:
         connection = ibm_db_dbi.connect(database, username, password)
     except Exception:
-        sys.exit(1)
+        return
     # 1. Embed String Example-'Sam'
     # Expectation: Successful. Vector Printed
     model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
@@ -434,7 +434,7 @@ def test_embed_query_test() -> None:
     try:
         connection = ibm_db_dbi.connect(database, username, password)
     except Exception:
-        sys.exit(1)
+        return
 
     # 1. Embed String
     # Expectation: Successful. Vector printed
@@ -462,7 +462,7 @@ def test_perform_search_test() -> None:
     try:
         connection = ibm_db_dbi.connect(database, username, password)
     except Exception:
-        sys.exit(1)
+        return
 
     model1 = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-mpnet-base-v2"

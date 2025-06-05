@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import uuid
+import ibm_db_dbi
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -69,13 +70,6 @@ def _handle_exceptions(func: T) -> T:
 
 
 def _table_exists(client: Connection, table_name: str) -> bool:
-    try:
-        import ibm_db_dbi
-    except ImportError as e:
-        raise ImportError(
-            "Unable to import ibm_db_dbi, please install with `pip install -U ibm_db`."
-        ) from e
-
     try:
         cursor = client.cursor()
         cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
@@ -175,14 +169,6 @@ class DB2VS(VectorStore):
         query: Optional[str] = "What is a Db2 database",
         params: Optional[Dict[str, Any]] = None,
     ):
-        try:
-            import ibm_db_dbi
-        except ImportError as e:
-            raise ImportError(
-                "Unable to import ibm_db_dbi, please install with "
-                "`pip install -U ibm_db`."
-            ) from e
-
         try:
             """Initialize with ibm_db_dbi client."""
             self.client = client
