@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import uuid
-import ibm_db_dbi
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -21,6 +20,8 @@ from typing import (
     Union,
     cast,
 )
+
+import ibm_db_dbi
 
 if TYPE_CHECKING:
     from ibm_db_dbi import Connection
