@@ -331,28 +331,17 @@ class DB2VS(VectorStore):
         embeddingLen = self.get_embedding_dimension()
         docs: List[Tuple[Any, Any, Any, Any]]
         docs = [
-            (id_, embedding, json.dumps(metadata), text)
+            (id_, f'{embedding}', json.dumps(metadata), text)
             for id_, embedding, metadata, text in zip(
                 processed_ids, embeddings, metadatas, texts
             )
         ]
 
-        # TODO: enable the executemany() when the python-ibm_db and ODBC team 
-        # implement their code for new vector data type:
-        # Currently db2 have to use VECTOR([], length, FLOAT32)
-        # with self.client.cursor() as cursor:
-        #     cursor.executemany(
-        #         f"INSERT INTO {self.table_name} (id, embedding, metadata, "
-        #         f"text) VALUES (?, VECTOR('?', {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON('?'), ?)",      
-        #         docs,
-        #     )
-        #     self.client.commit()
-        
+        SQL_INSERT = f"INSERT INTO {self.table_name} (id, embedding, metadata, text) VALUES (?, VECTOR(?, {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON(?), ?)"
+
         cursor = self.client.cursor()
         try:
-            for doc in docs:
-                qu = f"INSERT INTO {self.table_name} (id, embedding, metadata, text) VALUES ('{doc[0]}', VECTOR('{doc[1]}', {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON('{doc[2]}'), '{doc[3]}')"
-                cursor.execute(qu)
+            cursor.executemany(SQL_INSERT, docs)
             cursor.execute("COMMIT")
         finally:
             cursor.close()
