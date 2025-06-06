@@ -402,12 +402,18 @@ def test_embed_documents_test() -> None:
     except Exception:
         return
     # 1. Embed String Example-'Sam'
-    # Expectation: Successful. Vector Printed
+    # Expectation: Successful.
     model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    DB2VS(connection, model, "TB7", DistanceStrategy.EUCLIDEAN_DISTANCE)
+    vs_obj = DB2VS(connection, model, "TB7", DistanceStrategy.EUCLIDEAN_DISTANCE)
+    vs_obj._embed_documents(
+        [
+            "Sam",
+        ]
+    )
 
     # 2. Embed List of string
-    # Expectation: Successful. Vector Printed
+    # Expectation: Successful.
+    vs_obj._embed_documents(["hello", "yash"])
     drop_table(connection, "TB7")
 
     connection.commit()
@@ -428,12 +434,14 @@ def test_embed_query_test() -> None:
         return
 
     # 1. Embed String
-    # Expectation: Successful. Vector printed
+    # Expectation: Successful.
     model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    DB2VS(connection, model, "TB8", DistanceStrategy.EUCLIDEAN_DISTANCE)
+    vs_obj = DB2VS(connection, model, "TB8", DistanceStrategy.EUCLIDEAN_DISTANCE)
+    vs_obj._embed_query("Sam")
 
-    # 3. Embed Empty string
-    # Expectation: Successful. Vector printed
+    # 2. Embed Empty string
+    # Expectation: Successful.
+    vs_obj._embed_query("")
     drop_table(connection, "TB8")
 
     connection.commit()
