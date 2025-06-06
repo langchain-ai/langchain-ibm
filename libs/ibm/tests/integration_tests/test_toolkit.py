@@ -56,7 +56,7 @@ def test_04_invoke_tool_with_config_schema() -> None:
     tool.set_tool_config(config)
 
     tool_input = {
-        "input": "Search IBM",
+        "q": "Search IBM",
     }
 
     result = tool.invoke(tool_input)
@@ -94,7 +94,11 @@ def test_06_invoke_tool_with_simple_input() -> None:
     )
     tool = watsonx_toolkit.get_tool(tool_name=TOOL_NAME_1)
 
-    result = tool.invoke("Search IBM")
+    tool_input = {
+        "q": "Search IBM",
+    }
+
+    result = tool.invoke(tool_input)
     output = json.loads(result.get("output"))
 
     assert isinstance(output, list)

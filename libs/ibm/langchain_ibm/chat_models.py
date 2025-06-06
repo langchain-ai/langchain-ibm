@@ -6,6 +6,7 @@ import logging
 from operator import itemgetter
 from typing import (
     Any,
+    AsyncIterator,
     Callable,
     Dict,
     Iterator,
@@ -27,11 +28,15 @@ from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
     BaseSchema,
     TextChatParameters,
 )
-from langchain_core.callbacks import CallbackManagerForLLMRun
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForLLMRun,
+    CallbackManagerForLLMRun,
+)
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.chat_models import (
     BaseChatModel,
     LangSmithParams,
+    agenerate_from_stream,
     generate_from_stream,
 )
 from langchain_core.messages import (
@@ -718,6 +723,27 @@ class ChatWatsonx(BaseChatModel):
         )
         return self._create_chat_result(response)
 
+    async def _agenerate(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        if self.streaming:
+            stream_iter = self._astream(
+                messages, stop=stop, run_manager=run_manager, **kwargs
+            )
+            return await agenerate_from_stream(stream_iter)
+
+        message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
+        updated_params = self._merge_params(params, kwargs)
+
+        response = await self.watsonx_model.achat(
+            messages=message_dicts, **(kwargs | {"params": updated_params})
+        )
+        return self._create_chat_result(response)
+
     def _stream(
         self,
         messages: List[BaseMessage],
@@ -754,6 +780,62 @@ class ChatWatsonx(BaseChatModel):
             if run_manager:
                 run_manager.on_llm_new_token(
                     generation_chunk.text, chunk=generation_chunk, logprobs=logprobs
+                )
+            if hasattr(generation_chunk.message, "tool_calls") and isinstance(
+                generation_chunk.message.tool_calls, list
+            ):
+                first_tool_call = (
+                    generation_chunk.message.tool_calls[0]
+                    if generation_chunk.message.tool_calls
+                    else None
+                )
+                if isinstance(first_tool_call, dict) and first_tool_call.get("name"):
+                    is_first_tool_chunk = False
+
+            yield generation_chunk
+
+    async def _astream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
+        updated_params = self._merge_params(params, kwargs)
+
+        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
+
+        is_first_tool_chunk = True
+        _prompt_tokens_included = False
+
+        response = await self.watsonx_model.achat_stream(
+            messages=message_dicts, **(kwargs | {"params": updated_params})
+        )
+        async for chunk in response:
+            if not isinstance(chunk, dict):
+                chunk = chunk.model_dump()
+            generation_chunk = _convert_chunk_to_generation_chunk(
+                chunk,
+                default_chunk_class,
+                is_first_tool_chunk,
+                _prompt_tokens_included,
+            )
+            if generation_chunk is None:
+                continue
+
+            if (
+                hasattr(generation_chunk.message, "usage_metadata")
+                and generation_chunk.message.usage_metadata
+            ):
+                _prompt_tokens_included = True
+            default_chunk_class = generation_chunk.message.__class__
+            logprobs = (generation_chunk.generation_info or {}).get("logprobs")
+            if run_manager:
+                await run_manager.on_llm_new_token(
+                    generation_chunk.text,
+                    chunk=generation_chunk,
+                    logprobs=logprobs,
                 )
             if hasattr(generation_chunk.message, "tool_calls") and isinstance(
                 generation_chunk.message.tool_calls, list

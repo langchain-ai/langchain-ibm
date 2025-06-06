@@ -40,6 +40,17 @@ class TestWatsonxToolsStandard(ToolsIntegrationTests):
                     }
                 },
             },
+            "tool_input_schema": {
+                "type": "object",
+                "properties": {
+                    "q": {
+                        "title": "Query",
+                        "description": "GoogleSearch query",
+                        "type": "string",
+                    }
+                },
+                "required": ["q"],
+            },
             "watsonx_client": APIClient(
                 credentials=wx_credentials,
                 project_id=WX_PROJECT_ID,
@@ -55,5 +66,5 @@ class TestWatsonxToolsStandard(ToolsIntegrationTests):
         have {"name", "id", "args"} keys.
         """
         return {
-            "input": "Search IBM",
+            "q": "Search IBM",
         }
