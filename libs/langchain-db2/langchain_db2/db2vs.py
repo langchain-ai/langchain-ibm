@@ -21,7 +21,7 @@ from typing import (
     cast,
 )
 
-import ibm_db_dbi
+import ibm_db_dbi  # type: ignore
 
 if TYPE_CHECKING:
     from ibm_db_dbi import Connection
@@ -75,7 +75,7 @@ def _table_exists(client: Connection, table_name: str) -> bool:
         cursor = client.cursor()
         cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
     except Exception as ex:
-        if ex._message.find("SQL0204N") != -1:
+        if "SQL0204N" in str(ex):
             return False
         raise
     finally:
@@ -293,7 +293,8 @@ class DB2VS(VectorStore):
                     for metadata in metadatas
                 ]
             else:
-                # In the case partial metadata has id, generate new id if metadate doesn't have it.
+                # In the case partial metadata has id, generate new id if metadate
+                # doesn't have it.
                 processed_ids = []
                 for metadata in metadatas:
                     if "id" in metadata:
@@ -331,7 +332,10 @@ class DB2VS(VectorStore):
             )
         ]
 
-        SQL_INSERT = f"INSERT INTO {self.table_name} (id, embedding, metadata, text) VALUES (?, VECTOR(?, {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON(?), ?)"
+        SQL_INSERT = (
+            f"INSERT INTO {self.table_name} (id, embedding, metadata, text) "
+            f"VALUES (?, VECTOR(?, {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON(?), ?)"
+        )
 
         cursor = self.client.cursor()
         try:
@@ -452,8 +456,6 @@ class DB2VS(VectorStore):
         filter: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> List[Tuple[Document, float, np.ndarray]]:
-        embedding_arr: Any
-
         documents = []
         embeddingLen = self.get_embedding_dimension()
 

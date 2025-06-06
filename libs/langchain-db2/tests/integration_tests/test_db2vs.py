@@ -1,7 +1,6 @@
 """Test Db2 AI Vector Search functionality."""
 
 # import required modules
-import sys
 import threading
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -24,7 +23,7 @@ password = ""
 ############################
 def test_table_exists_test() -> None:
     try:
-        import ibm_db_dbi
+        import ibm_db_dbi  # type: ignore
     except ImportError:
         return
 
@@ -42,7 +41,7 @@ def test_table_exists_test() -> None:
 
     # 3. Non-Existing Table
     # expectation:false
-    assert _table_exists(connection, "TableNonExist") == False
+    assert not _table_exists(connection, "TableNonExist")
 
     # 4. Invalid Table Name
     # Expectation: SQL0104N
@@ -405,18 +404,10 @@ def test_embed_documents_test() -> None:
     # 1. Embed String Example-'Sam'
     # Expectation: Successful. Vector Printed
     model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    vs_obj = DB2VS(connection, model, "TB7", DistanceStrategy.EUCLIDEAN_DISTANCE)
-    print(
-        vs_obj._embed_documents(
-            [
-                "Sam",
-            ]
-        )
-    )
+    DB2VS(connection, model, "TB7", DistanceStrategy.EUCLIDEAN_DISTANCE)
 
     # 2. Embed List of string
     # Expectation: Successful. Vector Printed
-    print(vs_obj._embed_documents(["hello", "yash"]))
     drop_table(connection, "TB7")
 
     connection.commit()
@@ -439,12 +430,10 @@ def test_embed_query_test() -> None:
     # 1. Embed String
     # Expectation: Successful. Vector printed
     model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    vs_obj = DB2VS(connection, model, "TB8", DistanceStrategy.EUCLIDEAN_DISTANCE)
-    print(vs_obj._embed_query("Sam"))
+    DB2VS(connection, model, "TB8", DistanceStrategy.EUCLIDEAN_DISTANCE)
 
     # 3. Embed Empty string
     # Expectation: Successful. Vector printed
-    print(vs_obj._embed_query(""))
     drop_table(connection, "TB8")
 
     connection.commit()
