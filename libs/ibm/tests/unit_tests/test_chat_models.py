@@ -2,8 +2,12 @@
 
 import os
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
+from ibm_watsonx_ai import APIClient  # type: ignore
+from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
+from ibm_watsonx_ai.gateway import Gateway  # type: ignore
 
 from langchain_ibm import ChatWatsonx
 
@@ -11,6 +15,18 @@ os.environ.pop("WATSONX_APIKEY", None)
 os.environ.pop("WATSONX_PROJECT_ID", None)
 
 MODEL_ID = "mistralai/mixtral-8x7b-instruct-v01"
+
+api_client_mock = Mock(spec=APIClient)
+api_client_mock.default_space_id = None
+api_client_mock.default_project_id = "fake_project_id"
+
+gateway_mock = Mock(spec=Gateway)
+gateway_mock._client = api_client_mock
+
+model_inference_mock = Mock(spec=ModelInference)
+model_inference_mock._client = api_client_mock
+model_inference_mock.model_id = "fake_model_id"
+model_inference_mock.params = {"temperature": 1}
 
 
 def test_initialize_chat_watsonx_bad_path_without_url() -> None:
@@ -117,6 +133,32 @@ def test_initialize_chat_watsonx_with_three_exclusive_parameters() -> None:
         " Please specify exactly one of these parameters when initializing ChatWatsonx."
         in e.value.__str__()
     )
+
+
+def test_initialize_chat_watsonx_with_api_client_only() -> None:
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx(watsonx_client=api_client_mock)
+    assert (
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing ChatWatsonx."
+        in e.value.__str__()
+    )
+
+
+def test_initialize_chat_watsonx_with_gateway_only() -> None:
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx(watsonx_model=gateway_mock)
+    assert (
+        "Missing required parameter: 'model'. The 'model' parameter must be provided "
+        "when initializing the ChatWatsonx client via the Gateway object."
+        in e.value.__str__()
+    )
+
+
+def test_initialize_chat_watsonx_with_model_inferencey_only() -> None:
+    chat = ChatWatsonx(watsonx_model=model_inference_mock)
+
+    assert isinstance(chat, ChatWatsonx)
 
 
 def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:

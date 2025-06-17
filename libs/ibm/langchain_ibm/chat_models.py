@@ -430,7 +430,7 @@ class ChatWatsonx(BaseChatModel):
     """Type of model to use."""
 
     model: Optional[str] = None
-    """Type of model to use."""
+    """Name of model for given provider or alias."""
 
     deployment_id: Optional[str] = None
     """Type of deployed model to use."""
@@ -630,20 +630,39 @@ class ChatWatsonx(BaseChatModel):
                 if v is not None
             }
         )
-        if (
-            sum(
-                arg is not None
-                for arg in (self.model, self.model_id, self.deployment_id)
-            )
-            != 1
-        ):
-            raise ValueError(
-                "The parameters 'model', 'model_id' and 'deployment_id' are mutually "
-                "exclusive. Please specify exactly one of these parameters when "
-                "initializing ChatWatsonx."
-            )
 
-        if isinstance(self.watsonx_client, APIClient):
+        if isinstance(self.watsonx_model, ModelInference):
+            self.model_id = getattr(self.watsonx_model, "model_id")
+            self.deployment_id = getattr(self.watsonx_model, "deployment_id", "")
+            self.project_id = getattr(
+                getattr(self.watsonx_model, "_client"),
+                "default_project_id",
+            )
+            self.space_id = getattr(
+                getattr(self.watsonx_model, "_client"), "default_space_id"
+            )
+            self.params = getattr(self.watsonx_model, "params")
+            self.watsonx_client = getattr(self.watsonx_model, "_client")
+
+        elif isinstance(self.watsonx_model, Gateway):
+            if self.model is None:
+                raise ValueError(
+                    "Missing required parameter: 'model'. "
+                    "The 'model' parameter must be provided when initializing the "
+                    "ChatWatsonx client via the Gateway object."
+                )
+            self.watsonx_client = getattr(self.watsonx_model, "_client")
+
+        elif isinstance(self.watsonx_client, APIClient):
+            if (
+                sum(bool(x) for x in (self.model, self.model_id, self.deployment_id))
+                != 1
+            ):
+                raise ValueError(
+                    "The parameters 'model', 'model_id' and 'deployment_id' are "
+                    "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing ChatWatsonx."
+                )
             if self.model is not None:
                 watsonx_model = Gateway(
                     api_client=self.watsonx_client,
@@ -663,6 +682,16 @@ class ChatWatsonx(BaseChatModel):
             self.watsonx_model = watsonx_model
 
         else:
+            if (
+                sum(bool(x) for x in (self.model, self.model_id, self.deployment_id))
+                != 1
+            ):
+                raise ValueError(
+                    "The parameters 'model', 'model_id' and 'deployment_id' are "
+                    "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing ChatWatsonx."
+                )
+
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
             if "cloud.ibm.com" in self.url.get_secret_value():
