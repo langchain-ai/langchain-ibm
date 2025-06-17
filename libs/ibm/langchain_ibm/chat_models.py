@@ -742,7 +742,7 @@ class ChatWatsonx(BaseChatModel):
             )
             if self.model is not None:
                 watsonx_model = Gateway(
-                    api_client=self.watsonx_client,
+                    credentials=credentials,
                     verify=self.verify,
                 )
             else:
