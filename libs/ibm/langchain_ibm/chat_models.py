@@ -800,10 +800,14 @@ class ChatWatsonx(BaseChatModel):
 
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
-
-        response = await self.watsonx_model.achat(
-            messages=message_dicts, **(kwargs | {"params": updated_params})
-        )
+        if self.model is not None:
+            response = await self.watsonx_model.chat.completions.acreate(
+                model=self.model, messages=message_dicts, **(kwargs | updated_params)
+            )
+        else:
+            response = await self.watsonx_model.achat(
+                messages=message_dicts, **(kwargs | {"params": updated_params})
+            )
         return self._create_chat_result(response)
 
     def _stream(
@@ -873,17 +877,23 @@ class ChatWatsonx(BaseChatModel):
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
 
-        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
+        if self.model is not None:
+            call_kwargs = {**kwargs, **updated_params, "stream": True}
+            chunk_iter = await self.watsonx_model.chat.completions.acreate(
+                model=self.model, messages=message_dicts, **call_kwargs
+            )
+        else:
+            call_kwargs = {**kwargs, "params": updated_params}
+            chunk_iter = await self.watsonx_model.achat_stream(
+                messages=message_dicts, **call_kwargs
+            )
 
+        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
 
-        response = await self.watsonx_model.achat_stream(
-            messages=message_dicts, **(kwargs | {"params": updated_params})
-        )
-        async for chunk in response:
-            if not isinstance(chunk, dict):
-                chunk = chunk.model_dump()
+        async for chunk in chunk_iter:
+            chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
                 chunk,
                 default_chunk_class,
