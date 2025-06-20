@@ -2,7 +2,7 @@ import json
 import sys
 from typing import Dict
 
-LIB_DIRS = ["libs/ibm"]
+LIB_DIRS = ["libs/ibm", "libs/langchain-db2"]
 
 if __name__ == "__main__":
     files = sys.argv[1:]
