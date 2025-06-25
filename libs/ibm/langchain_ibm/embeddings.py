@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     """IBM watsonx.ai embedding models."""
 
-    model_id: str
+    model_id: Optional[str] = None
     """Type of model to use."""
 
     project_id: Optional[str] = None
@@ -85,7 +85,19 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
-        if isinstance(self.watsonx_client, APIClient):
+        if isinstance(self.watsonx_embed, Embeddings):
+            self.model_id = getattr(self.watsonx_embed, "model_id")
+            self.project_id = getattr(
+                getattr(self.watsonx_embed, "_client"),
+                "default_project_id",
+            )
+            self.space_id = getattr(
+                getattr(self.watsonx_embed, "_client"), "default_space_id"
+            )
+
+            self.params = getattr(self.watsonx_embed, "params")
+
+        elif isinstance(self.watsonx_client, APIClient):
             watsonx_embed = Embeddings(
                 model_id=self.model_id,
                 params=self.params,
