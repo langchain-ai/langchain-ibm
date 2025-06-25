@@ -6,6 +6,7 @@ You'll need to set WATSONX_APIKEY and WATSONX_PROJECT_ID environment variables.
 import os
 
 from ibm_watsonx_ai import APIClient  # type: ignore
+from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
 from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames  # type: ignore
 
 from langchain_ibm import WatsonxEmbeddings
@@ -17,6 +18,40 @@ URL = "https://us-south.ml.cloud.ibm.com"
 MODEL_ID = "ibm/slate-125m-english-rtrvr"
 
 DOCUMENTS = ["What is a generative ai?", "What is a loan and how does it works?"]
+
+
+def test_init_with_client() -> None:
+    watsonx_client = APIClient(
+        credentials={
+            "url": "https://us-south.ml.cloud.ibm.com",
+            "apikey": WX_APIKEY,
+        },
+        project_id=WX_PROJECT_ID,
+    )
+    watsonx_embedding = WatsonxEmbeddings(
+        model_id=MODEL_ID, watsonx_client=watsonx_client
+    )
+    generate_embedding = watsonx_embedding.embed_documents(texts=DOCUMENTS)
+    assert len(generate_embedding) == len(DOCUMENTS)
+    assert all(isinstance(el, float) for el in generate_embedding[0])
+
+
+def test_init_with_embeddings() -> None:
+    watsonx_client = APIClient(
+        credentials={
+            "url": "https://us-south.ml.cloud.ibm.com",
+            "apikey": WX_APIKEY,
+        },
+        project_id=WX_PROJECT_ID,
+    )
+    embedding = Embeddings(api_client=watsonx_client, model_id=MODEL_ID)
+
+    watsonx_embedding = WatsonxEmbeddings(
+        watsonx_embed=embedding,
+    )
+    generate_embedding = watsonx_embedding.embed_documents(texts=DOCUMENTS)
+    assert len(generate_embedding) == len(DOCUMENTS)
+    assert all(isinstance(el, float) for el in generate_embedding[0])
 
 
 def test_01_generate_embed_documents() -> None:
