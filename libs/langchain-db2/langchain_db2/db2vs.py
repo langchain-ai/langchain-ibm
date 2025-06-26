@@ -150,6 +150,28 @@ def drop_table(client: Connection, table_name: str) -> None:
     return
 
 
+@_handle_exceptions
+def clear_table(client: Connection, table_name: str) -> None:
+    """Delete all records from the table.
+
+    Args:
+        client: The ibm_db_dbi connection object.
+        table_name: The name of the table to drop.
+    """
+    if _table_exists(client, table_name):
+        cursor = client.cursor()
+        ddl = f"DELETE FROM {table_name}"
+        try:
+            cursor.execute(ddl)
+            cursor.execute("COMMIT")
+            logger.info(f"Table {table_name} cleared successfully...")
+        finally:
+            cursor.close()
+    else:
+        logger.info(f"Table {table_name} not found...")
+    return
+
+
 class DB2VS(VectorStore):
     """`DB2VS` vector store.
 
@@ -711,3 +733,28 @@ class DB2VS(VectorStore):
         )
         vss.add_texts(texts=list(texts), metadatas=metadatas)
         return vss
+
+    @_handle_exceptions
+    def get_pks(self, expr: Optional[str] = None) -> List[str]:
+        """Get primary keys, optionally filtered by expr.
+
+        Args:
+            expr: SQL boolean expression to filter rows, e.g.:
+                  "id IN ('ABC123','DEF456')" or "title LIKE 'Abc%'".
+                  If None, returns all rows.
+        Returns:
+            List[str]: List of matching primary-key values.
+        """
+        sql = f"SELECT id FROM {self.table_name}"
+
+        if expr:
+            sql += f" WHERE {expr}"
+
+        cursor = self.client.cursor()
+        try:
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+        finally:
+            cursor.close()
+
+        return [row[0] for row in rows]
