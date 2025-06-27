@@ -152,24 +152,29 @@ def drop_table(client: Connection, table_name: str) -> None:
 
 @_handle_exceptions
 def clear_table(client: Connection, table_name: str) -> None:
-    """Delete all records from the table.
+    """Remove all records from the table using TRUNCATE.
 
     Args:
         client: The ibm_db_dbi connection object.
-        table_name: The name of the table to drop.
+        table_name: The name of the table to clear.
     """
-    if _table_exists(client, table_name):
-        cursor = client.cursor()
-        ddl = f"DELETE FROM {table_name}"
-        try:
-            cursor.execute(ddl)
-            cursor.execute("COMMIT")
-            logger.info(f"Table {table_name} cleared successfully...")
-        finally:
-            cursor.close()
-    else:
-        logger.info(f"Table {table_name} not found...")
-    return
+    if not _table_exists(client, table_name):
+        logger.info(f"Table {table_name} not found…")
+        return
+
+    cursor = client.cursor()
+    ddl = f"TRUNCATE TABLE {table_name} IMMEDIATE"
+    try:
+        client.commit()
+        cursor.execute(ddl)
+        client.commit()
+        logger.info(f"Table {table_name} cleared successfully.")
+    except Exception:
+        client.rollback()
+        logger.exception(f"Failed to clear table {table_name}. Rolled back.")
+        raise
+    finally:
+        cursor.close()
 
 
 class DB2VS(VectorStore):
