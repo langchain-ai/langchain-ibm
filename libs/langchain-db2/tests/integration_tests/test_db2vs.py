@@ -2,6 +2,7 @@
 
 # import required modules
 import threading
+import time
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.utils import DistanceStrategy
@@ -10,6 +11,7 @@ from langchain_db2.db2vs import (
     DB2VS,
     _create_table,
     _table_exists,
+    clear_table,
     drop_table,
 )
 
@@ -513,4 +515,40 @@ def test_perform_search_test() -> None:
     drop_table(connection, "TB11")
     drop_table(connection, "TB12")
 
+    connection.commit()
+
+
+def test_get_pks() -> None:
+    try:
+        import ibm_db_dbi  # type: ignore
+    except ImportError:
+        return
+
+    try:
+        connection = ibm_db_dbi.connect(database, username, password)
+    except Exception:
+        return
+
+    model = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/paraphrase-mpnet-base-v2"
+    )
+
+    table_name = f"Unique_table_{int(time.time())}"
+
+    db2vs = DB2VS(client=connection, embedding_function=model, table_name=table_name)
+    pks = db2vs.get_pks()
+
+    assert isinstance(pks, list)
+    assert len(pks) == 0
+
+    db2vs.add_texts(texts=["Josh", "Mary"])
+
+    pks = db2vs.get_pks()
+    assert len(pks) > 0
+
+    clear_table(client=connection, table_name=table_name)
+    pks = db2vs.get_pks()
+    assert len(pks) == 0
+
+    drop_table(connection, table_name)
     connection.commit()
