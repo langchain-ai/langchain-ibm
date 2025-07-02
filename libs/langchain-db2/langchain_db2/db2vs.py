@@ -211,10 +211,10 @@ class DB2VS(VectorStore):
                 self.client = ibm_db_dbi.connect(conn_str, "", "")
             else:
                 raise RuntimeError("No valid connection or connection_args is passed")
-
-        try:
+        else:
             """Initialize with ibm_db_dbi client."""
             self.client = client
+        try:
             """Initialize with necessary components."""
             if not isinstance(embedding_function, Embeddings):
                 logger.warning(
