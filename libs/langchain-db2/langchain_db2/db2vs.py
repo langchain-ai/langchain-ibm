@@ -199,18 +199,19 @@ class DB2VS(VectorStore):
         connection_args: Optional[Dict[str, Any]] = None,
     ):
         if client is None:
-            if connection_args is None:
-                database=connection_args.get("database")
-                host=connection_args.get("host")
-                port=connection_args.get("port")
-                username=connection_args.get("username")
-                password=connection_args.get("password")
+            if connection_args is not None:
+                database = connection_args.get("database")
+                host = connection_args.get("host")
+                port = connection_args.get("port")
+                username = connection_args.get("username")
+                password = connection_args.get("password")
 
-                conn_str=f"DATABASE={database};hostname={host};port={port};uid={username};pwd={password};"
-                self.client = ibm_db_dbi.connect(conn_str, '', '')
+                conn_str = f"DATABASE={database};hostname={host};port={port};"
+                f"uid={username};pwd={password};"
+                self.client = ibm_db_dbi.connect(conn_str, "", "")
             else:
                 raise RuntimeError("No valid connection or connection_args is passed")
-        
+
         try:
             """Initialize with ibm_db_dbi client."""
             self.client = client
