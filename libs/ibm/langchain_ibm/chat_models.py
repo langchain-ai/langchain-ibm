@@ -644,15 +644,6 @@ class ChatWatsonx(BaseChatModel):
             self.params = getattr(self.watsonx_model, "params")
             self.watsonx_client = getattr(self.watsonx_model, "_client")
 
-        elif isinstance(self.watsonx_model, Gateway):
-            if self.model is None:
-                raise ValueError(
-                    "Missing required parameter: 'model'. "
-                    "The 'model' parameter must be provided when initializing the "
-                    "ChatWatsonx client via the Gateway object."
-                )
-            self.watsonx_client = getattr(self.watsonx_model, "_client")
-
         elif isinstance(self.watsonx_client, APIClient):
             if (
                 sum(bool(x) for x in (self.model, self.model_id, self.deployment_id))

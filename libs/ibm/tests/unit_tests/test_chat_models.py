@@ -145,16 +145,6 @@ def test_initialize_chat_watsonx_with_api_client_only() -> None:
     )
 
 
-def test_initialize_chat_watsonx_with_gateway_only() -> None:
-    with pytest.raises(ValueError) as e:
-        ChatWatsonx(watsonx_model=gateway_mock)
-    assert (
-        "Missing required parameter: 'model'. The 'model' parameter must be provided "
-        "when initializing the ChatWatsonx client via the Gateway object."
-        in e.value.__str__()
-    )
-
-
 def test_initialize_chat_watsonx_with_model_inferencey_only() -> None:
     chat = ChatWatsonx(watsonx_model=model_inference_mock)
 
