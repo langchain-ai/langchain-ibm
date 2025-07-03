@@ -26,6 +26,7 @@ URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/granite-34b-code-instruct"
 MODEL_ID_TOOL = "mistralai/mistral-large"
+MODEL_ID_TOOL_2 = "meta-llama/llama-3-3-70b-instruct"
 
 PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
 
@@ -484,7 +485,7 @@ def test_chat_bind_tools_tool_choice_as_dict() -> None:
 def test_chat_bind_tools_list_tool_choice_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID_TOOL_2,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},

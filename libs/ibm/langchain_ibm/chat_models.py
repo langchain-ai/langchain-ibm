@@ -28,6 +28,7 @@ from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
     BaseSchema,
     TextChatParameters,
 )
+from ibm_watsonx_ai.gateway import Gateway  # type: ignore
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
@@ -428,6 +429,9 @@ class ChatWatsonx(BaseChatModel):
     model_id: Optional[str] = None
     """Type of model to use."""
 
+    model: Optional[str] = None
+    """Name of model for given provider or alias."""
+
     deployment_id: Optional[str] = None
     """Type of deployed model to use."""
 
@@ -558,6 +562,10 @@ class ChatWatsonx(BaseChatModel):
 
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
+    watsonx_model_gateway: Gateway = Field(
+        default=None, exclude=True
+    )  #: :meta private:
+
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 
     model_config = ConfigDict(populate_by_name=True)
@@ -624,21 +632,58 @@ class ChatWatsonx(BaseChatModel):
                 if v is not None
             }
         )
-
-        if isinstance(self.watsonx_client, APIClient):
-            watsonx_model = ModelInference(
-                model_id=self.model_id,
-                deployment_id=self.deployment_id,
-                params=self.params,
-                api_client=self.watsonx_client,
-                project_id=self.project_id,
-                space_id=self.space_id,
-                verify=self.verify,
-                validate=self.validate_model,
+        if self.watsonx_model_gateway is not None:
+            raise NotImplementedError(
+                "Passing the 'watsonx_model_gateway' parameter to the ChatWatsonx "
+                "constructor is not supported yet."
             )
-            self.watsonx_model = watsonx_model
 
+        if isinstance(self.watsonx_model, ModelInference):
+            self.model_id = getattr(self.watsonx_model, "model_id")
+            self.deployment_id = getattr(self.watsonx_model, "deployment_id", "")
+            self.project_id = getattr(
+                getattr(self.watsonx_model, "_client"),
+                "default_project_id",
+            )
+            self.space_id = getattr(
+                getattr(self.watsonx_model, "_client"), "default_space_id"
+            )
+            self.params = getattr(self.watsonx_model, "params")
+            self.watsonx_client = getattr(self.watsonx_model, "_client")
+
+        elif isinstance(self.watsonx_client, APIClient):
+            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
+                raise ValueError(
+                    "The parameters 'model', 'model_id' and 'deployment_id' are "
+                    "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing ChatWatsonx."
+                )
+            if self.model is not None:
+                watsonx_model_gateway = Gateway(
+                    api_client=self.watsonx_client,
+                    verify=self.verify,
+                )
+                self.watsonx_model_gateway = watsonx_model_gateway
+            else:
+                watsonx_model = ModelInference(
+                    model_id=self.model_id,
+                    deployment_id=self.deployment_id,
+                    params=self.params,
+                    api_client=self.watsonx_client,
+                    project_id=self.project_id,
+                    space_id=self.space_id,
+                    verify=self.verify,
+                    validate=self.validate_model,
+                )
+                self.watsonx_model = watsonx_model
         else:
+            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
+                raise ValueError(
+                    "The parameters 'model', 'model_id' and 'deployment_id' are "
+                    "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing ChatWatsonx."
+                )
+
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
             if "cloud.ibm.com" in self.url.get_secret_value():
@@ -687,18 +732,24 @@ class ChatWatsonx(BaseChatModel):
                 version=self.version.get_secret_value() if self.version else None,
                 verify=self.verify,
             )
-
-            watsonx_chat = ModelInference(
-                model_id=self.model_id,
-                deployment_id=self.deployment_id,
-                credentials=credentials,
-                params=self.params,
-                project_id=self.project_id,
-                space_id=self.space_id,
-                verify=self.verify,
-                validate=self.validate_model,
-            )
-            self.watsonx_model = watsonx_chat
+            if self.model is not None:
+                watsonx_model_gateway = Gateway(
+                    credentials=credentials,
+                    verify=self.verify,
+                )
+                self.watsonx_model_gateway = watsonx_model_gateway
+            else:
+                watsonx_model = ModelInference(
+                    model_id=self.model_id,
+                    deployment_id=self.deployment_id,
+                    credentials=credentials,
+                    params=self.params,
+                    project_id=self.project_id,
+                    space_id=self.space_id,
+                    verify=self.verify,
+                    validate=self.validate_model,
+                )
+                self.watsonx_model = watsonx_model
 
         return self
 
@@ -717,10 +768,14 @@ class ChatWatsonx(BaseChatModel):
 
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
-
-        response = self.watsonx_model.chat(
-            messages=message_dicts, **(kwargs | {"params": updated_params})
-        )
+        if self.watsonx_model_gateway is not None:
+            response = self.watsonx_model_gateway.chat.completions.create(
+                model=self.model, messages=message_dicts, **(kwargs | updated_params)
+            )
+        else:
+            response = self.watsonx_model.chat(
+                messages=message_dicts, **(kwargs | {"params": updated_params})
+            )
         return self._create_chat_result(response)
 
     async def _agenerate(
@@ -738,10 +793,14 @@ class ChatWatsonx(BaseChatModel):
 
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
-
-        response = await self.watsonx_model.achat(
-            messages=message_dicts, **(kwargs | {"params": updated_params})
-        )
+        if self.watsonx_model_gateway is not None:
+            response = await self.watsonx_model_gateway.chat.completions.acreate(
+                model=self.model, messages=message_dicts, **(kwargs | updated_params)
+            )
+        else:
+            response = await self.watsonx_model.achat(
+                messages=message_dicts, **(kwargs | {"params": updated_params})
+            )
         return self._create_chat_result(response)
 
     def _stream(
@@ -754,16 +813,23 @@ class ChatWatsonx(BaseChatModel):
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
 
-        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
+        if self.watsonx_model_gateway is not None:
+            call_kwargs = {**kwargs, **updated_params, "stream": True}
+            chunk_iter = self.watsonx_model_gateway.chat.completions.create(
+                model=self.model, messages=message_dicts, **call_kwargs
+            )
+        else:
+            call_kwargs = {**kwargs, "params": updated_params}
+            chunk_iter = self.watsonx_model.chat_stream(
+                messages=message_dicts, **call_kwargs
+            )
 
+        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
 
-        for chunk in self.watsonx_model.chat_stream(
-            messages=message_dicts, **(kwargs | {"params": updated_params})
-        ):
-            if not isinstance(chunk, dict):
-                chunk = chunk.model_dump()
+        for chunk in chunk_iter:
+            chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
                 chunk, default_chunk_class, is_first_tool_chunk, _prompt_tokens_included
             )
@@ -804,17 +870,23 @@ class ChatWatsonx(BaseChatModel):
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
 
-        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
+        if self.watsonx_model_gateway is not None:
+            call_kwargs = {**kwargs, **updated_params, "stream": True}
+            chunk_iter = await self.watsonx_model_gateway.chat.completions.acreate(
+                model=self.model, messages=message_dicts, **call_kwargs
+            )
+        else:
+            call_kwargs = {**kwargs, "params": updated_params}
+            chunk_iter = await self.watsonx_model.achat_stream(
+                messages=message_dicts, **call_kwargs
+            )
 
+        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
 
-        response = await self.watsonx_model.achat_stream(
-            messages=message_dicts, **(kwargs | {"params": updated_params})
-        )
-        async for chunk in response:
-            if not isinstance(chunk, dict):
-                chunk = chunk.model_dump()
+        async for chunk in chunk_iter:
+            chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
                 chunk,
                 default_chunk_class,

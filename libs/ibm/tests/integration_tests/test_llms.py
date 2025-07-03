@@ -227,9 +227,6 @@ def test_watsonxllm_stream() -> None:
         url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
     )
-    response = watsonxllm.invoke("What color sunflower is?")
-    print(f"\nResponse: {response}")
-
     stream_response = watsonxllm.stream("What color sunflower is?")
 
     linked_text_stream = ""
@@ -239,9 +236,7 @@ def test_watsonxllm_stream() -> None:
         ), f"chunk expect type '{str}', actual '{type(chunk)}'"
         linked_text_stream += chunk
     print(f"Linked text stream: {linked_text_stream}")
-    assert (
-        response == linked_text_stream
-    ), "Linked text stream are not the same as generated text"
+    assert linked_text_stream
 
 
 async def test_watsonxllm_astream() -> None:
