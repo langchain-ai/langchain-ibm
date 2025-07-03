@@ -652,10 +652,7 @@ class ChatWatsonx(BaseChatModel):
             self.watsonx_client = getattr(self.watsonx_model, "_client")
 
         elif isinstance(self.watsonx_client, APIClient):
-            if (
-                sum(bool(x) for x in (self.model, self.model_id, self.deployment_id))
-                != 1
-            ):
+            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
                 raise ValueError(
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
@@ -680,10 +677,7 @@ class ChatWatsonx(BaseChatModel):
                 )
                 self.watsonx_model = watsonx_model
         else:
-            if (
-                sum(bool(x) for x in (self.model, self.model_id, self.deployment_id))
-                != 1
-            ):
+            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
                 raise ValueError(
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
