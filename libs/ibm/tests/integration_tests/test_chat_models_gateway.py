@@ -2,7 +2,6 @@ import os
 
 import pytest
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
-from ibm_watsonx_ai.gateway import Gateway  # type: ignore
 from langchain_core.messages import (
     HumanMessage,
     SystemMessage,
@@ -54,19 +53,6 @@ class TestChatModelsGateway:
         api_client = APIClient(credentials=credentials, project_id=WX_PROJECT_ID)
 
         chat = ChatWatsonx(model=MODEL, watsonx_client=api_client)
-        assert isinstance(chat, ChatWatsonx)
-
-        response = chat.invoke(self.prompt)
-
-        assert response
-        assert response.content
-
-    def test_chat_model_gateway_init_gateway(self) -> None:
-        credentials = Credentials(url=URL, api_key=WX_APIKEY)
-        api_client = APIClient(credentials=credentials, project_id=WX_PROJECT_ID)
-        gateway = Gateway(api_client=api_client)
-
-        chat = ChatWatsonx(model=MODEL, watsonx_model=gateway)
         assert isinstance(chat, ChatWatsonx)
 
         response = chat.invoke(self.prompt)

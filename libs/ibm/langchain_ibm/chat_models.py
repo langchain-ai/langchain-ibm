@@ -560,7 +560,9 @@ class ChatWatsonx(BaseChatModel):
     streaming: bool = False
     """Whether to stream the results or not."""
 
-    watsonx_model: ModelInference | Gateway = Field(
+    watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
+
+    watsonx_model_gateway: Gateway = Field(
         default=None, exclude=True
     )  #: :meta private:
 
@@ -630,6 +632,12 @@ class ChatWatsonx(BaseChatModel):
                 if v is not None
             }
         )
+        if sum(bool(x) for x in (self.watsonx_model_gateway, self.watsonx_model)) > 1:
+            raise ValueError(
+                "The parameters 'watsonx_model' and 'watsonx_model_gateway' are "
+                "mutually exclusive. Please specify exactly one of these "
+                "parameters when initializing ChatWatsonx."
+            )
 
         if isinstance(self.watsonx_model, ModelInference):
             self.model_id = getattr(self.watsonx_model, "model_id")
@@ -655,10 +663,11 @@ class ChatWatsonx(BaseChatModel):
                     "parameters when initializing ChatWatsonx."
                 )
             if self.model is not None:
-                watsonx_model = Gateway(
+                watsonx_model_gateway = Gateway(
                     api_client=self.watsonx_client,
                     verify=self.verify,
                 )
+                self.watsonx_model_gateway = watsonx_model_gateway
             else:
                 watsonx_model = ModelInference(
                     model_id=self.model_id,
@@ -670,8 +679,7 @@ class ChatWatsonx(BaseChatModel):
                     verify=self.verify,
                     validate=self.validate_model,
                 )
-            self.watsonx_model = watsonx_model
-
+                self.watsonx_model = watsonx_model
         else:
             if (
                 sum(bool(x) for x in (self.model, self.model_id, self.deployment_id))
@@ -732,10 +740,11 @@ class ChatWatsonx(BaseChatModel):
                 verify=self.verify,
             )
             if self.model is not None:
-                watsonx_model = Gateway(
+                watsonx_model_gateway = Gateway(
                     credentials=credentials,
                     verify=self.verify,
                 )
+                self.watsonx_model_gateway = watsonx_model_gateway
             else:
                 watsonx_model = ModelInference(
                     model_id=self.model_id,
@@ -747,7 +756,7 @@ class ChatWatsonx(BaseChatModel):
                     verify=self.verify,
                     validate=self.validate_model,
                 )
-            self.watsonx_model = watsonx_model
+                self.watsonx_model = watsonx_model
 
         return self
 
@@ -766,8 +775,8 @@ class ChatWatsonx(BaseChatModel):
 
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
-        if self.model is not None:
-            response = self.watsonx_model.chat.completions.create(
+        if self.watsonx_model_gateway is not None:
+            response = self.watsonx_model_gateway.chat.completions.create(
                 model=self.model, messages=message_dicts, **(kwargs | updated_params)
             )
         else:
@@ -791,8 +800,8 @@ class ChatWatsonx(BaseChatModel):
 
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
-        if self.model is not None:
-            response = await self.watsonx_model.chat.completions.acreate(
+        if self.watsonx_model_gateway is not None:
+            response = await self.watsonx_model_gateway.chat.completions.acreate(
                 model=self.model, messages=message_dicts, **(kwargs | updated_params)
             )
         else:
@@ -811,9 +820,9 @@ class ChatWatsonx(BaseChatModel):
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
 
-        if self.model is not None:
+        if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params, "stream": True}
-            chunk_iter = self.watsonx_model.chat.completions.create(
+            chunk_iter = self.watsonx_model_gateway.chat.completions.create(
                 model=self.model, messages=message_dicts, **call_kwargs
             )
         else:
@@ -868,9 +877,9 @@ class ChatWatsonx(BaseChatModel):
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
 
-        if self.model is not None:
+        if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params, "stream": True}
-            chunk_iter = await self.watsonx_model.chat.completions.acreate(
+            chunk_iter = await self.watsonx_model_gateway.chat.completions.acreate(
                 model=self.model, messages=message_dicts, **call_kwargs
             )
         else:

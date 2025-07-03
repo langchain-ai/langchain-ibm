@@ -145,6 +145,28 @@ def test_initialize_chat_watsonx_with_api_client_only() -> None:
     )
 
 
+def test_initialize_chat_watsonx_with_watsonx_model_and_watsonx_model_gateway() -> None:
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx(
+            watsonx_model=model_inference_mock, watsonx_model_gateway=gateway_mock
+        )
+    assert (
+        "The parameters 'watsonx_model' and 'watsonx_model_gateway' are mutually "
+        "exclusive. Please specify exactly one of these parameters when "
+        "initializing ChatWatsonx." in e.value.__str__()
+    )
+
+
+def test_initialize_chat_watsonx_without_any_params() -> None:
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx()
+    assert (
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing ChatWatsonx."
+        in e.value.__str__()
+    )
+
+
 def test_initialize_chat_watsonx_with_model_inferencey_only() -> None:
     chat = ChatWatsonx(watsonx_model=model_inference_mock)
 
