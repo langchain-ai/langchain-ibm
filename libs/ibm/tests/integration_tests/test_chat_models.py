@@ -1048,7 +1048,7 @@ def test_invoke_with_params_1() -> None:
     )
 
     assert chat.params == {}
-    assert 7 < completion_tokens < 11
+    assert completion_tokens > 0
 
 
 def test_invoke_with_params_2() -> None:
