@@ -632,11 +632,10 @@ class ChatWatsonx(BaseChatModel):
                 if v is not None
             }
         )
-        if sum(bool(x) for x in (self.watsonx_model_gateway, self.watsonx_model)) > 1:
-            raise ValueError(
-                "The parameters 'watsonx_model' and 'watsonx_model_gateway' are "
-                "mutually exclusive. Please specify exactly one of these "
-                "parameters when initializing ChatWatsonx."
+        if self.watsonx_model_gateway is not None:
+            raise NotImplementedError(
+                "Passing the 'watsonx_model_gateway' parameter to the ChatWatsonx "
+                "constructor is not supported yet."
             )
 
         if isinstance(self.watsonx_model, ModelInference):

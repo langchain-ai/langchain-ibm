@@ -145,15 +145,12 @@ def test_initialize_chat_watsonx_with_api_client_only() -> None:
     )
 
 
-def test_initialize_chat_watsonx_with_watsonx_model_and_watsonx_model_gateway() -> None:
-    with pytest.raises(ValueError) as e:
-        ChatWatsonx(
-            watsonx_model=model_inference_mock, watsonx_model_gateway=gateway_mock
-        )
+def test_initialize_chat_watsonx_with_watsonx_model_gateway() -> None:
+    with pytest.raises(NotImplementedError) as e:
+        ChatWatsonx(watsonx_model_gateway=gateway_mock)
     assert (
-        "The parameters 'watsonx_model' and 'watsonx_model_gateway' are mutually "
-        "exclusive. Please specify exactly one of these parameters when "
-        "initializing ChatWatsonx." in e.value.__str__()
+        "Passing the 'watsonx_model_gateway' parameter to the ChatWatsonx "
+        "constructor is not supported yet." in e.value.__str__()
     )
 
 
