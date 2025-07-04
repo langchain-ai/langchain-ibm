@@ -210,8 +210,9 @@ class DB2VS(VectorStore):
                 f"uid={username};pwd={password};"
 
                 if "security" in connection_args:
-                    conn_str += f"security={connection_args.get("security")};"
-                
+                    security = connection_args.get("security")
+                    conn_str += f"security={security};"
+
                 self.client = ibm_db_dbi.connect(conn_str, "", "")
             else:
                 raise RuntimeError("No valid connection or connection_args is passed")
