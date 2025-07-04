@@ -187,12 +187,12 @@ class DB2VS(VectorStore):
 
     def __init__(
         self,
-        client: Optional[Connection],
         embedding_function: Union[
             Callable[[str], List[float]],
             Embeddings,
         ],
         table_name: str,
+        client: Optional[Connection] = None,
         distance_strategy: DistanceStrategy = DistanceStrategy.EUCLIDEAN_DISTANCE,
         query: Optional[str] = "What is a Db2 database",
         params: Optional[Dict[str, Any]] = None,
@@ -208,6 +208,10 @@ class DB2VS(VectorStore):
 
                 conn_str = f"DATABASE={database};hostname={host};port={port};"
                 f"uid={username};pwd={password};"
+
+                if "security" in connection_args:
+                    conn_str += f"security={connection_args.get("security")};"
+                
                 self.client = ibm_db_dbi.connect(conn_str, "", "")
             else:
                 raise RuntimeError("No valid connection or connection_args is passed")
