@@ -151,7 +151,10 @@ def gateway_error_handler(func: Callable) -> Callable:
         try:
             return func(self, *args, **kwargs)
         except ApiRequestFailure:
-            if getattr(self, "watsonx_model_gateway", None) is not None:
+            if any(
+                hasattr(self, attr)
+                for attr in ("watsonx_model_gateway", "watsonx_embed_gateway")
+            ):
                 logger.warning(
                     "You are calling the Model Gateway endpoint using the 'model' "
                     "parameter. Please ensure this model is registered with the "
