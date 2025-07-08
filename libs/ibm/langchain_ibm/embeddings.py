@@ -21,7 +21,16 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     """Type of model to use."""
 
     model: Optional[str] = None
-    """Name of model for given provider or alias."""
+    """
+    Name or alias of the foundation model to use.  
+    When using IBM’s watsonx.ai Model Gateway (public preview), you can specify any 
+    supported third-party model—OpenAI, Anthropic, NVIDIA, Cerebras, or IBM’s own 
+    Granite series—via a single, OpenAI-compatible interface. Models must be explicitly 
+    provisioned (opt-in) through the Gateway to ensure secure, vendor-agnostic access 
+    and easy switch-over without reconfiguration.
+    
+    For more details on configuration and usage, see IBM watsonx Model Gateway docs: https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp
+    """
 
     project_id: Optional[str] = None
     """ID of the Watson Studio project."""
@@ -74,7 +83,8 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         * the path to a CA_BUNDLE file
         * the path of directory with certificates of trusted CAs
         * True - default path to truststore will be taken
-        * False - no verification will be made"""
+        * False - no verification will be made
+    """
 
     watsonx_embed: Embeddings = Field(default=None)  #: :meta private:
 
