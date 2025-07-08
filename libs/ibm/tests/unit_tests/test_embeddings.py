@@ -1,84 +1,148 @@
 """Test WatsonxLLM API wrapper."""
 
 import os
+from unittest.mock import Mock
+
+import pytest
+from ibm_watsonx_ai import APIClient  # type: ignore
+from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
+from ibm_watsonx_ai.gateway import Gateway  # type: ignore
 
 from langchain_ibm import WatsonxEmbeddings
 
 os.environ.pop("WATSONX_APIKEY", None)
 os.environ.pop("WATSONX_PROJECT_ID", None)
 
-MODEL_ID = "ibm/slate-125m-english-rtrvr"
+MODEL_ID = "ibm/granite-embedding-107m-multilingual"
+
+api_client_mock = Mock(spec=APIClient)
+api_client_mock.default_space_id = None
+api_client_mock.default_project_id = "fake_project_id"
+
+gateway_mock = Mock(spec=Gateway)
+gateway_mock._client = api_client_mock
+
+embeddings_mock = Mock(spec=Embeddings)
+embeddings_mock._client = api_client_mock
+embeddings_mock.model_id = "fake_model_id"
+embeddings_mock.params = {"temperature": 1}
 
 
 def test_initialize_watsonx_embeddings_bad_path_without_url() -> None:
-    try:
+    with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(
             model_id=MODEL_ID,
         )
-    except ValueError as e:
-        assert "url" in e.__str__()
-        assert "WATSONX_URL" in e.__str__()
+    assert "url" in str(e.value)
+    assert "WATSONX_URL" in str(e.value)
 
 
 def test_initialize_watsonx_embeddings_cloud_bad_path() -> None:
-    try:
+    with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(model_id=MODEL_ID, url="https://us-south.ml.cloud.ibm.com")  # type: ignore[arg-type]
-    except ValueError as e:
-        assert "apikey" in e.__str__() and "token" in e.__str__()
-        assert "WATSONX_APIKEY" in e.__str__() and "WATSONX_TOKEN" in e.__str__()
+
+    assert "apikey" in str(e.value) and "token" in str(e.value)
+    assert "WATSONX_APIKEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
 
 
 def test_initialize_watsonx_embeddings_cpd_bad_path_without_all() -> None:
-    try:
+    with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
         )
-    except ValueError as e:
-        assert (
-            "apikey" in e.__str__()
-            and "password" in e.__str__()
-            and "token" in e.__str__()
-        )
-        assert (
-            "WATSONX_APIKEY" in e.__str__()
-            and "WATSONX_PASSWORD" in e.__str__()
-            and "WATSONX_TOKEN" in e.__str__()
-        )
+    assert (
+        "apikey" in str(e.value)
+        and "password" in str(e.value)
+        and "token" in str(e.value)
+    )
+    assert (
+        "WATSONX_APIKEY" in str(e.value)
+        and "WATSONX_PASSWORD" in str(e.value)
+        and "WATSONX_TOKEN" in str(e.value)
+    )
 
 
 def test_initialize_watsonx_embeddings_cpd_bad_path_password_without_username() -> None:
-    try:
+    with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
             password="test_password",  # type: ignore[arg-type]
         )
-    except ValueError as e:
-        assert "username" in e.__str__()
-        assert "WATSONX_USERNAME" in e.__str__()
+    assert "username" in str(e.value)
+    assert "WATSONX_USERNAME" in str(e.value)
 
 
 def test_initialize_watsonx_embeddings_cpd_bad_path_apikey_without_username() -> None:
-    try:
+    with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
             apikey="test_apikey",  # type: ignore[arg-type]
         )
-    except ValueError as e:
-        assert "username" in e.__str__()
-        assert "WATSONX_USERNAME" in e.__str__()
+    assert "username" in str(e.value)
+    assert "WATSONX_USERNAME" in str(e.value)
 
 
 def test_initialize_watsonx_embeddings_cpd_bad_path_without_instance_id() -> None:
-    try:
+    with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(
             model_id="google/flan-ul2",
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
             apikey="test_apikey",  # type: ignore[arg-type]
             username="test_user",  # type: ignore[arg-type]
         )
-    except ValueError as e:
-        assert "instance_id" in e.__str__()
-        assert "WATSONX_INSTANCE_ID" in e.__str__()
+    assert "instance_id" in str(e.value)
+    assert "WATSONX_INSTANCE_ID" in str(e.value)
+
+
+def test_initialize_watsonx_embeddings_with_two_exclusive_parameters() -> None:
+    with pytest.raises(ValueError) as e:
+        WatsonxEmbeddings(
+            model_id=MODEL_ID,
+            model=MODEL_ID,
+            url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+            apikey="test_apikey",  # type: ignore[arg-type]
+        )
+
+    assert (
+        "The parameters 'model' and 'model_id' are mutually exclusive. "
+        "Please specify exactly one of these parameters when initializing "
+        "WatsonxEmbeddings." in str(e.value)
+    )
+
+
+def test_initialize_watsonx_embeddings_without_any_params() -> None:
+    with pytest.raises(ValueError) as e:
+        WatsonxEmbeddings()
+    assert (
+        "The parameters 'model' and 'model_id' are mutually exclusive. "
+        "Please specify exactly one of these parameters when initializing "
+        "WatsonxEmbeddings." in str(e.value)
+    )
+
+
+def test_initialize_watsonx_embeddings_with_api_client_only() -> None:
+    with pytest.raises(ValueError) as e:
+        WatsonxEmbeddings(watsonx_client=api_client_mock)
+    assert (
+        "The parameters 'model' and 'model_id' are mutually exclusive. "
+        "Please specify exactly one of these parameters when initializing "
+        "WatsonxEmbeddings." in str(e.value)
+    )
+
+
+def test_initialize_watsonx_embeddings_with_watsonx_embed_gateway() -> None:
+    with pytest.raises(NotImplementedError) as e:
+        WatsonxEmbeddings(watsonx_embed_gateway=gateway_mock)
+    assert (
+        "Passing the 'watsonx_embed_gateway' parameter to the WatsonxEmbeddings "
+        "constructor is not supported yet." in e.value.__str__()
+    )
+
+
+def test_initialize_watsonx_embeddings_with_watsonx_embed_only() -> None:
+    embeddings = WatsonxEmbeddings(watsonx_embed=embeddings_mock)
+
+    assert isinstance(embeddings, WatsonxEmbeddings)

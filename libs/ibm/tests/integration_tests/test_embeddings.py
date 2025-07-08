@@ -20,6 +20,18 @@ MODEL_ID = "ibm/slate-125m-english-rtrvr"
 DOCUMENTS = ["What is a generative ai?", "What is a loan and how does it works?"]
 
 
+def test_init_with_credentials() -> None:
+    watsonx_embedding = WatsonxEmbeddings(
+        model_id=MODEL_ID,
+        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+        apikey=WX_APIKEY,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    generate_embedding = watsonx_embedding.embed_documents(texts=DOCUMENTS)
+    assert len(generate_embedding) == len(DOCUMENTS)
+    assert all(isinstance(el, float) for el in generate_embedding[0])
+
+
 def test_init_with_client() -> None:
     watsonx_client = APIClient(
         credentials={
@@ -61,6 +73,17 @@ def test_01_generate_embed_documents() -> None:
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = watsonx_embedding.embed_documents(texts=DOCUMENTS)
+    assert len(generate_embedding) == len(DOCUMENTS)
+    assert all(isinstance(el, float) for el in generate_embedding[0])
+
+
+async def test_01_generate_aembed_documents() -> None:
+    watsonx_embedding = WatsonxEmbeddings(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    generate_embedding = await watsonx_embedding.aembed_documents(texts=DOCUMENTS)
     assert len(generate_embedding) == len(DOCUMENTS)
     assert all(isinstance(el, float) for el in generate_embedding[0])
 
@@ -120,6 +143,18 @@ def test_10_generate_embed_query() -> None:
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = watsonx_embedding.embed_query(text=DOCUMENTS[0])
+    assert isinstance(generate_embedding, list) and isinstance(
+        generate_embedding[0], float
+    )
+
+
+async def test_10_generate_aembed_query() -> None:
+    watsonx_embedding = WatsonxEmbeddings(
+        model_id=MODEL_ID,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    generate_embedding = await watsonx_embedding.aembed_query(text=DOCUMENTS[0])
     assert isinstance(generate_embedding, list) and isinstance(
         generate_embedding[0], float
     )
