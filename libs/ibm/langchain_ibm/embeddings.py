@@ -9,7 +9,12 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute, extract_params
+from langchain_ibm.utils import (
+    async_gateway_error_handler,
+    check_for_attribute,
+    extract_params,
+    gateway_error_handler,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -220,12 +225,29 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
 
         return self
 
+    @gateway_error_handler
+    def _call_model_gateway(
+        self, *, model: str, texts: List[str], **params: Any
+    ) -> Any:
+        return self.watsonx_embed_gateway.embeddings.create(
+            model=model, input=texts, **params
+        )
+
+    @async_gateway_error_handler
+    async def _acall_model_gateway(
+        self, *, model: str, texts: List[str], **params: Any
+    ) -> Any:
+        return await self.watsonx_embed_gateway.embeddings.acreate(
+            model=model, input=texts, **params
+        )
+
     def embed_documents(self, texts: List[str], **kwargs: Any) -> List[List[float]]:
         """Embed search docs."""
         params = extract_params(kwargs, self.params)
         if self.watsonx_embed_gateway is not None:
-            embed_response = self.watsonx_embed_gateway.embeddings.create(
-                model=self.model, input=texts, **(kwargs | params)
+            call_kwargs = {**kwargs, **params}
+            embed_response = self._call_model_gateway(
+                model=self.model, texts=texts, **call_kwargs
             )
             return [embedding["embedding"] for embedding in embed_response["data"]]
         else:
@@ -239,8 +261,9 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         """Asynchronous Embed search docs."""
         params = extract_params(kwargs, self.params)
         if self.watsonx_embed_gateway is not None:
-            embed_response = await self.watsonx_embed_gateway.embeddings.acreate(
-                model=self.model, input=texts, **(kwargs | params)
+            call_kwargs = {**kwargs, **params}
+            embed_response = await self._acall_model_gateway(
+                model=self.model, texts=texts, **call_kwargs
             )
             return [embedding["embedding"] for embedding in embed_response["data"]]
         else:

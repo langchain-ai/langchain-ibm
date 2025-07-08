@@ -1,11 +1,16 @@
+import functools
+import logging
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema  # type: ignore
+from ibm_watsonx_ai.wml_client_error import ApiRequestFailure  # type: ignore
 from pydantic import SecretStr
 
 if TYPE_CHECKING:
     from langchain_ibm.toolkit import WatsonxTool
+
+logger = logging.getLogger(__name__)
 
 
 def check_for_attribute(value: SecretStr | None, key: str, env_key: str) -> None:
@@ -135,3 +140,45 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
         },
     }
     return watsonx_tool
+
+
+def gateway_error_handler(func: Callable) -> Callable:
+    """Decorator to catch ApiRequestFailure on Model Gateway calls
+    and log a uniform warning."""
+
+    @functools.wraps(func)
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return func(self, *args, **kwargs)
+        except ApiRequestFailure:
+            if getattr(self, "watsonx_model_gateway", None) is not None:
+                logger.warning(
+                    "You are calling the Model Gateway endpoint using the 'model' "
+                    "parameter. Please ensure this model is registered with the "
+                    "Gateway. If you intend to use a watsonx.ai–hosted model, pass "
+                    "'model_id' instead of 'model'."
+                )
+            raise
+
+    return wrapper
+
+
+def async_gateway_error_handler(func: Callable) -> Callable:
+    """Async decorator to catch ApiRequestFailure on Model Gateway calls
+    and log a uniform warning."""
+
+    @functools.wraps(func)
+    async def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return await func(self, *args, **kwargs)
+        except ApiRequestFailure:
+            if getattr(self, "watsonx_model_gateway", None) is not None:
+                logger.warning(
+                    "You are calling the Model Gateway endpoint using the 'model' "
+                    "parameter. Please ensure this model is registered with the "
+                    "Gateway. If you intend to use a watsonx.ai–hosted model, pass "
+                    "'model_id' instead of 'model'."
+                )
+            raise
+
+    return wrapper

@@ -82,9 +82,11 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
 from langchain_ibm.utils import (
+    async_gateway_error_handler,
     check_duplicate_chat_params,
     check_for_attribute,
     extract_chat_params,
+    gateway_error_handler,
 )
 
 logger = logging.getLogger(__name__)
@@ -762,6 +764,20 @@ class ChatWatsonx(BaseChatModel):
 
         return self
 
+    @gateway_error_handler
+    def _call_model_gateway(self, *, model: str, messages: list, **params: Any) -> Any:
+        return self.watsonx_model_gateway.chat.completions.create(
+            model=model, messages=messages, **params
+        )
+
+    @async_gateway_error_handler
+    async def _acall_model_gateway(
+        self, *, model: str, messages: list, **params: Any
+    ) -> Any:
+        return await self.watsonx_model_gateway.chat.completions.acreate(
+            model=model, messages=messages, **params
+        )
+
     def _generate(
         self,
         messages: List[BaseMessage],
@@ -778,8 +794,9 @@ class ChatWatsonx(BaseChatModel):
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
         if self.watsonx_model_gateway is not None:
-            response = self.watsonx_model_gateway.chat.completions.create(
-                model=self.model, messages=message_dicts, **(kwargs | updated_params)
+            call_kwargs = {**kwargs, **updated_params}
+            response = self._call_model_gateway(
+                model=self.model, messages=message_dicts, **call_kwargs
             )
         else:
             response = self.watsonx_model.chat(
@@ -803,8 +820,9 @@ class ChatWatsonx(BaseChatModel):
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
         if self.watsonx_model_gateway is not None:
-            response = await self.watsonx_model_gateway.chat.completions.acreate(
-                model=self.model, messages=message_dicts, **(kwargs | updated_params)
+            call_kwargs = {**kwargs, **updated_params}
+            response = await self._acall_model_gateway(
+                model=self.model, messages=message_dicts, **call_kwargs
             )
         else:
             response = await self.watsonx_model.achat(
@@ -824,7 +842,7 @@ class ChatWatsonx(BaseChatModel):
 
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params, "stream": True}
-            chunk_iter = self.watsonx_model_gateway.chat.completions.create(
+            chunk_iter = self._call_model_gateway(
                 model=self.model, messages=message_dicts, **call_kwargs
             )
         else:
@@ -881,7 +899,7 @@ class ChatWatsonx(BaseChatModel):
 
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params, "stream": True}
-            chunk_iter = await self.watsonx_model_gateway.chat.completions.acreate(
+            chunk_iter = await self._acall_model_gateway(
                 model=self.model, messages=message_dicts, **call_kwargs
             )
         else:
