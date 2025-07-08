@@ -678,7 +678,7 @@ class WatsonxLLM(BaseLLM):
     def get_num_tokens(self, text: str) -> int:
         if self.watsonx_model_gateway is not None:
             raise NotImplementedError(
-                "Model Gateway do not support tokenize endpoint yet."
+                "Tokenize endpoint is not supported by IBM Model Gateway endpoint."
             )
         else:
             response = self.watsonx_model.tokenize(text, return_tokens=False)
