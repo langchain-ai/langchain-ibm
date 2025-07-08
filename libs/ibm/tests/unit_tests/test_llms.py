@@ -1,11 +1,36 @@
 """Test WatsonxLLM API wrapper."""
 
 import os
+from unittest.mock import Mock
+
+import pytest
+from ibm_watsonx_ai import APIClient  # type: ignore
+from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
+from ibm_watsonx_ai.gateway import Gateway  # type: ignore
 
 from langchain_ibm import WatsonxLLM
 
 os.environ.pop("WATSONX_APIKEY", None)
 os.environ.pop("WATSONX_PROJECT_ID", None)
+
+MODEL_ID = "mistralai/mixtral-8x7b-instruct-v01"
+
+api_client_mock = Mock(spec=APIClient)
+api_client_mock.default_space_id = None
+api_client_mock.default_project_id = "fake_project_id"
+
+gateway_mock = Mock(spec=Gateway)
+gateway_mock._client = api_client_mock
+
+model_inference_mock = Mock(spec=ModelInference)
+model_inference_mock._client = api_client_mock
+model_inference_mock.model_id = "fake_model_id"
+model_inference_mock.params = {"temperature": 1}
+
+model_mock = Mock(spec=Model)
+model_mock._client = api_client_mock
+model_mock.model_id = "fake_model_id"
+model_mock.params = {"temperature": 1}
 
 
 def test_initialize_watsonxllm_bad_path_without_url() -> None:
@@ -80,3 +105,77 @@ def test_initialize_watsonxllm_cpd_bad_path_without_instance_id() -> None:
     except ValueError as e:
         assert "instance_id" in e.__str__()
         assert "WATSONX_INSTANCE_ID" in e.__str__()
+
+
+def test_initialize_watsonxllm_with_two_exclusive_parameters() -> None:
+    with pytest.raises(ValueError) as e:
+        WatsonxLLM(
+            model_id=MODEL_ID,
+            model=MODEL_ID,
+            url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+            apikey="test_apikey",  # type: ignore[arg-type]
+        )
+
+    assert (
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing WatsonxLLM."
+        in str(e.value)
+    )
+
+
+def test_initialize_watsonxllm_with_three_exclusive_parameters() -> None:
+    with pytest.raises(ValueError) as e:
+        WatsonxLLM(
+            model_id=MODEL_ID,
+            model=MODEL_ID,
+            deployment_id="test_deployment_id",
+            url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
+            apikey="test_apikey",  # type: ignore[arg-type]
+        )
+
+    assert (
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing WatsonxLLM."
+        in str(e.value)
+    )
+
+
+def test_initialize_watsonxllm_with_api_client_only() -> None:
+    with pytest.raises(ValueError) as e:
+        WatsonxLLM(watsonx_client=api_client_mock)
+    assert (
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing WatsonxLLM."
+        in str(e.value)
+    )
+
+
+def test_initialize_watsonxllm_with_watsonx_model_gateway() -> None:
+    with pytest.raises(NotImplementedError) as e:
+        WatsonxLLM(watsonx_model_gateway=gateway_mock)
+    assert (
+        "Passing the 'watsonx_model_gateway' parameter to the WatsonxLLM "
+        "constructor is not supported yet." in str(e.value)
+    )
+
+
+def test_initialize_watsonxllm_without_any_params() -> None:
+    with pytest.raises(ValueError) as e:
+        WatsonxLLM()
+    assert (
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing WatsonxLLM."
+        in str(e.value)
+    )
+
+
+def test_initialize_watsonxllm_with_model_inference_only() -> None:
+    chat = WatsonxLLM(watsonx_model=model_inference_mock)
+
+    assert isinstance(chat, WatsonxLLM)
+
+
+def test_initialize_watsonxllm_with_model_only() -> None:
+    chat = WatsonxLLM(watsonx_model=model_mock)
+
+    assert isinstance(chat, WatsonxLLM)

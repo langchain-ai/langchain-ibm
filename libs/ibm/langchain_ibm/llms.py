@@ -15,6 +15,7 @@ from typing import (
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
+from ibm_watsonx_ai.gateway import Gateway  # type: ignore
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
@@ -26,7 +27,12 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute, extract_params
+from langchain_ibm.utils import (
+    async_gateway_error_handler,
+    check_for_attribute,
+    extract_params,
+    gateway_error_handler,
+)
 
 logger = logging.getLogger(__name__)
 textgen_valid_params = [
@@ -68,6 +74,18 @@ class WatsonxLLM(BaseLLM):
 
     model_id: Optional[str] = None
     """Type of model to use."""
+
+    model: Optional[str] = None
+    """
+    Name or alias of the foundation model to use.  
+    When using IBM’s watsonx.ai Model Gateway (public preview), you can specify any 
+    supported third-party model—OpenAI, Anthropic, NVIDIA, Cerebras, or IBM’s own 
+    Granite series—via a single, OpenAI-compatible interface. Models must be explicitly 
+    provisioned (opt-in) through the Gateway to ensure secure, vendor-agnostic access 
+    and easy switch-over without reconfiguration.
+
+    For more details on configuration and usage, see IBM watsonx Model Gateway docs: https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp
+    """
 
     deployment_id: Optional[str] = None
     """Type of deployed model to use."""
@@ -130,6 +148,10 @@ class WatsonxLLM(BaseLLM):
 
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
+    watsonx_model_gateway: Gateway = Field(
+        default=None, exclude=True
+    )  #: :meta private:
+
     watsonx_client: Optional[APIClient] = Field(default=None)
 
     model_config = ConfigDict(
@@ -166,6 +188,12 @@ class WatsonxLLM(BaseLLM):
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
+        if self.watsonx_model_gateway is not None:
+            raise NotImplementedError(
+                "Passing the 'watsonx_model_gateway' parameter to the WatsonxLLM "
+                "constructor is not supported yet."
+            )
+
         if isinstance(self.watsonx_model, (ModelInference, Model)):
             self.model_id = getattr(self.watsonx_model, "model_id")
             self.deployment_id = getattr(self.watsonx_model, "deployment_id", "")
@@ -179,18 +207,38 @@ class WatsonxLLM(BaseLLM):
             self.params = getattr(self.watsonx_model, "params")
 
         elif isinstance(self.watsonx_client, APIClient):
-            watsonx_model = ModelInference(
-                model_id=self.model_id,
-                deployment_id=self.deployment_id,
-                params=self.params,
-                api_client=self.watsonx_client,
-                project_id=self.project_id,
-                space_id=self.space_id,
-                verify=self.verify,
-            )
-            self.watsonx_model = watsonx_model
+            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
+                raise ValueError(
+                    "The parameters 'model', 'model_id' and 'deployment_id' are "
+                    "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing WatsonxLLM."
+                )
+            if self.model is not None:
+                watsonx_model_gateway = Gateway(
+                    api_client=self.watsonx_client,
+                    verify=self.verify,
+                )
+                self.watsonx_model_gateway = watsonx_model_gateway
+            else:
+                watsonx_model = ModelInference(
+                    model_id=self.model_id,
+                    deployment_id=self.deployment_id,
+                    params=self.params,
+                    api_client=self.watsonx_client,
+                    project_id=self.project_id,
+                    space_id=self.space_id,
+                    verify=self.verify,
+                )
+                self.watsonx_model = watsonx_model
 
         else:
+            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
+                raise ValueError(
+                    "The parameters 'model', 'model_id' and 'deployment_id' are "
+                    "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing WatsonxLLM."
+                )
+
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
             if "cloud.ibm.com" in self.url.get_secret_value():
@@ -239,18 +287,38 @@ class WatsonxLLM(BaseLLM):
                 version=self.version.get_secret_value() if self.version else None,
                 verify=self.verify,
             )
-
-            watsonx_model = ModelInference(
-                model_id=self.model_id,
-                deployment_id=self.deployment_id,
-                credentials=credentials,
-                params=self.params,
-                project_id=self.project_id,
-                space_id=self.space_id,
-            )
-            self.watsonx_model = watsonx_model
+            if self.model is not None:
+                watsonx_model_gateway = Gateway(
+                    credentials=credentials,
+                    verify=self.verify,
+                )
+                self.watsonx_model_gateway = watsonx_model_gateway
+            else:
+                watsonx_model = ModelInference(
+                    model_id=self.model_id,
+                    deployment_id=self.deployment_id,
+                    credentials=credentials,
+                    params=self.params,
+                    project_id=self.project_id,
+                    space_id=self.space_id,
+                )
+                self.watsonx_model = watsonx_model
 
         return self
+
+    @gateway_error_handler
+    def _call_model_gateway(self, *, model: str, prompt: list, **params: Any) -> Any:
+        return self.watsonx_model_gateway.completions.create(
+            model=model, prompt=prompt, **params
+        )
+
+    @async_gateway_error_handler
+    async def _acall_model_gateway(
+        self, *, model: str, prompt: list, **params: Any
+    ) -> Any:
+        return await self.watsonx_model_gateway.completions.acreate(
+            model=model, prompt=prompt, **params
+        )
 
     @property
     def _identifying_params(self) -> Mapping[str, Any]:
@@ -356,6 +424,30 @@ class WatsonxLLM(BaseLLM):
         ]
         llm_output = {
             "token_usage": self._extract_token_usage(response),
+            "model_id": self.model_id,
+            "deployment_id": self.deployment_id,
+        }
+        return LLMResult(generations=generations, llm_output=llm_output)
+
+    def _create_llm_gateway_result(self, response: dict) -> LLMResult:
+        """Create the LLMResult from the choices and prompts."""
+        choices = response["choices"]
+
+        generations = [
+            [
+                Generation(
+                    text=choice["text"],
+                    generation_info=dict(
+                        finish_reason=choice.get("finish_reason"),
+                        logprobs=choice.get("logprobs"),
+                    ),
+                )
+            ]
+            for choice in choices
+        ]
+
+        llm_output = {
+            "token_usage": response["usage"]["total_tokens"],
             "model_id": self.model_id,
             "deployment_id": self.deployment_id,
         }
@@ -470,10 +562,17 @@ class WatsonxLLM(BaseLLM):
                 return LLMResult(generations=[[generation]], llm_output=llm_output)
             return LLMResult(generations=[[generation]])
         else:
-            response = self.watsonx_model.generate(
-                prompt=prompts, params=params, **kwargs
-            )
-            return self._create_llm_result(response)
+            if self.watsonx_model_gateway is not None:
+                call_kwargs = {**kwargs, **params}
+                response = self._call_model_gateway(
+                    model=self.model, prompt=prompts, **call_kwargs
+                )
+                return self._create_llm_gateway_result(response)
+            else:
+                response = self.watsonx_model.generate(
+                    prompt=prompts, params=params, **kwargs
+                )
+                return self._create_llm_result(response)
 
     async def _agenerate(
         self,
@@ -491,14 +590,21 @@ class WatsonxLLM(BaseLLM):
                 prompts=prompts, stop=stop, run_manager=run_manager, **kwargs
             )
         else:
-            responses = [
-                await self.watsonx_model.agenerate(
-                    prompt=prompt, params=params, **kwargs
+            if self.watsonx_model_gateway is not None:
+                call_kwargs = {**kwargs, **params}
+                responses = await self._acall_model_gateway(
+                    model=self.model, prompt=prompts, **call_kwargs
                 )
-                for prompt in prompts
-            ]
+                return self._create_llm_gateway_result(responses)
+            else:
+                responses = [
+                    await self.watsonx_model.agenerate(
+                        prompt=prompt, params=params, **kwargs
+                    )
+                    for prompt in prompts
+                ]
 
-            return self._create_llm_result(responses)
+                return self._create_llm_result(responses)
 
     def _stream(
         self,
@@ -523,9 +629,16 @@ class WatsonxLLM(BaseLLM):
         """
         params, kwargs = self._get_chat_params(stop=stop, **kwargs)
         params = self._validate_chat_params(params)
-        for stream_resp in self.watsonx_model.generate_text_stream(
-            prompt=prompt, params=params, **(kwargs | {"raw_response": True})
-        ):
+        if self.watsonx_model_gateway is not None:
+            call_kwargs = {**kwargs, **params, "stream": True}
+            chunk_iter = self._call_model_gateway(
+                model=self.model, prompt=prompt, **call_kwargs
+            )
+        else:
+            chunk_iter = self.watsonx_model.generate_text_stream(
+                prompt=prompt, params=params, **(kwargs | {"raw_response": True})
+            )
+        for stream_resp in chunk_iter:
             if not isinstance(stream_resp, dict):
                 stream_resp = stream_resp.dict()
             chunk = self._stream_response_to_generation_chunk(stream_resp)
@@ -543,9 +656,17 @@ class WatsonxLLM(BaseLLM):
     ) -> AsyncIterator[GenerationChunk]:
         params, kwargs = self._get_chat_params(stop=stop, **kwargs)
         params = self._validate_chat_params(params)
-        async for stream_resp in await self.watsonx_model.agenerate_stream(
-            prompt=prompt, params=params
-        ):
+
+        if self.watsonx_model_gateway is not None:
+            call_kwargs = {**kwargs, **params, "stream": True}
+            chunk_iter = await self._acall_model_gateway(
+                model=self.model, prompt=prompt, **call_kwargs
+            )
+        else:
+            chunk_iter = await self.watsonx_model.agenerate_stream(
+                prompt=prompt, params=params
+            )
+        async for stream_resp in chunk_iter:
             if not isinstance(stream_resp, dict):
                 stream_resp = stream_resp.dict()
             chunk = self._stream_response_to_generation_chunk(stream_resp)
@@ -555,7 +676,12 @@ class WatsonxLLM(BaseLLM):
             yield chunk
 
     def get_num_tokens(self, text: str) -> int:
-        response = self.watsonx_model.tokenize(text, return_tokens=False)
+        if self.watsonx_model_gateway is not None:
+            raise NotImplementedError(
+                "Model Gateway do not support tokenize endpoint yet."
+            )
+        else:
+            response = self.watsonx_model.tokenize(text, return_tokens=False)
         return response["result"]["token_count"]
 
     def get_token_ids(self, text: str) -> List[int]:
