@@ -162,7 +162,7 @@ def test_initialize_chat_watsonx_without_any_params() -> None:
     )
 
 
-def test_initialize_chat_watsonx_with_model_inferencey_only() -> None:
+def test_initialize_chat_watsonx_with_model_inference_only() -> None:
     chat = ChatWatsonx(watsonx_model=model_inference_mock)
 
     assert isinstance(chat, ChatWatsonx)
