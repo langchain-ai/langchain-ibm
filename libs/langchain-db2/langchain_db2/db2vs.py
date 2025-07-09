@@ -238,7 +238,7 @@ class DB2VS(VectorStore):
             self.table_name = table_name
             self.distance_strategy = distance_strategy
             self.params = params
-            _create_table(client, table_name, embedding_dim)
+            _create_table(self.client, self.table_name, embedding_dim)
         except ibm_db_dbi.DatabaseError as db_err:
             logger.exception(f"Database error occurred while create table: {db_err}")
             raise RuntimeError(
