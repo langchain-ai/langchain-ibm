@@ -208,8 +208,10 @@ class DB2VS(VectorStore):
                 username = connection_args.get("username")
                 password = connection_args.get("password")
 
-                conn_str = f"DATABASE={database};hostname={host};port={port};"
-                f"uid={username};pwd={password};"
+                conn_str = (
+                    f"DATABASE={database};hostname={host};port={port};"
+                    f"uid={username};pwd={password};"
+                )
 
                 if "security" in connection_args:
                     security = connection_args.get("security")
