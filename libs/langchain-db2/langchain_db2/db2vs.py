@@ -35,6 +35,8 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
 
+from langchain_db2.utils import EmbeddingsSchema
+
 logger = logging.getLogger(__name__)
 log_level = os.getenv("LOG_LEVEL", "ERROR").upper()
 logging.basicConfig(
@@ -221,7 +223,7 @@ class DB2VS(VectorStore):
             self.client = client
         try:
             """Initialize with necessary components."""
-            if not isinstance(embedding_function, Embeddings):
+            if not isinstance(embedding_function, EmbeddingsSchema):
                 logger.warning(
                     "`embedding_function` is expected to be an Embeddings "
                     "object, support for passing in a function will soon "
@@ -263,7 +265,7 @@ class DB2VS(VectorStore):
         """
         return (
             self.embedding_function
-            if isinstance(self.embedding_function, Embeddings)
+            if isinstance(self.embedding_function, EmbeddingsSchema)
             else None
         )
 
@@ -277,7 +279,7 @@ class DB2VS(VectorStore):
         return len(embedded_document[0])
 
     def _embed_documents(self, texts: List[str]) -> List[List[float]]:
-        if isinstance(self.embedding_function, Embeddings):
+        if isinstance(self.embedding_function, EmbeddingsSchema):
             return self.embedding_function.embed_documents(texts)
         elif callable(self.embedding_function):
             return [self.embedding_function(text) for text in texts]
@@ -287,7 +289,7 @@ class DB2VS(VectorStore):
             )
 
     def _embed_query(self, text: str) -> List[float]:
-        if isinstance(self.embedding_function, Embeddings):
+        if isinstance(self.embedding_function, EmbeddingsSchema):
             return self.embedding_function.embed_query(text)
         else:
             return self.embedding_function(text)
@@ -407,7 +409,7 @@ class DB2VS(VectorStore):
         Return:
             List[Document]: documents most similar to a query
         """
-        if isinstance(self.embedding_function, Embeddings):
+        if isinstance(self.embedding_function, EmbeddingsSchema):
             embedding = self.embedding_function.embed_query(query)
         documents = self.similarity_search_by_vector(
             embedding=embedding, k=k, filter=filter, **kwargs
@@ -434,7 +436,7 @@ class DB2VS(VectorStore):
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
         """Return docs most similar to query."""
-        if isinstance(self.embedding_function, Embeddings):
+        if isinstance(self.embedding_function, EmbeddingsSchema):
             embedding = self.embedding_function.embed_query(query)
         docs_and_scores = self.similarity_search_by_vector_with_relevance_scores(
             embedding=embedding, k=k, filter=filter, **kwargs
