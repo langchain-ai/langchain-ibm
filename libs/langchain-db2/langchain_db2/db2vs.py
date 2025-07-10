@@ -73,8 +73,8 @@ def _handle_exceptions(func: T) -> T:
 
 
 def _table_exists(client: Connection, table_name: str) -> bool:
+    cursor = client.cursor()
     try:
-        cursor = client.cursor()
         cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
     except Exception as ex:
         if "SQL0204N" in str(ex):
@@ -374,7 +374,7 @@ class DB2VS(VectorStore):
         if not metadatas:
             metadatas = [{} for _ in texts]
 
-        embeddingLen = self.get_embedding_dimension()
+        embedding_len = self.get_embedding_dimension()
         docs: List[Tuple[Any, Any, Any, Any]]
         docs = [
             (id_, f"{embedding}", json.dumps(metadata), text)
@@ -385,7 +385,7 @@ class DB2VS(VectorStore):
 
         SQL_INSERT = (
             f"INSERT INTO {self.table_name} (id, embedding, metadata, text) "
-            f"VALUES (?, VECTOR(?, {embeddingLen}, FLOAT32), SYSTOOLS.JSON2BSON(?), ?)"
+            f"VALUES (?, VECTOR(?, {embedding_len}, FLOAT32), SYSTOOLS.JSON2BSON(?), ?)"
         )
 
         cursor = self.client.cursor()
@@ -454,13 +454,13 @@ class DB2VS(VectorStore):
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
         docs_and_scores = []
-        embeddingLen = self.get_embedding_dimension()
+        embedding_len = self.get_embedding_dimension()
 
         query = f"""
         SELECT id,
           text,
           SYSTOOLS.BSON2JSON(metadata),
-          vector_distance(embedding, VECTOR('{embedding}', {embeddingLen}, FLOAT32),
+          vector_distance(embedding, VECTOR('{embedding}', {embedding_len}, FLOAT32),
           {_get_distance_function(self.distance_strategy)}) as distance
         FROM {self.table_name}
         ORDER BY distance
@@ -508,13 +508,13 @@ class DB2VS(VectorStore):
         **kwargs: Any,
     ) -> List[Tuple[Document, float, np.ndarray]]:
         documents = []
-        embeddingLen = self.get_embedding_dimension()
+        embedding_len = self.get_embedding_dimension()
 
         query = f"""
         SELECT id,
           text,
           SYSTOOLS.BSON2JSON(metadata),
-          vector_distance(embedding, VECTOR('{embedding}', {embeddingLen}, FLOAT32),
+          vector_distance(embedding, VECTOR('{embedding}', {embedding_len}, FLOAT32),
           {_get_distance_function(self.distance_strategy)}) as distance,
           embedding
         FROM {self.table_name}
