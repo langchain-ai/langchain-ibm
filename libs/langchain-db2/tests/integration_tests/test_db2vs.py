@@ -3,6 +3,7 @@
 # import required modules
 import threading
 import time
+import pytest
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.utils import DistanceStrategy
@@ -27,12 +28,12 @@ def test_table_exists_test() -> None:
     try:
         import ibm_db_dbi  # type: ignore
     except ImportError:
-        return
+        pytest.fail("ibm_db_dbi package is required to run this test")
 
     try:
         connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    except Exception as e:
+        pytest.fail(f"Could not connect to IBM DB2: {e!s}")
 
     # 1. Create a Table
     _create_table(connection, "TB1", 8148)
@@ -94,12 +95,12 @@ def test_create_table_test() -> None:
     try:
         import ibm_db_dbi
     except ImportError:
-        return
+        pytest.fail("ibm_db_dbi package is required to run this test")
 
     try:
         connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    except Exception as e:
+        pytest.fail(f"Could not connect to IBM DB2: {e!s}")
 
     # 1. New table - HELLO
     #    Dimension - 100
@@ -230,12 +231,12 @@ def test_add_texts_test() -> None:
     try:
         import ibm_db_dbi
     except ImportError:
-        return
+        pytest.fail("ibm_db_dbi package is required to run this test")
 
     try:
         connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    except Exception as e:
+        pytest.fail(f"Could not connect to IBM DB2: {e!s}")
 
     # 1. Add 2 records to table
     # Expectation: Successful
@@ -397,12 +398,12 @@ def test_embed_documents_test() -> None:
     try:
         import ibm_db_dbi
     except ImportError:
-        return
+        pytest.fail("ibm_db_dbi package is required to run this test")
 
     try:
         connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    except Exception as e:
+        pytest.fail(f"Could not connect to IBM DB2: {e!s}")
     # 1. Embed String Example-'Sam'
     # Expectation: Successful.
     model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
@@ -428,12 +429,12 @@ def test_embed_query_test() -> None:
     try:
         import ibm_db_dbi
     except ImportError:
-        return
+        pytest.fail("ibm_db_dbi package is required to run this test")
 
     try:
         connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    except Exception as e:
+        pytest.fail(f"Could not connect to IBM DB2: {e!s}")
 
     # 1. Embed String
     # Expectation: Successful.
@@ -456,12 +457,12 @@ def test_perform_search_test() -> None:
     try:
         import ibm_db_dbi
     except ImportError:
-        return
+        pytest.fail("ibm_db_dbi package is required to run this test")
 
     try:
         connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    except Exception as e:
+        pytest.fail(f"Could not connect to IBM DB2: {e!s}")
 
     model1 = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-mpnet-base-v2"
@@ -522,12 +523,12 @@ def test_get_pks() -> None:
     try:
         import ibm_db_dbi  # type: ignore
     except ImportError:
-        return
+        pytest.fail("ibm_db_dbi package is required to run this test")
 
     try:
         connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    except Exception as e:
+        pytest.fail(f"Could not connect to IBM DB2: {e!s}")
 
     model = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-mpnet-base-v2"
