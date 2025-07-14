@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import uuid
 from typing import (
     TYPE_CHECKING,
@@ -707,13 +708,19 @@ class DB2VS(VectorStore):
         if ids is None:
             raise ValueError("No ids provided to delete.")
 
-        # Compute SHA-256 hashes of the ids and truncate them
-        hashed_ids = [
-            hashlib.sha256(_id.encode()).hexdigest()[:16].upper() for _id in ids
-        ]
+        is_hashed = bool(ids) and all(re.fullmatch(r"[A-F0-9]{16}", _id) for _id in ids)
+
+        if is_hashed:
+            hashed_ids = ids  # use as-is
+        else:
+            # Compute SHA-256 hashes of the raw ids and truncate them
+            hashed_ids = [
+                hashlib.sha256(_id.encode("utf-8")).hexdigest()[:16].upper()
+                for _id in ids
+            ]
 
         # Constructing the SQL statement with individual placeholders
-        placeholders = ", ".join(["?" for i in range(len(hashed_ids))])
+        placeholders = ", ".join("?" for _ in hashed_ids)
 
         ddl = f"DELETE FROM {self.table_name} WHERE id IN ({placeholders})"
         cursor = self.client.cursor()
