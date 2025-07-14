@@ -3,8 +3,8 @@
 # import required modules
 import threading
 import time
-import pytest
 
+import pytest
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.utils import DistanceStrategy
 
