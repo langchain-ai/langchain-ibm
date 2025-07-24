@@ -413,7 +413,7 @@ class ChatWatsonx(BaseChatModel):
             from ibm_watsonx_ai.foundation_models.schema import TextChatParameters
 
             parameters = TextChatParameters(
-                max_tokens=100,
+                max_completion_tokens=100,
                 temperature=0.5,
                 top_p=1,
                 )
@@ -511,6 +511,12 @@ class ChatWatsonx(BaseChatModel):
     must be set to true if this parameter is used."""
 
     max_tokens: Optional[int] = None
+    """The maximum number of tokens that can be generated in the chat completion. 
+    The total length of input tokens and generated tokens is limited by the 
+    model's context length. 
+    This value is now deprecated in favor of 'max_completion_tokens' parameter."""
+
+    max_completion_tokens: Optional[int] = None
     """The maximum number of tokens that can be generated in the chat completion. 
     The total length of input tokens and generated tokens is limited by the 
     model's context length."""
@@ -1018,6 +1024,7 @@ class ChatWatsonx(BaseChatModel):
             "logprobs",
             "top_logprobs",
             "max_tokens",
+            "max_completion_tokens",
             "n",
             "presence_penalty",
             "response_format",
