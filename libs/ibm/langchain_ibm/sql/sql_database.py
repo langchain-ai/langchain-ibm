@@ -1,9 +1,19 @@
 import json
-from typing import Any, Dict, Iterable, List, Optional
+import urllib.parse
+from typing import Any, Dict, Iterable, List, Optional, Union
 
-import pyarrow.flight as flight
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
-from ibm_watsonx_ai.helpers.connections.flight_sql_service import FlightSQLClient
+try:
+    import pyarrow.flight as flight  # type: ignore[import-untyped]
+except ModuleNotFoundError as e:
+    raise ModuleNotFoundError(
+        "To use WatsonxSQLDatabase one need to install langchain-ibm with extras "
+        "`flight_sql`: `pip install langchain-ibm[flight_sql]`"
+    ) from e
+
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
+from ibm_watsonx_ai.helpers.connections.flight_sql_service import (  # type: ignore[import-untyped]
+    FlightSQLClient,
+)
 
 
 def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str:
@@ -23,10 +33,70 @@ def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str:
     return content[: length - len(suffix)].rsplit(" ", 1)[0] + suffix
 
 
-class WatsonxSQLDatabase:
-    """Watsonx SQL Database class for IBM watsonx.ai connection assets.
+def _validate_param(value: str | None, key: str, env_key: str) -> None:
+    if value is None:
+        raise ValueError(
+            f"Did not find {key}, please add an environment variable"
+            f" `{env_key}` which contains it, or pass"
+            f" `{key}` as a named parameter."
+        )
+    return None
 
-    Support view by default."""
+
+class WatsonxSQLDatabase:
+    """Watsonx SQL Database class for IBM watsonx.ai databases
+    connection assets. Uses Arrow Flight to interact with databases via watsonx.
+
+    :param connection_id: _description_
+    :type connection_id: str
+
+    :param schema: _description_
+    :type schema: str
+
+    :param project_id: _description_, defaults to None
+    :type project_id: str | None, optional
+
+    :param space_id: _description_, defaults to None
+    :type space_id: str | None, optional
+
+    :param url: _description_, defaults to None
+    :type url: str | None, optional
+
+    :param apikey: _description_, defaults to None
+    :type apikey: str | None, optional
+
+    :param token: _description_, defaults to None
+    :type token: str | None, optional
+
+    :param password: _description_, defaults to None
+    :type password: str | None, optional
+
+    :param username: _description_, defaults to None
+    :type username: str | None, optional
+
+    :param instance_id: _description_, defaults to None
+    :type instance_id: str | None, optional
+
+    :param version: _description_, defaults to None
+    :type version: str | None, optional
+
+    :param verify: _description_, defaults to None
+    :type verify: Union[str, bool, None], optional
+
+    :param watsonx_client: _description_, defaults to None
+    :type watsonx_client: Optional[APIClient], optional
+
+    :param include_tables: _description_, defaults to None
+    :type include_tables: Optional[List[str]], optional
+
+    :param sample_rows_in_table_info: _description_, defaults to 3
+    :type sample_rows_in_table_info: int, optional
+
+    :param max_string_length: _description_, defaults to 300
+    :type max_string_length: int, optional
+
+    :raises ValueError: raise if some required credentials are missing
+    """
 
     def __init__(
         self,
@@ -42,6 +112,7 @@ class WatsonxSQLDatabase:
         username: str | None = None,
         instance_id: str | None = None,
         version: str | None = None,
+        verify: Union[str, bool, None] = None,
         watsonx_client: Optional[APIClient] = None,  #: :meta private:
         ignore_tables: Optional[List[str]] = None,
         include_tables: Optional[List[str]] = None,
@@ -49,18 +120,59 @@ class WatsonxSQLDatabase:
         max_string_length: int = 300,
     ) -> None:
         if watsonx_client is None:
+            _validate_param(url, "url", "WATSONX_URL")
+
+            parsed_url = urllib.parse.urlparse(url)
+            if parsed_url.netloc.endswith(".cloud.ibm.com"):  # type: ignore[arg-type]
+                if not token and not apikey:
+                    raise ValueError(
+                        "Did not find 'apikey' or 'token',"
+                        " please add an environment variable"
+                        " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
+                        "which contains it,"
+                        " or pass 'apikey' or 'token'"
+                        " as a named parameter."
+                    )
+            else:
+                if not token and not password and not apikey:
+                    raise ValueError(
+                        "Did not find 'token', 'password' or 'apikey',"
+                        " please add an environment variable"
+                        " `WATSONX_TOKEN`, 'WATSONX_PASSWORD' or 'WATSONX_APIKEY' "
+                        "which contains it,"
+                        " or pass 'token', 'password' or 'apikey'"
+                        " as a named parameter."
+                    )
+                _validate_param(token, "token", "WATSONX_TOKEN")
+
+                try:
+                    _validate_param(password, "password", "WATSONX_PASSWORD")
+                except ValueError:
+                    pass
+                else:
+                    _validate_param(username, "username", "WATSONX_USERNAME")
+
+                try:
+                    _validate_param(apikey, "apikey", "WATSONX_APIKEY")
+                except ValueError:
+                    pass
+                else:
+                    _validate_param(username, "username", "WATSONX_USERNAME")
+
+                _validate_param(instance_id, "instance_id", "WATSONX_INSTANCE_ID")
+
+            credentials = Credentials(
+                url=url,
+                api_key=apikey,
+                token=token,
+                password=password,
+                username=username,
+                instance_id=instance_id,
+                version=version,
+                verify=verify,
+            )
             self.watsonx_client = APIClient(
-                credentials=Credentials(
-                    api_key=apikey,
-                    token=token,
-                    url=url,
-                    username=username,
-                    password=password,
-                    instance_id=instance_id,
-                    version=version,
-                ),
-                project_id=project_id,
-                space_id=space_id,
+                credentials=credentials, project_id=project_id, space_id=space_id
             )
         else:
             self.watsonx_client = watsonx_client
@@ -70,10 +182,10 @@ class WatsonxSQLDatabase:
             context_id["project_id"] = project_id
         elif space_id is not None:
             context_id["space_id"] = space_id
-        elif watsonx_client.default_project_id is not None:
-            context_id["project_id"] = watsonx_client.default_project_id
-        elif watsonx_client.default_space_id is not None:
-            context_id["space_id"] = watsonx_client.default_space_id
+        elif self.watsonx_client.default_project_id is not None:
+            context_id["project_id"] = self.watsonx_client.default_project_id
+        elif self.watsonx_client.default_space_id is not None:
+            context_id["space_id"] = self.watsonx_client.default_space_id
         else:
             raise ValueError("Either project_id or space_id is required.")
 
@@ -87,9 +199,6 @@ class WatsonxSQLDatabase:
         self._sample_rows_in_table_info = sample_rows_in_table_info
 
         self._max_string_length = max_string_length
-
-        # caching some basic info
-        # TODO: use open connection
 
         with self._flight_sql_client as flight_sql_client:
             self._all_tables = {
@@ -125,10 +234,9 @@ class WatsonxSQLDatabase:
 
     def run(self, command: str, include_columns: bool = False) -> str:
         """Execute a SQL command and return a string representing the results."""
-        # TODO: check if to_string not be better
         result = self._execute(command)
 
-        res = [
+        res: List[Dict] = [
             {
                 column: truncate_word(value, length=self._max_string_length)
                 for column, value in r.items()
@@ -137,7 +245,7 @@ class WatsonxSQLDatabase:
         ]
 
         if not include_columns:
-            res = [tuple(row.values()) for row in res]
+            res = [tuple(row.values()) for row in res]  # type: ignore[misc]
 
         return str(res) if res else ""
 
@@ -172,7 +280,8 @@ class WatsonxSQLDatabase:
                 return "\n\n".join(
                     [
                         json.dumps(self._meta_all_tables[table_name], indent=2)
-                        + f"\n\n First {self._sample_rows_in_table_info} rows of table {table_name}:\n\n"
+                        + f"\n\n First {self._sample_rows_in_table_info} rows "
+                        + f"of table {table_name}:\n\n"
                         + flight_sql_client.execute(
                             None,
                             interaction_properties=extra_interaction_properties

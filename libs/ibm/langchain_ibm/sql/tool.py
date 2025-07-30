@@ -1,8 +1,9 @@
-"""Tools for interacting with a watsonx SQL database via Flight."""
+"""Tools for interacting with a watsonx SQL databases via pyarrow.flight.FlightClient.
 
-from typing import Any, Dict, Optional, Sequence, Type, Union
+Based on the langchain_community.tools.sql_database.tool module."""
 
-from langchain_community.tools.sql_database.prompt import QUERY_CHECKER
+from typing import Any, Dict, Optional, Type
+
 from langchain_core.callbacks import (
     AsyncCallbackManagerForToolRun,
     CallbackManagerForToolRun,
@@ -11,7 +12,6 @@ from langchain_core.language_models import BaseLanguageModel
 from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy.engine import Result
 
 from .sql_database import WatsonxSQLDatabase
 
@@ -31,10 +31,10 @@ If there are any of the above mistakes, rewrite the query. If there are no mista
 
 Output the final SQL query only.
 
-SQL Query: """
+SQL Query: """  # noqa: E501
 
 
-class BaseWatsonxSQLDatabaseTool(BaseModel):
+class BaseSQLDatabaseTool(BaseModel):
     """Base tool for interacting with a SQL database."""
 
     db: WatsonxSQLDatabase = Field(exclude=True)
@@ -44,11 +44,11 @@ class BaseWatsonxSQLDatabaseTool(BaseModel):
     )
 
 
-class _QueryWatsonxSQLDatabaseToolInput(BaseModel):
+class _QuerySQLDatabaseToolInput(BaseModel):
     query: str = Field(..., description="A detailed and correct SQL query.")
 
 
-class QueryWatsonxSQLDatabaseTool(BaseWatsonxSQLDatabaseTool, BaseTool):
+class QuerySQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     """Tool for querying a SQL database."""
 
     name: str = "sql_db_query"
@@ -57,33 +57,34 @@ class QueryWatsonxSQLDatabaseTool(BaseWatsonxSQLDatabaseTool, BaseTool):
     If the query is not correct, an error message will be returned.
     If an error is returned, rewrite the query, check the query, and try again.
     """
-    args_schema: Type[BaseModel] = _QueryWatsonxSQLDatabaseToolInput
+    args_schema: Type[BaseModel] = _QuerySQLDatabaseToolInput
 
     def _run(
         self,
         query: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> Union[str, Sequence[Dict[str, Any]], Result]:
+    ) -> str:
         """Execute the query, return the results or an error message."""
         return self.db.run_no_throw(query)
 
 
-class _InfoWatsonxSQLDatabaseToolInput(BaseModel):
+class _InfoSQLDatabaseToolInput(BaseModel):
     table_names: str = Field(
         ...,
         description=(
-            "A comma-separated list of the table names for which to return the raw schema. "
+            "A comma-separated list of the table names "
+            "for which to return the raw schema. "
             "Example input: 'table1, table2, table3'"
         ),
     )
 
 
-class InfoWatsonxSQLDatabaseTool(BaseWatsonxSQLDatabaseTool, BaseTool):
+class InfoSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     """Tool for getting metadata about a SQL database."""
 
     name: str = "sql_db_schema"
     description: str = "Get the schema and sample rows for the specified SQL tables."
-    args_schema: Type[BaseModel] = _InfoWatsonxSQLDatabaseToolInput
+    args_schema: Type[BaseModel] = _InfoSQLDatabaseToolInput
 
     def _run(
         self,
@@ -96,16 +97,19 @@ class InfoWatsonxSQLDatabaseTool(BaseWatsonxSQLDatabaseTool, BaseTool):
         )
 
 
-class _ListWatsonxSQLDatabaseToolInput(BaseModel):
+class _ListSQLDatabaseToolInput(BaseModel):
     tool_input: str = Field("", description="An empty string")
 
 
-class ListWatsonxSQLDatabaseTool(BaseWatsonxSQLDatabaseTool, BaseTool):
+class ListSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     """Tool for getting tables names."""
 
     name: str = "sql_db_list_tables"
-    description: str = "Input is an empty string, output is a comma-separated list of tables in the database."
-    args_schema: Type[BaseModel] = _ListWatsonxSQLDatabaseToolInput
+    description: str = (
+        "Input is an empty string, output is a comma-separated list "
+        "of tables in the database."
+    )
+    args_schema: Type[BaseModel] = _ListSQLDatabaseToolInput
 
     def _run(
         self,
@@ -120,9 +124,8 @@ class _QuerySQLCheckerToolInput(BaseModel):
     query: str = Field(..., description="A detailed and SQL query to be checked.")
 
 
-class QueryWatsonxSQLCheckerTool(BaseWatsonxSQLDatabaseTool, BaseTool):
-    """Use an LLM to check if a query is correct.
-    Adapted from https://www.patterns.app/blog/2023/01/18/crunchbot-sql-analyst-gpt/"""
+class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
+    """Use an LLM to check if a query is correct."""
 
     template: str = QUERY_CHECKER
     llm: BaseLanguageModel

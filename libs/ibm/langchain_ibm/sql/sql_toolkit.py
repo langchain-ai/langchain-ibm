@@ -11,15 +11,15 @@ from pydantic import ConfigDict, Field
 
 from .sql_database import WatsonxSQLDatabase
 from .tool import (
-    InfoWatsonxSQLDatabaseTool,
-    ListWatsonxSQLDatabaseTool,
-    QueryWatsonxSQLCheckerTool,
-    QueryWatsonxSQLDatabaseTool,
+    InfoSQLDatabaseTool,
+    ListSQLDatabaseTool,
+    QuerySQLCheckerTool,
+    QuerySQLDatabaseTool,
 )
 
 
 class WatsonxSQLDatabaseToolkit(BaseToolkit):
-    """Toolkit for interacting with IBM watsonx.ai."""
+    """Toolkit for interacting with IBM watsonx.ai databases."""
 
     db: WatsonxSQLDatabase = Field(exclude=True)
     llm: BaseLanguageModel = Field(exclude=True)
@@ -30,7 +30,7 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
 
     def get_tools(self) -> List[BaseTool]:
         """Get the tools in the toolkit."""
-        list_sql_database_tool = ListWatsonxSQLDatabaseTool(db=self.db)
+        list_sql_database_tool = ListSQLDatabaseTool(db=self.db)
         info_sql_database_tool_description = (
             "Input to this tool is a comma-separated list of tables, output is the "
             "raw schema for those tables. "
@@ -38,7 +38,7 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
             f"{list_sql_database_tool.name} first! "
             "Example Input: table1, table2, table3"
         )
-        info_sql_database_tool = InfoWatsonxSQLDatabaseTool(
+        info_sql_database_tool = InfoSQLDatabaseTool(
             db=self.db, description=info_sql_database_tool_description
         )
         query_sql_database_tool_description = (
@@ -49,7 +49,7 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
             f"'xxxx' in 'field list', use {info_sql_database_tool.name} "
             "to query the correct table fields."
         )
-        query_sql_database_tool = QueryWatsonxSQLDatabaseTool(
+        query_sql_database_tool = QuerySQLDatabaseTool(
             db=self.db, description=query_sql_database_tool_description
         )
         query_sql_checker_tool_description = (
@@ -57,7 +57,7 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
             "it. Always use this tool before executing a query with "
             f"{query_sql_database_tool.name}!"
         )
-        query_sql_checker_tool = QueryWatsonxSQLCheckerTool(
+        query_sql_checker_tool = QuerySQLCheckerTool(
             db=self.db, llm=self.llm, description=query_sql_checker_tool_description
         )
         return [
