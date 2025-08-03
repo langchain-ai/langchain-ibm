@@ -13,7 +13,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .sql_database import WatsonxSQLDatabase
+from langchain_ibm.utilities.sql_database import WatsonxSQLDatabase
 
 QUERY_CHECKER = """
 {query}
@@ -26,6 +26,7 @@ Double check the query above for common mistakes, including:
 - Using the correct number of arguments for functions
 - Casting to the correct data type
 - Using the proper columns for joins
+- Make sure that schema name `{schema}` is added to the table name, e.g. {schema}.table1
 
 If there are any of the above mistakes, rewrite the query. If there are no mistakes, just reproduce the original query.
 
@@ -146,13 +147,13 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
             values["llm_chain"] = LLMChain(
                 llm=values.get("llm"),  # type: ignore[arg-type]
                 prompt=PromptTemplate(
-                    template=QUERY_CHECKER, input_variables=["query"]
+                    template=QUERY_CHECKER, input_variables=["query", "schema"]
                 ),
             )
 
-        if values["llm_chain"].prompt.input_variables != ["query"]:
+        if values["llm_chain"].prompt.input_variables != ["query", "schema"]:
             raise ValueError(
-                "LLM chain for QueryCheckerTool must have input variables ['query']"
+                "LLM chain for QueryCheckerTool must have input variables ['query', 'schema']"  # noqa: E501
             )
 
         return values
@@ -165,6 +166,7 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
         """Use the LLM to check the query."""
         return self.llm_chain.predict(
             query=query,
+            schema=self.db.schema,
             callbacks=run_manager.get_child() if run_manager else None,
         )
 
@@ -175,5 +177,6 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
     ) -> str:
         return await self.llm_chain.apredict(
             query=query,
+            schema=self.db.schema,
             callbacks=run_manager.get_child() if run_manager else None,
         )

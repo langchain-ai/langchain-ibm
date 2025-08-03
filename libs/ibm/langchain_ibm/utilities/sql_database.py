@@ -1,4 +1,3 @@
-import json
 import urllib.parse
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -41,6 +40,45 @@ def _validate_param(value: str | None, key: str, env_key: str) -> None:
             f" `{key}` as a named parameter."
         )
     return None
+
+
+def pretty_print_table_info(schema: str, table_name: str, table_info: dict) -> str:
+    def convert_column_data(field_metadata: dict) -> str:
+        name = field_metadata.get("name")
+
+        field_metadata_type = field_metadata.get("type", {})
+        native_type = field_metadata_type.get("native_type")
+        nullable = field_metadata_type.get("nullable")
+
+        return f"{name} {native_type}{'' if nullable else ' NOT NULL'},"
+
+    create_table_template = """
+CREATE TABLE {schema}.{table_name} (
+\t{column_definitions}{primary_key}
+    );"""
+
+    primary_key: dict = next(
+        filter(
+            lambda el: el.get("name") == "primary_key",
+            table_info.get("extended_metadata", [{}]),
+        ),
+        {},
+    )
+    key_columns = primary_key.get("value", {}).get("key_columns", [])
+
+    return create_table_template.format(
+        schema=schema,
+        table_name=table_name,
+        column_definitions="\n\t".join(
+            [
+                convert_column_data(field_metadata=field_metadata)
+                for field_metadata in table_info["fields"]
+            ]
+        ),
+        primary_key=f"\n\tPRIMARY KEY ({', '.join(key_columns)})"
+        if primary_key is not None
+        else "",
+    )
 
 
 class WatsonxSQLDatabase:
@@ -267,7 +305,7 @@ class WatsonxSQLDatabase:
             """Format the error message"""
             return f"Error: {e}"
 
-    def get_table_info(self, table_names: Optional[List[str]] = None) -> str:
+    def get_table_info(self, table_names: Optional[Iterable[str]] = None) -> str:
         """Get information about specified tables."""
 
         extra_interaction_properties = {
@@ -275,25 +313,31 @@ class WatsonxSQLDatabase:
             "row_limit": self._sample_rows_in_table_info,
         }
 
-        if table_names is not None:
-            with self._flight_sql_client as flight_sql_client:
-                return "\n\n".join(
-                    [
-                        json.dumps(self._meta_all_tables[table_name], indent=2)
-                        + f"\n\n First {self._sample_rows_in_table_info} rows "
-                        + f"of table {table_name}:\n\n"
-                        + flight_sql_client.execute(
-                            None,
-                            interaction_properties=extra_interaction_properties
-                            | {"table_name": table_name},
-                        ).to_string()
-                        for table_name in table_names
-                    ]
-                )
-        else:
-            return "\n\n".join(self._meta_all_tables)
+        with self._flight_sql_client as flight_sql_client:
+            if table_names is None:
+                table_names = self._all_tables
 
-    def get_table_info_no_throw(self, table_names: Optional[List[str]] = None) -> str:
+            return "\n\n".join(
+                [
+                    pretty_print_table_info(
+                        schema=self.schema,
+                        table_name=table_name,
+                        table_info=self._meta_all_tables[table_name],
+                    )
+                    + f"\n\n First {self._sample_rows_in_table_info} rows "
+                    + f"of table {table_name}:\n\n"
+                    + flight_sql_client.execute(
+                        None,
+                        interaction_properties=extra_interaction_properties
+                        | {"table_name": table_name},
+                    ).to_string()
+                    for table_name in table_names
+                ]
+            )
+
+    def get_table_info_no_throw(
+        self, table_names: Optional[Iterable[str]] = None
+    ) -> str:
         """Get information about specified tables."""
         try:
             return self.get_table_info(table_names=table_names)

@@ -9,7 +9,7 @@ from langchain_core.tools import BaseTool
 from langchain_core.tools.base import BaseToolkit
 from pydantic import ConfigDict, Field
 
-from .sql_database import WatsonxSQLDatabase
+from ..utilities.sql_database import WatsonxSQLDatabase
 from .tool import (
     InfoSQLDatabaseTool,
     ListSQLDatabaseTool,
@@ -22,7 +22,10 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
     """Toolkit for interacting with IBM watsonx.ai databases."""
 
     db: WatsonxSQLDatabase = Field(exclude=True)
+    """Instance of the watsonx SQL database."""
+
     llm: BaseLanguageModel = Field(exclude=True)
+    """Instance of the LLM."""
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
