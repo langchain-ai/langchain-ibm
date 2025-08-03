@@ -13,11 +13,12 @@ from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped
 from ibm_watsonx_ai.helpers.connections.flight_sql_service import (  # type: ignore[import-untyped]
     FlightSQLClient,
 )
+from langchain_core.utils.utils import from_env
 
 
 def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str:
     """
-    Truncate a string to a certain number of words, based on the max string
+    Truncate a string to a certain number of characters, based on the max string
     length.
 
     Based on the analogous function from langchain_common.utilities.sql_database.py
@@ -42,6 +43,11 @@ def _validate_param(value: str | None, key: str, env_key: str) -> None:
     return None
 
 
+def _from_env(env_var_name: str) -> str | None:
+    """Read env variable. If it is not set, return None."""
+    return from_env(env_var_name, default=None)()
+
+
 def pretty_print_table_info(schema: str, table_name: str, table_info: dict) -> str:
     def convert_column_data(field_metadata: dict) -> str:
         name = field_metadata.get("name")
@@ -55,7 +61,7 @@ def pretty_print_table_info(schema: str, table_name: str, table_info: dict) -> s
     create_table_template = """
 CREATE TABLE {schema}.{table_name} (
 \t{column_definitions}{primary_key}
-    );"""
+\t)"""
 
     primary_key: dict = next(
         filter(
@@ -76,7 +82,7 @@ CREATE TABLE {schema}.{table_name} (
             ]
         ),
         primary_key=f"\n\tPRIMARY KEY ({', '.join(key_columns)})"
-        if primary_key is not None
+        if primary_key
         else "",
     )
 
@@ -157,11 +163,24 @@ class WatsonxSQLDatabase:
         sample_rows_in_table_info: int = 3,
         max_string_length: int = 300,
     ) -> None:
+        if include_tables and ignore_tables:
+            raise ValueError("Cannot specify both include_tables and ignore_tables")
+
+        self.schema = schema
+        self._ignore_tables = set(ignore_tables) if ignore_tables else set()
+        self._include_tables = set(include_tables) if include_tables else set()
+        self._sample_rows_in_table_info = sample_rows_in_table_info
+
+        self._max_string_length = max_string_length
+
         if watsonx_client is None:
+            url = url or _from_env("WATSONX_URL")
             _validate_param(url, "url", "WATSONX_URL")
 
             parsed_url = urllib.parse.urlparse(url)
             if parsed_url.netloc.endswith(".cloud.ibm.com"):  # type: ignore[arg-type]
+                token = token or _from_env("WATSONX_TOKEN")
+                apikey = apikey or _from_env("WATSONX_APIKEY")
                 if not token and not apikey:
                     raise ValueError(
                         "Did not find 'apikey' or 'token',"
@@ -172,6 +191,9 @@ class WatsonxSQLDatabase:
                         " as a named parameter."
                     )
             else:
+                token = token or _from_env("WATSONX_TOKEN")
+                apikey = apikey or _from_env("WATSONX_APIKEY")
+                password = password or _from_env("WATSONX_PASSWORD")
                 if not token and not password and not apikey:
                     raise ValueError(
                         "Did not find 'token', 'password' or 'apikey',"
@@ -181,13 +203,18 @@ class WatsonxSQLDatabase:
                         " or pass 'token', 'password' or 'apikey'"
                         " as a named parameter."
                     )
-                _validate_param(token, "token", "WATSONX_TOKEN")
+
+                try:
+                    _validate_param(token, "token", "WATSONX_TOKEN")
+                except ValueError:
+                    pass
 
                 try:
                     _validate_param(password, "password", "WATSONX_PASSWORD")
                 except ValueError:
                     pass
                 else:
+                    username = username or _from_env("WATSONX_USERNAME")
                     _validate_param(username, "username", "WATSONX_USERNAME")
 
                 try:
@@ -195,8 +222,10 @@ class WatsonxSQLDatabase:
                 except ValueError:
                     pass
                 else:
+                    username = username or _from_env("WATSONX_USERNAME")
                     _validate_param(username, "username", "WATSONX_USERNAME")
 
+                instance_id = instance_id or _from_env("WATSONX_INSTANCE_ID")
                 _validate_param(instance_id, "instance_id", "WATSONX_INSTANCE_ID")
 
             credentials = Credentials(
@@ -209,6 +238,8 @@ class WatsonxSQLDatabase:
                 version=version,
                 verify=verify,
             )
+            project_id = project_id or _from_env("WATSONX_PROJECT_ID")
+            space_id = space_id or _from_env("WATSONX_SPACE_ID")
             self.watsonx_client = APIClient(
                 credentials=credentials, project_id=project_id, space_id=space_id
             )
@@ -231,24 +262,33 @@ class WatsonxSQLDatabase:
             connection_id=connection_id, api_client=self.watsonx_client, **context_id
         )
 
-        self.schema = schema
-        self._ignore_tables = set(ignore_tables) if ignore_tables else set()
-        self._include_tables = set(include_tables) if include_tables else set()
-        self._sample_rows_in_table_info = sample_rows_in_table_info
-
-        self._max_string_length = max_string_length
-
         with self._flight_sql_client as flight_sql_client:
             self._all_tables = {
                 table.get("name")
                 for table in flight_sql_client.get_tables(schema=self.schema)["assets"]
+                if table.get("name") not in self._ignore_tables
             }
+
+            if self._include_tables:
+                missing_tables = self._include_tables - self._all_tables
+                if missing_tables:
+                    raise ValueError(
+                        f"include_tables {missing_tables} not found in database"
+                    )
+            if self._ignore_tables:
+                missing_tables = self._ignore_tables - self._all_tables
+                if missing_tables:
+                    raise ValueError(
+                        f"ignore_tables {missing_tables} not found in database"
+                    )
 
             self._meta_all_tables = {
                 table_name: flight_sql_client.get_table_info(
                     table_name=table_name, schema=self.schema
                 )
                 for table_name in self._all_tables
+                if table_name in (self._include_tables or self._all_tables)
+                and table_name not in (self._ignore_tables or {})
             }
 
     def get_usable_table_names(self) -> Iterable[str]:
@@ -262,8 +302,6 @@ class WatsonxSQLDatabase:
         command: str,
     ) -> dict:
         """Execute a command."""
-
-        # TODO: set schema in query
 
         with self._flight_sql_client as flight_sql_client:
             results = flight_sql_client.execute(query=command)
@@ -307,6 +345,12 @@ class WatsonxSQLDatabase:
 
     def get_table_info(self, table_names: Optional[Iterable[str]] = None) -> str:
         """Get information about specified tables."""
+
+        all_table_names = self.get_usable_table_names()
+        if table_names is not None:
+            missing_tables = set(table_names).difference(all_table_names)
+            if missing_tables:
+                raise ValueError(f"table_names {missing_tables} not found in database")
 
         extra_interaction_properties = {
             "infer_schema": "true",
