@@ -266,7 +266,7 @@ class WatsonxSQLDatabase:
             self._all_tables = {
                 table.get("name")
                 for table in flight_sql_client.get_tables(schema=self.schema)["assets"]
-                if table.get("name") not in self._ignore_tables
+                if table.get("name")
             }
 
             if self._include_tables:
@@ -368,7 +368,7 @@ class WatsonxSQLDatabase:
                         table_name=table_name,
                         table_info=self._meta_all_tables[table_name],
                     )
-                    + f"\n\n First {self._sample_rows_in_table_info} rows "
+                    + f"\n\nFirst {self._sample_rows_in_table_info} rows "
                     + f"of table {table_name}:\n\n"
                     + flight_sql_client.execute(
                         None,
@@ -385,7 +385,7 @@ class WatsonxSQLDatabase:
         """Get information about specified tables."""
         try:
             return self.get_table_info(table_names=table_names)
-        except flight.FlightError as e:
+        except (flight.FlightError, ValueError) as e:
             """Format the error message"""
             return f"Error: {e}"
 
