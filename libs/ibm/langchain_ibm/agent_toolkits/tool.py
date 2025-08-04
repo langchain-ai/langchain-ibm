@@ -56,7 +56,8 @@ class QuerySQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     description: str = """
     Execute a SQL query against the database and get back the result.
     If the query is not correct, an error message will be returned.
-    If an error is returned, rewrite the query, check the query, and try again.
+    If an error is returned, rewrite the query, check the query correctness, 
+    and try again.
     """
     args_schema: Type[BaseModel] = _QuerySQLDatabaseToolInput
 
@@ -74,7 +75,7 @@ class _InfoSQLDatabaseToolInput(BaseModel):
         ...,
         description=(
             "A comma-separated list of the table names "
-            "for which to return the raw schema. "
+            "for which to return the schema. "
             "Example input: 'table1, table2, table3'"
         ),
     )
