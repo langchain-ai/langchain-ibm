@@ -263,11 +263,16 @@ class WatsonxSQLDatabase:
         )
 
         with self._flight_sql_client as flight_sql_client:
-            self._all_tables = {
-                table.get("name")
-                for table in flight_sql_client.get_tables(schema=self.schema)["assets"]
-                if table.get("name")
-            }
+            _tables = flight_sql_client.get_tables(schema=self.schema).get("assets")
+            if _tables is not None:
+                self._all_tables = {
+                    table.get("name")
+                    for table in _tables
+                    if table.get("name")
+                }
+            else:
+                raise RuntimeError(f"No tables found in the schema: {schema}")
+
 
             if self._include_tables:
                 missing_tables = self._include_tables - self._all_tables
