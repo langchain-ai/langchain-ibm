@@ -10,15 +10,10 @@ license = "MIT"
 [tool.poetry.urls]
 "Source Code" = "https://github.com/langchain-ai/langchain-ibm/tree/main/libs/ibm"
 
-[[tool.poetry.source]]
-name = "test_pypi"
-url = "https://test.pypi.org/simple/"
-priority = "supplemental"
-
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
 langchain-core = "^0.3.39"
-ibm-watsonx-ai = {version = "1.3.33.dev2", source = "test_pypi"}
+ibm-watsonx-ai = "^1.3.32"
 pyarrow = {version = ">=3.0.0", optional = true}
 
 [tool.poetry.extras]
@@ -90,7 +85,7 @@ build-backend = "poetry.core.masonry.api"
 #
 # https://github.com/tophat/syrupy
 # --snapshot-warn-unused    Prints a warning on unused snapshots rather than fail the test suite.
-addopts = "--strict-markers --strict-config --durations=5"
+addopts = "--snapshot-warn-unused --strict-markers --strict-config --durations=5"
 # Registering custom markers.
 # https://docs.pytest.org/en/7.1.x/example/markers.html#registering-markers
 markers = [
