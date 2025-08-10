@@ -5,9 +5,6 @@ from unittest.mock import Mock, patch
 
 import pandas as pd  # type: ignore[import-untyped]
 import pytest
-from ibm_watsonx_ai.helpers.connections.flight_sql_service import (  # type: ignore[import-untyped]
-    FlightSQLClient,
-)
 from pyarrow import flight  # type: ignore
 
 from langchain_ibm.utilities.sql_database import (
@@ -308,7 +305,11 @@ def test_initialize_watsonx_sql_database_valid(
             autospec=True,
             return_value=mock_api_client,
         ),
-        patch("langchain_ibm.utilities.sql_database.FlightSQLClient", autospec=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClient(),
+        ),
     ):
         envvars = {
             "WATSONX_APIKEY": "test_apikey",
@@ -319,7 +320,7 @@ def test_initialize_watsonx_sql_database_valid(
 
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
-        assert isinstance(wx_sql_database._flight_sql_client, FlightSQLClient)
+        assert isinstance(wx_sql_database._flight_sql_client, MockFlightSQLClient)
         assert wx_sql_database.schema == schema
 
 
