@@ -6,7 +6,7 @@ try:
 except ModuleNotFoundError as e:
     raise ModuleNotFoundError(
         "To use WatsonxSQLDatabase one need to install langchain-ibm with extras "
-        "`flight_sql`: `pip install langchain-ibm[flight_sql]`"
+        "`sql_toolkit`: `pip install langchain-ibm[sql_toolkit]`"
     ) from e
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
