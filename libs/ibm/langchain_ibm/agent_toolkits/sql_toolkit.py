@@ -36,7 +36,7 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
         list_sql_database_tool = ListSQLDatabaseTool(db=self.db)
         info_sql_database_tool_description = (
             "Input to this tool is a comma-separated list of tables, output is the "
-            "raw schema for those tables. "
+            "SQL statement with table metadata. "
             "Be sure that the tables actually exist by calling "
             f"{list_sql_database_tool.name} first! "
             "Example Input: table1, table2, table3"

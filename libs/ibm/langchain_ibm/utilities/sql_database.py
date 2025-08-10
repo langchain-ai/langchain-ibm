@@ -33,7 +33,7 @@ def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str:
     return content[: length - len(suffix)].rsplit(" ", 1)[0] + suffix
 
 
-def _validate_param(value: str | None, key: str, env_key: str) -> None:
+def _validate_param(value: Optional[str], key: str, env_key: str) -> None:
     if value is None:
         raise ValueError(
             f"Did not find {key}, please add an environment variable"
@@ -91,55 +91,61 @@ class WatsonxSQLDatabase:
     """Watsonx SQL Database class for IBM watsonx.ai databases
     connection assets. Uses Arrow Flight to interact with databases via watsonx.
 
-    :param connection_id: _description_
+    :param connection_id: ID of db connection asset
     :type connection_id: str
 
-    :param schema: _description_
+    :param schema: name of the database schema from which tables will be read
     :type schema: str
 
-    :param project_id: _description_, defaults to None
-    :type project_id: str | None, optional
+    :param project_id: ID of project, defaults to None
+    :type project_id: Optional[str], optional
 
-    :param space_id: _description_, defaults to None
-    :type space_id: str | None, optional
+    :param space_id: ID of space, defaults to None
+    :type space_id: Optional[str], optional
 
-    :param url: _description_, defaults to None
-    :type url: str | None, optional
+    :param url: URL to the Watson Machine Learning or CPD instance, defaults to None
+    :type url: Optional[str], optional
 
-    :param apikey: _description_, defaults to None
-    :type apikey: str | None, optional
+    :param apikey: API key to the Watson Machine Learning
+                   or CPD instance, defaults to None
+    :type apikey: Optional[str], optional
 
-    :param token: _description_, defaults to None
-    :type token: str | None, optional
+    :param token: service token, used in token authentication, defaults to None
+    :type token: Optional[str], optional
 
-    :param password: _description_, defaults to None
-    :type password: str | None, optional
+    :param password: password to the CPD instance., defaults to None
+    :type password: Optional[str], optional
 
-    :param username: _description_, defaults to None
-    :type username: str | None, optional
+    :param username: username to the CPD instance., defaults to None
+    :type username: Optional[str], optional
 
-    :param instance_id: _description_, defaults to None
-    :type instance_id: str | None, optional
+    :param instance_id: instance_id of the CPD instance., defaults to None
+    :type instance_id: Optional[str], optional
 
-    :param version: _description_, defaults to None
-    :type version: str | None, optional
+    :param version: version of the CPD instance, defaults to None
+    :type version: Optional[str], optional
 
-    :param verify: _description_, defaults to None
+    :param verify: certificate verification flag, defaults to None
     :type verify: Union[str, bool, None], optional
 
-    :param watsonx_client: _description_, defaults to None
+    :param watsonx_client: instance of `ibm_watsonx_ai.APIClient`, defaults to None
     :type watsonx_client: Optional[APIClient], optional
 
-    :param include_tables: _description_, defaults to None
+    :param ignore_tables: list of tables that will be ignored, defaults to None
+    :type ignore_tables: Optional[List[str]], optional
+
+    :param include_tables: list of tables that should be included, defaults to None
     :type include_tables: Optional[List[str]], optional
 
-    :param sample_rows_in_table_info: _description_, defaults to 3
+    :param sample_rows_in_table_info: number of first rows to be added to the
+                                     table info, defaults to 3
     :type sample_rows_in_table_info: int, optional
 
-    :param max_string_length: _description_, defaults to 300
+    :param max_string_length: max length of string, defaults to 300
     :type max_string_length: int, optional
 
     :raises ValueError: raise if some required credentials are missing
+    :raises RuntimeError: raise if no tables found in given schema
     """
 
     def __init__(
@@ -147,15 +153,15 @@ class WatsonxSQLDatabase:
         *,
         connection_id: str,
         schema: str,
-        project_id: str | None = None,
-        space_id: str | None = None,
-        url: str | None = None,
-        apikey: str | None = None,
-        token: str | None = None,
-        password: str | None = None,
-        username: str | None = None,
-        instance_id: str | None = None,
-        version: str | None = None,
+        project_id: Optional[str] = None,
+        space_id: Optional[str] = None,
+        url: Optional[str] = None,
+        apikey: Optional[str] = None,
+        token: Optional[str] = None,
+        password: Optional[str] = None,
+        username: Optional[str] = None,
+        instance_id: Optional[str] = None,
+        version: Optional[str] = None,
         verify: Union[str, bool, None] = None,
         watsonx_client: Optional[APIClient] = None,  #: :meta private:
         ignore_tables: Optional[List[str]] = None,
@@ -332,7 +338,7 @@ class WatsonxSQLDatabase:
         command: str,
         include_columns: bool = False,
     ) -> str:
-        """Execute a SQL command and return a string representing the results
+        """Execute a SQL command and return a string representing the results.
 
         If the statement throws an error, the error message is returned.
         """
