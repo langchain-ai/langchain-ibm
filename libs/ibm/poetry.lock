@@ -1136,7 +1136,7 @@ version = "21.0.0"
 description = "Python library for Apache Arrow"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "test"]
+groups = ["main", "lint", "test"]
 files = [
     {file = "pyarrow-21.0.0-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:e563271e2c5ff4d4a4cbeb2c83d5cf0d4938b891518e676025f7268c6fe5fe26"},
     {file = "pyarrow-21.0.0-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:fee33b0ca46f4c85443d6c450357101e47d53e6c3f008d658c27a2d020d44c79"},
@@ -1945,4 +1945,4 @@ sql-toolkit = ["pyarrow"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "04e85f90b8bce85217ef16ba25cfc79f18a35eeaf0ae2f2bb832adce3ea136c9"
+content-hash = "0a76d170753c3873e141a9f48192d1c3ae6c965e3adb2316a1e347bcfccb3db9"
