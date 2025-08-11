@@ -2,7 +2,7 @@
 
 Based on the langchain_community.tools.sql_database.tool module."""
 
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional, Type, cast
 
 from langchain_core.callbacks import (
     AsyncCallbackManagerForToolRun,
@@ -143,16 +143,14 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
     @classmethod
     def initialize_llm_chain(cls, values: Dict[str, Any]) -> Any:
         if "llm_chain" not in values:
-            from langchain.chains.llm import LLMChain
-
-            values["llm_chain"] = LLMChain(
-                llm=values.get("llm"),  # type: ignore[arg-type]
-                prompt=PromptTemplate(
-                    template=QUERY_CHECKER, input_variables=["query", "schema"]
-                ),
+            prompt = PromptTemplate(
+                template=QUERY_CHECKER, input_variables=["query", "schema"]
             )
+            llm = cast(BaseLanguageModel, values.get("llm"))
 
-        if values["llm_chain"].prompt.input_variables != ["query", "schema"]:
+            values["llm_chain"] = prompt | llm
+
+        if values["llm_chain"].first.input_variables != ["query", "schema"]:
             raise ValueError(
                 "LLM chain for QueryCheckerTool must have input variables ['query', 'schema']"  # noqa: E501
             )
@@ -165,11 +163,10 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         """Use the LLM to check the query."""
-        return self.llm_chain.predict(
-            query=query,
-            schema=self.db.schema,
+        return self.llm_chain.invoke(
+            {"query": query, "schema": self.db.schema},
             callbacks=run_manager.get_child() if run_manager else None,
-        )
+        ).content
 
     async def _arun(
         self,

@@ -361,7 +361,7 @@ class WatsonxSQLDatabase:
                 raise ValueError(f"table_names {missing_tables} not found in database")
 
         extra_interaction_properties = {
-            "infer_schema": "true",
+            "schema_name": self.schema,
             "row_limit": self._sample_rows_in_table_info,
         }
 
