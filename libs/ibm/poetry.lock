@@ -504,14 +504,14 @@ ibm-cos-sdk-core = "2.14.3"
 
 [[package]]
 name = "ibm-watsonx-ai"
-version = "1.3.32"
+version = "1.3.34"
 description = "IBM watsonx.ai API Client"
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ibm_watsonx_ai-1.3.32-py3-none-any.whl", hash = "sha256:a3607d475ba529867ab274e43010cd745f8cfc7695d17432484aca3553967e5a"},
-    {file = "ibm_watsonx_ai-1.3.32.tar.gz", hash = "sha256:a76503ed65b9255e6cb8bcaed49e18ab2620aa1294a283b30cb849e698279d14"},
+    {file = "ibm_watsonx_ai-1.3.34-py3-none-any.whl", hash = "sha256:8297ad77f78241b5e9afb0722a2ccf51eb0b337ca0c98dad043a2f822a68c007"},
+    {file = "ibm_watsonx_ai-1.3.34.tar.gz", hash = "sha256:87b904bbd2382d2dcae79ca90119e2237afcc26f9081371b70026c7be3f54130"},
 ]
 
 [package.dependencies]
@@ -1945,4 +1945,4 @@ sql-toolkit = ["pyarrow"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "0a76d170753c3873e141a9f48192d1c3ae6c965e3adb2316a1e347bcfccb3db9"
+content-hash = "0fc9d4365927739850722dd85bffa9d5a1ae3ade10334e7b3d7e4472a749094c"
