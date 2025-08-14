@@ -210,6 +210,7 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
         response_format={"type": "json_object"},
         temperature=0.7,
         max_tokens=100,
+        max_completion_tokens=512,
         time_limit=600000,
         top_p=0.9,
         n=1,
