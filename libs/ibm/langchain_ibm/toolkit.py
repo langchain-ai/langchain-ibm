@@ -1,6 +1,5 @@
 """IBM watsonx.ai Toolkit wrapper."""
 
-import urllib.parse
 from typing import (
     Any,
     Dict,
@@ -29,7 +28,12 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute, convert_to_watsonx_tool
+from langchain_ibm.utils import (
+    SUPPORTED_CLOUD_AUTH_DOMAINS,
+    check_for_attribute,
+    convert_to_watsonx_tool,
+    get_hostname,
+)
 
 
 class WatsonxTool(BaseTool):
@@ -199,8 +203,7 @@ class WatsonxToolkit(BaseToolkit):
         else:
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
-            parsed_url = urllib.parse.urlparse(self.url.get_secret_value())
-            if parsed_url.netloc.endswith(".cloud.ibm.com"):
+            if get_hostname(self.url).endswith(SUPPORTED_CLOUD_AUTH_DOMAINS):
                 if not self.token and not self.apikey:
                     raise ValueError(
                         "Did not find 'apikey' or 'token',"

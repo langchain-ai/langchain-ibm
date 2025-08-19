@@ -28,10 +28,12 @@ from pydantic import ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
 from langchain_ibm.utils import (
+    SUPPORTED_CLOUD_AUTH_DOMAINS,
     async_gateway_error_handler,
     check_for_attribute,
     extract_params,
     gateway_error_handler,
+    get_hostname,
 )
 
 logger = logging.getLogger(__name__)
@@ -241,7 +243,7 @@ class WatsonxLLM(BaseLLM):
 
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
-            if "cloud.ibm.com" in self.url.get_secret_value():
+            if get_hostname(self.url).endswith(SUPPORTED_CLOUD_AUTH_DOMAINS):
                 if not self.token and not self.apikey:
                     raise ValueError(
                         "Did not find 'apikey' or 'token',"

@@ -14,7 +14,12 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute, extract_params
+from langchain_ibm.utils import (
+    SUPPORTED_CLOUD_AUTH_DOMAINS,
+    check_for_attribute,
+    extract_params,
+    get_hostname,
+)
 
 
 class WatsonxRerank(BaseDocumentCompressor):
@@ -132,7 +137,7 @@ class WatsonxRerank(BaseDocumentCompressor):
         else:
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
-            if "cloud.ibm.com" in self.url.get_secret_value():
+            if get_hostname(self.url).endswith(SUPPORTED_CLOUD_AUTH_DOMAINS):
                 if not self.token and not self.apikey:
                     raise ValueError(
                         "Did not find 'apikey' or 'token',"

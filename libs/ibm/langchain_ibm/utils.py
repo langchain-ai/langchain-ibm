@@ -2,6 +2,7 @@ import functools
 import logging
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
+from urllib.parse import urlparse
 
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema  # type: ignore
 from ibm_watsonx_ai.wml_client_error import ApiRequestFailure  # type: ignore
@@ -11,6 +12,8 @@ if TYPE_CHECKING:
     from langchain_ibm.toolkit import WatsonxTool
 
 logger = logging.getLogger(__name__)
+
+SUPPORTED_CLOUD_AUTH_DOMAINS = ("cloud.ibm.com", "wxai.ibm.com")
 
 
 def check_for_attribute(value: SecretStr | None, key: str, env_key: str) -> None:
@@ -185,3 +188,9 @@ def async_gateway_error_handler(func: Callable) -> Callable:
             raise
 
     return wrapper
+
+
+def get_hostname(url: SecretStr) -> str:
+    """Extract hostname from SecretStr URL, always lowercase."""
+    raw: str = url.get_secret_value()
+    return (urlparse(raw).hostname or "").lower()
