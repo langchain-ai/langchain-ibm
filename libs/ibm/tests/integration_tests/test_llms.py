@@ -9,7 +9,6 @@ from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
 from ibm_watsonx_ai.foundation_models.utils.enums import (  # type: ignore
     DecodingMethods,
-    ModelTypes,
 )
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.outputs import LLMResult
