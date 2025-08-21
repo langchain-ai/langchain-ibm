@@ -61,7 +61,6 @@ from langchain_core.messages import (
 from langchain_core.messages.ai import UsageMetadata
 from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.output_parsers import JsonOutputParser, PydanticOutputParser
-from langchain_core.output_parsers.base import OutputParserLike
 from langchain_core.output_parsers.openai_tools import (
     JsonOutputKeyToolsParser,
     PydanticToolsParser,
@@ -69,14 +68,21 @@ from langchain_core.output_parsers.openai_tools import (
     parse_tool_call,
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
-from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
+from langchain_core.runnables import (
+    Runnable,
+    RunnableMap,
+    RunnablePassthrough,
+)
 from langchain_core.tools import BaseTool
 from langchain_core.utils._merge import merge_dicts
 from langchain_core.utils.function_calling import (
     convert_to_openai_function,
     convert_to_openai_tool,
 )
-from langchain_core.utils.pydantic import is_basemodel_subclass
+from langchain_core.utils.pydantic import (
+    TypeBaseModel,
+    is_basemodel_subclass,
+)
 from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
@@ -1164,49 +1170,51 @@ class ChatWatsonx(BaseChatModel):
         self,
         schema: Optional[Union[Dict, Type]] = None,
         *,
-        method: Literal["function_calling", "json_mode"] = "function_calling",
+        method: Literal[
+            "function_calling", "json_mode", "json_schema"
+        ] = "function_calling",
         include_raw: bool = False,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, Union[Dict, BaseModel]]:
         """Model wrapper that returns outputs formatted to match the given schema.
 
         Args:
-            schema: The output schema as a dict or a Pydantic class. If a Pydantic class
-                then the model output will be an object of that class. If a dict then
-                the model output will be a dict. With a Pydantic class the returned
-                attributes will be validated, whereas with a dict they will not be. If
-                `method` is "function_calling" and `schema` is a dict, then the dict
-                must match the IBM watsonx.ai function-calling spec.
-            method: The method for steering model generation, either "function_calling"
-                or "json_mode". If "function_calling" then the schema will be converted
-                to an IBM watsonx.ai function and the returned model will make use of the
-                function-calling API. If "json_mode" then IBM watsonx.ai's JSON mode will be
-                used. Note that if using "json_mode" then you must include instructions
-                for formatting the output into the desired schema into the model call.
-            include_raw: If False then only the parsed structured output is returned. If
+            schema: The output schema. Can be passed in as:
+
+                - a JSON Schema,
+                - a TypedDict class,
+                - or a Pydantic class,
+
+                If ``schema`` is a Pydantic class then the model output will be a
+                Pydantic instance of that class, and the model-generated fields will be
+                validated by the Pydantic class. Otherwise the model output will be a
+                dict and will not be validated.
+
+            method: The method for steering model generation, one of:
+
+                - ``'function_calling'``: uses tool-calling features.
+                - ``'json_schema'``: uses dedicated structured output features.
+                - ``'json_mode'``: uses JSON mode.
+
+            include_raw:
+                If False then only the parsed structured output is returned. If
                 an error occurs during model output parsing it will be raised. If True
                 then both the raw model response (a BaseMessage) and the parsed model
                 response will be returned. If an error occurs during output parsing it
                 will be caught and returned as well. The final output is always a dict
-                with keys "raw", "parsed", and "parsing_error".
+                with keys ``'raw'``, ``'parsed'``, and ``'parsing_error'``.
 
         Returns:
-            A Runnable that takes any ChatModel input and returns as output:
+            A Runnable that takes same inputs as a :class:`langchain_core.language_models.chat.BaseChatModel`.
 
-                If include_raw is True then a dict with keys:
-                    raw: BaseMessage
-                    parsed: Optional[_DictOrPydantic]
-                    parsing_error: Optional[BaseException]
+            If ``include_raw`` is True, then Runnable outputs a dict with keys:
 
-                If include_raw is False then just _DictOrPydantic is returned,
-                where _DictOrPydantic depends on the schema:
+            - ``'raw'``: BaseMessage
+            - ``'parsed'``: None if there was a parsing error, otherwise the type depends on the ``schema`` as described above.
+            - ``'parsing_error'``: Optional[BaseException]
 
-                If schema is a Pydantic class then _DictOrPydantic is the Pydantic
-                    class.
+        .. dropdown:: Example: schema=Pydantic class, method="function_calling", include_raw=False
 
-                If schema is a dict then _DictOrPydantic is a dict.
-
-        Example: Function-calling, Pydantic schema (method="function_calling", include_raw=False):
             .. code-block:: python
 
                 from langchain_ibm import ChatWatsonx
@@ -1218,7 +1226,9 @@ class ChatWatsonx(BaseChatModel):
                     justification: str
 
                 llm = ChatWatsonx(...)
-                structured_llm = llm.with_structured_output(AnswerWithJustification)
+                structured_llm = llm.with_structured_output(
+                    AnswerWithJustification, , method="function_calling"
+                )
 
                 structured_llm.invoke("What weighs more a pound of bricks or a pound of feathers")
 
@@ -1227,7 +1237,8 @@ class ChatWatsonx(BaseChatModel):
                 #     justification='Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume or density of the objects may differ.'
                 # )
 
-        Example: Function-calling, Pydantic schema (method="function_calling", include_raw=True):
+        .. dropdown:: Example: schema=Pydantic class, method="function_calling", include_raw=True
+
             .. code-block:: python
 
                 from langchain_ibm import ChatWatsonx
@@ -1248,7 +1259,8 @@ class ChatWatsonx(BaseChatModel):
                 #     'parsing_error': None
                 # }
 
-        Example: Function-calling, dict schema (method="function_calling", include_raw=False):
+        .. dropdown:: Example: schema=JSON Schema, method="function_calling", include_raw=False
+
             .. code-block:: python
 
                 from langchain_ibm import ChatWatsonx
@@ -1270,7 +1282,72 @@ class ChatWatsonx(BaseChatModel):
                 #     'justification': 'Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume and density of the two substances differ.'
                 # }
 
-        Example: JSON mode, Pydantic schema (method="json_mode", include_raw=True):
+        .. dropdown:: Example: schema=Pydantic class, method="json_schema", include_raw=True
+
+            .. code-block::
+
+                from langchain_ibm import ChatWatsonx
+                from pydantic import BaseModel
+
+                class AnswerWithJustification(BaseModel):
+                    '''An answer to the user question along with justification for the answer.'''
+
+                    answer: str
+                    justification: str
+
+                llm = ChatWatsonx(...)
+                structured_llm = llm.with_structured_output(
+                    AnswerWithJustification,
+                    method="json_schema",
+                    include_raw=True
+                )
+
+                structured_llm.invoke(
+                    "What weighs more a pound of bricks or a pound of feathers"
+                )
+                # -> {
+                #     'raw': AIMessage(content='', additional_kwargs={'tool_calls': [{'id': 'chatcmpl-tool-bfbd6f6dd33b438990c5ddf277485971', 'type': 'function', 'function': {'name': 'AnswerWithJustification', 'arguments': '{"answer": "They weigh the same", "justification": "A pound is a unit of weight or mass, so both a pound of bricks and a pound of feathers weigh the same amount, one pound."}'}}]}, response_metadata={'token_usage': {'completion_tokens': 45, 'prompt_tokens': 275, 'total_tokens': 320}, 'model_name': 'meta-llama/llama-3-3-70b-instruct', 'system_fingerprint': '', 'finish_reason': 'stop'}, id='chatcmpl-461ca5bd-1982-412c-b886-017c483bf481---8c18b06eead65ae4691364798787bda7---71896588-efa5-439f-a25f-d1abfe289f5a', tool_calls=[{'name': 'AnswerWithJustification', 'args': {'answer': 'They weigh the same', 'justification': 'A pound is a unit of weight or mass, so both a pound of bricks and a pound of feathers weigh the same amount, one pound.'}, 'id': 'chatcmpl-tool-bfbd6f6dd33b438990c5ddf277485971', 'type': 'tool_call'}], usage_metadata={'input_tokens': 275, 'output_tokens': 45, 'total_tokens': 320}),
+                #     'parsed': AnswerWithJustification(answer='They weigh the same', justification='A pound is a unit of weight or mass, so both a pound of bricks and a pound of feathers weigh the same amount, one pound.'),
+                #     'parsing_error': None
+                # }
+
+        .. dropdown:: Example: schema=function schema, method="json_schema", include_raw=False
+
+            .. code-block:: python
+
+                from langchain_ibm import ChatWatsonx
+                from pydantic import BaseModel
+
+                function__schema = {
+                    'name': 'AnswerWithJustification',
+                    'description': 'An answer to the user question along with justification for the answer.',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'answer': {'type': 'string'},
+                            'justification': {'description': 'A justification for the answer.', 'type': 'string'}
+                        },
+                       'required': ['answer']
+                   }
+               }
+
+                llm = ChatWatsonx(...)
+                structured_llm = llm.with_structured_output(
+                    function__schema,
+                    method="json_schema",
+                    include_raw=False
+                )
+
+                structured_llm.invoke(
+                    "What weighs more a pound of bricks or a pound of feathers"
+                )
+                # -> {
+                #     'answer': 'They weigh the same',
+                #     'justification': 'Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume and density of the two substances differ.'
+                # }
+
+        .. dropdown:: Example: schema=Pydantic schema, method="json_mode", include_raw=True
+
             .. code-block::
 
                 from langchain_ibm import ChatWatsonx
@@ -1298,11 +1375,13 @@ class ChatWatsonx(BaseChatModel):
                 #     'parsing_error': None
                 # }
 
-        Example: JSON mode, no schema (schema=None, method="json_mode", include_raw=True):
+        .. dropdown:: Example: schema=None, method="json_mode", include_raw=True
+
             .. code-block::
 
                 from langchain_ibm import ChatWatsonx
 
+                llm = ChatWatsonx(...)
                 structured_llm = llm.with_structured_output(method="json_mode", include_raw=True)
 
                 structured_llm.invoke(
@@ -1321,34 +1400,82 @@ class ChatWatsonx(BaseChatModel):
         """  # noqa: E501
         if kwargs:
             raise ValueError(f"Received unsupported arguments {kwargs}")
-        is_pydantic_schema = isinstance(schema, type) and is_basemodel_subclass(schema)
+        is_pydantic_schema = _is_pydantic_class(schema)
         if method == "function_calling":
             if schema is None:
                 raise ValueError(
-                    "schema must be specified when method is 'function_calling'. "
+                    "schema must be specified when method is not 'json_mode'. "
                     "Received None."
                 )
-            # specifying a tool.
-            tool_name = convert_to_openai_tool(schema)["function"]["name"]
-            tool_choice = {"type": "function", "function": {"name": tool_name}}
-            llm = self.bind_tools([schema], tool_choice=tool_choice)
+            formatted_tool = convert_to_openai_tool(schema)
+            tool_name = formatted_tool["function"]["name"]
+            llm = self.bind_tools(
+                [schema],
+                tool_choice=tool_name,
+                ls_structured_output_format={
+                    "kwargs": {"method": method},
+                    "schema": formatted_tool,
+                },
+            )
             if is_pydantic_schema:
-                output_parser: OutputParserLike = PydanticToolsParser(
+                output_parser: Runnable = PydanticToolsParser(
                     tools=[schema],  # type: ignore[list-item]
                     first_tool_only=True,  # type: ignore[list-item]
                 )
             else:
-                key_name = convert_to_openai_tool(schema)["function"]["name"]
                 output_parser = JsonOutputKeyToolsParser(
-                    key_name=key_name, first_tool_only=True
+                    key_name=tool_name, first_tool_only=True
                 )
         elif method == "json_mode":
-            llm = self.bind(response_format={"type": "json_object"})
+            llm = self.bind(
+                response_format={"type": "json_object"},
+                ls_structured_output_format={
+                    "kwargs": {"method": method},
+                    "schema": schema,
+                },
+            )
             output_parser = (
-                PydanticOutputParser(pydantic_object=schema)  # type: ignore[type-var, arg-type]
+                PydanticOutputParser(pydantic_object=schema)  # type: ignore[arg-type]
                 if is_pydantic_schema
                 else JsonOutputParser()
             )
+        elif method == "json_schema":
+            if schema is None:
+                raise ValueError(
+                    "schema must be specified when method is not 'json_mode'. "
+                    "Received None."
+                )
+            response_format = _convert_to_openai_response_format(schema)
+            if is_pydantic_schema:
+                response_format = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema.__name__,  # type: ignore[union-attr]
+                        "description": schema.__doc__,
+                        "schema": schema.model_json_schema(),  # type: ignore[union-attr]
+                    },
+                }
+            bind_kwargs = {
+                **dict(
+                    response_format=response_format,
+                    ls_structured_output_format={
+                        "kwargs": {"method": method},
+                        "schema": convert_to_openai_tool(schema),
+                    },
+                )
+            }
+            llm = self.bind(**bind_kwargs)
+            output_parser = (
+                PydanticOutputParser(pydantic_object=schema)  # type: ignore[arg-type]
+                if is_pydantic_schema
+                else JsonOutputParser()
+            )
+        else:
+            raise ValueError(
+                f"Unrecognized method argument. Expected one of 'function_calling', "
+                f"'json_mode' or 'json_schema'. Received: '{method}'"
+            )
+
         if include_raw:
             parser_assign = RunnablePassthrough.assign(
                 parsed=itemgetter("raw") | output_parser, parsing_error=lambda _: None
@@ -1404,3 +1531,24 @@ def _create_usage_metadata(
         output_tokens=output_tokens,
         total_tokens=total_tokens,
     )
+
+
+def _convert_to_openai_response_format(
+    schema: Union[dict[str, Any], type],
+) -> Union[dict, TypeBaseModel]:
+    if isinstance(schema, type) and is_basemodel_subclass(schema):
+        return schema
+
+    if (
+        isinstance(schema, dict)
+        and "json_schema" in schema
+        and schema.get("type") == "json_schema"
+    ):
+        return schema
+
+    if isinstance(schema, dict) and "name" in schema and "schema" in schema:
+        return {"type": "json_schema", "json_schema": schema}
+
+    function = convert_to_openai_function(schema)
+    function["schema"] = function.pop("parameters")
+    return {"type": "json_schema", "json_schema": function}
