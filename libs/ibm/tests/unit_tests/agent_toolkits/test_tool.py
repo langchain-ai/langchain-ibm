@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 from pyarrow import flight  # type: ignore[import-untyped]
 
-from langchain_ibm.agent_toolkits.tool import (
+from langchain_ibm.agent_toolkits.sql.tool import (
     InfoSQLDatabaseTool,
     ListSQLDatabaseTool,
     QuerySQLDatabaseTool,

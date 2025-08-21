@@ -1,4 +1,4 @@
-"""IBM watsonx.ai Toolkit wrapper."""
+"""IBM watsonx.ai SQL Toolkit wrapper."""
 
 from typing import List
 
@@ -7,7 +7,8 @@ from langchain_core.tools import BaseTool
 from langchain_core.tools.base import BaseToolkit
 from pydantic import ConfigDict, Field
 
-from ..utilities.sql_database import WatsonxSQLDatabase
+from langchain_ibm.utilities.sql_database import WatsonxSQLDatabase
+
 from .tool import (
     InfoSQLDatabaseTool,
     ListSQLDatabaseTool,
