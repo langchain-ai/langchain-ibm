@@ -9,7 +9,6 @@ from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
 from ibm_watsonx_ai.foundation_models.utils.enums import (  # type: ignore
     DecodingMethods,
-    ModelTypes,
 )
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
 from langchain_core.outputs import LLMResult
@@ -434,7 +433,7 @@ def test_watsonxllm_invoke_from_wx_model_inference_with_params_as_enum() -> None
         GenTextParamsMetaNames.TOP_P: 1,
     }
     model = ModelInference(
-        model_id=ModelTypes.FLAN_T5_XL,
+        model_id=MODEL_ID,
         credentials={
             "apikey": WX_APIKEY,
             "url": "https://us-south.ml.cloud.ibm.com",

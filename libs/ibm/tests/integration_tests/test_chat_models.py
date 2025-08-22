@@ -918,7 +918,7 @@ def test_chat_streaming_multiple_tool_call() -> None:
     # assert ai_message.usage_metadata is not None
 
 
-def test_chat_structured_output() -> None:
+def test_chat_structured_output_function_calling() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,  # type: ignore[arg-type]
@@ -937,16 +937,44 @@ def test_chat_structured_output() -> None:
         },
         "required": ["answer", "justification"],
     }
-    structured_llm = chat.with_structured_output(schema)
+    structured_llm = chat.with_structured_output(schema, method="function_calling")
     result = structured_llm.invoke(
         "What weighs more a pound of bricks or a pound of feathers"
     )
     assert isinstance(result, dict)
+    assert "answer" in result and "justification" in result
 
 
-def test_chat_streaming_structured_output() -> None:
+def test_chat_structured_output_json_schema() -> None:
     chat = ChatWatsonx(
-        model_id="meta-llama/llama-3-3-70b-instruct",
+        model_id=MODEL_ID_TOOL,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        temperature=0,
+    )
+    schema = {
+        "title": "AnswerWithJustification",
+        "description": (
+            "An answer to the user question along with justification for the answer."
+        ),
+        "type": "object",
+        "properties": {
+            "answer": {"title": "Answer", "type": "string"},
+            "justification": {"title": "Justification", "type": "string"},
+        },
+        "required": ["answer", "justification"],
+    }
+    structured_llm = chat.with_structured_output(schema, method="json_schema")
+    result = structured_llm.invoke(
+        "What weighs more a pound of bricks or a pound of feathers"
+    )
+    assert isinstance(result, dict)
+    assert "answer" in result and "justification" in result
+
+
+def test_chat_streaming_structured_output_function_calling() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_TOOL_2,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
     )
