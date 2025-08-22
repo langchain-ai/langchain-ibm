@@ -132,7 +132,7 @@ class WatsonxRerank(BaseDocumentCompressor):
         else:
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
-            if "cloud.ibm.com" in self.url.get_secret_value():
+            if self.url.get_secret_value() in APIClient.PLATFORM_URLS_MAP:
                 if not self.token and not self.apikey:
                     raise ValueError(
                         "Did not find 'apikey' or 'token',"
@@ -160,11 +160,6 @@ class WatsonxRerank(BaseDocumentCompressor):
                 elif self.apikey:
                     check_for_attribute(self.apikey, "apikey", "WATSONX_APIKEY")
                     check_for_attribute(self.username, "username", "WATSONX_USERNAME")
-
-                if not self.instance_id:
-                    check_for_attribute(
-                        self.instance_id, "instance_id", "WATSONX_INSTANCE_ID"
-                    )
 
             credentials = Credentials(
                 url=self.url.get_secret_value() if self.url else None,
