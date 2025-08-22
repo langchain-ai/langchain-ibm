@@ -215,21 +215,24 @@ class WatsonxSQLDatabase:
                 except ValueError:
                     pass
 
-                try:
-                    _validate_param(password, "password", "WATSONX_PASSWORD")
-                except ValueError:
-                    pass
-                else:
-                    username = username or _from_env("WATSONX_USERNAME")
-                    _validate_param(username, "username", "WATSONX_USERNAME")
+                def _check_with_username(
+                    auth_name: str, auth_object: Any, username: Optional[str] = username
+                ) -> None:
+                    try:
+                        _validate_param(
+                            auth_object, auth_name, "WATSONX_" + auth_name.upper()
+                        )
+                    except ValueError:
+                        pass
+                    else:
+                        username = username or _from_env("WATSONX_USERNAME")
+                        _validate_param(username, "username", "WATSONX_USERNAME")
 
-                try:
-                    _validate_param(apikey, "apikey", "WATSONX_APIKEY")
-                except ValueError:
-                    pass
-                else:
-                    username = username or _from_env("WATSONX_USERNAME")
-                    _validate_param(username, "username", "WATSONX_USERNAME")
+                # validate if password is passed then username is also passed
+                _check_with_username(auth_name="password", auth_object=password)
+
+                # validate if apikey is passed then username is also passed
+                _check_with_username(auth_name="apikey", auth_object=apikey)
 
                 instance_id = instance_id or _from_env("WATSONX_INSTANCE_ID")
                 _validate_param(instance_id, "instance_id", "WATSONX_INSTANCE_ID")
@@ -244,11 +247,16 @@ class WatsonxSQLDatabase:
                 version=version,
                 verify=verify,
             )
-            project_id = project_id or _from_env("WATSONX_PROJECT_ID")
-            space_id = space_id or _from_env("WATSONX_SPACE_ID")
             self.watsonx_client = APIClient(
                 credentials=credentials, project_id=project_id, space_id=space_id
             )
+            project_id = project_id or _from_env("WATSONX_PROJECT_ID")
+            space_id = space_id or _from_env("WATSONX_SPACE_ID")
+            if project_id:
+                self.watsonx_client.set.default_project(project_id=project_id)
+            elif space_id:
+                self.watsonx_client.set.default_space(space_id=space_id)
+
         else:
             self.watsonx_client = watsonx_client
 
