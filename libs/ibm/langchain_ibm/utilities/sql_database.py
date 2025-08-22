@@ -252,7 +252,7 @@ class WatsonxSQLDatabase:
         else:
             self.watsonx_client = watsonx_client
 
-        context_id: dict[str, str | None] = {"project_id": None, "space_id": None}
+        context_id: dict[str, Optional[str]] = {"project_id": None, "space_id": None}
         if project_id is not None:
             context_id["project_id"] = project_id
         elif space_id is not None:
