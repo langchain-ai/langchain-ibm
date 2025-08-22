@@ -43,7 +43,7 @@ def _validate_param(value: Optional[str], key: str, env_key: str) -> None:
     return None
 
 
-def _from_env(env_var_name: str) -> str | None:
+def _from_env(env_var_name: str) -> Optional[str]:
     """Read env variable. If it is not set, return None."""
     return from_env(env_var_name, default=None)()
 
