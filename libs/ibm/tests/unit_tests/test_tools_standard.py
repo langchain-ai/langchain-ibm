@@ -5,7 +5,7 @@ from ibm_watsonx_ai.service_instance import ServiceInstance  # type: ignore
 from langchain_core.tools import BaseTool
 from langchain_tests.unit_tests.tools import ToolsUnitTests
 
-from langchain_ibm.toolkit import WatsonxTool
+from langchain_ibm.agent_toolkits.utility.toolkit import WatsonxTool
 
 client = APIClient.__new__(APIClient)
 client.CLOUD_PLATFORM_SPACES = True
