@@ -1,6 +1,5 @@
 """IBM watsonx.ai Toolkit wrapper."""
 
-import urllib.parse
 from typing import (
     Any,
     Dict,
@@ -199,8 +198,7 @@ class WatsonxToolkit(BaseToolkit):
         else:
             check_for_attribute(self.url, "url", "WATSONX_URL")
 
-            parsed_url = urllib.parse.urlparse(self.url.get_secret_value())
-            if parsed_url.netloc.endswith(".cloud.ibm.com"):
+            if self.url.get_secret_value() in APIClient.PLATFORM_URLS_MAP:
                 if not self.token and not self.apikey:
                     raise ValueError(
                         "Did not find 'apikey' or 'token',"
