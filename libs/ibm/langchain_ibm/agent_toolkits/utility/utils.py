@@ -52,7 +52,7 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
 
     """
 
-    def parse_parameters(input_schema: dict | None) -> dict:
+    def parse_parameters(input_schema: Optional[dict]) -> dict:
         if input_schema:
             parameters = deepcopy(input_schema)
         else:
