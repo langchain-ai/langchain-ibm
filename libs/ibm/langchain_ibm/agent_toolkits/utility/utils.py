@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from langchain_ibm.agent_toolkits.utility.toolkit import WatsonxTool
