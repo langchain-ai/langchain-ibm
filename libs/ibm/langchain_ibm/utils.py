@@ -3,6 +3,7 @@ import logging
 from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Union
 
+from ibm_watsonx_ai import Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema  # type: ignore
 from ibm_watsonx_ai.wml_client_error import ApiRequestFailure  # type: ignore
 from pydantic import SecretStr
@@ -107,3 +108,59 @@ def async_gateway_error_handler(func: Callable) -> Callable:
             raise
 
     return wrapper
+
+
+def get_credentails(
+    url: SecretStr | None = None,
+    apikey: SecretStr | None = None,
+    token: SecretStr | None = None,
+    password: SecretStr | None = None,
+    username: SecretStr | None = None,
+    instance_id: SecretStr | None = None,
+    version: SecretStr | None = None,
+    verify: bool | str | None = None,
+) -> Credentials:
+    check_for_attribute(url, "url", "WATSONX_URL")
+
+    if url and "cloud.ibm.com" in url.get_secret_value():
+        if not token and not apikey:
+            raise ValueError(
+                "Did not find 'apikey' or 'token',"
+                " please add an environment variable"
+                " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
+                "which contains it,"
+                " or pass 'apikey' or 'token'"
+                " as a named parameter."
+            )
+    else:
+        if not token and not password and not apikey:
+            raise ValueError(
+                "Did not find 'token', 'password' or 'apikey',"
+                " please add an environment variable"
+                " `WATSONX_TOKEN`, 'WATSONX_PASSWORD' or 'WATSONX_APIKEY' "
+                "which contains it,"
+                " or pass 'token', 'password' or 'apikey'"
+                " as a named parameter."
+            )
+        elif token:
+            check_for_attribute(token, "token", "WATSONX_TOKEN")
+        elif password:
+            check_for_attribute(password, "password", "WATSONX_PASSWORD")
+            check_for_attribute(username, "username", "WATSONX_USERNAME")
+        elif apikey:
+            check_for_attribute(apikey, "apikey", "WATSONX_APIKEY")
+            check_for_attribute(username, "username", "WATSONX_USERNAME")
+
+        if not instance_id:
+            check_for_attribute(instance_id, "instance_id", "WATSONX_INSTANCE_ID")
+
+    return Credentials(
+        url=url.get_secret_value() if url else None,
+        api_key=apikey.get_secret_value() if apikey else None,
+        token=token.get_secret_value() if token else None,
+        password=password.get_secret_value() if password else None,
+        username=username.get_secret_value() if username else None,
+        instance_id=instance_id.get_secret_value() if instance_id else None,
+        version=version.get_secret_value() if version else None,
+        verify=verify,
+    )

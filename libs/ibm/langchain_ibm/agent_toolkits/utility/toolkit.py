@@ -1,6 +1,5 @@
 """IBM watsonx.ai Toolkit wrapper."""
 
-import urllib.parse
 from typing import (
     Any,
     Dict,
@@ -10,7 +9,7 @@ from typing import (
     Union,
 )
 
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
+from ibm_watsonx_ai import APIClient  # type: ignore
 from ibm_watsonx_ai.foundation_models.utils import (  # type: ignore
     Tool,
     Toolkit,
@@ -29,7 +28,7 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute
+from langchain_ibm.utils import get_credentails
 
 from .utils import convert_to_watsonx_tool
 
@@ -220,39 +219,14 @@ class WatsonxToolkit(BaseToolkit):
         if isinstance(self.watsonx_client, APIClient):
             self._watsonx_toolkit = Toolkit(self.watsonx_client)
         else:
-            check_for_attribute(self.url, "url", "WATSONX_URL")
-
-            parsed_url = urllib.parse.urlparse(self.url.get_secret_value())
-            if parsed_url.netloc.endswith(".cloud.ibm.com"):
-                if not self.token and not self.apikey:
-                    raise ValueError(
-                        "Did not find 'apikey' or 'token',"
-                        " please add an environment variable"
-                        " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
-                        "which contains it,"
-                        " or pass 'apikey' or 'token'"
-                        " as a named parameter."
-                    )
-            else:
-                if not all([self.username, self.password, self.instance_id]):
-                    raise ValueError(
-                        "One or more required variables "
-                        "['username', 'password', instance_id] are missing. "
-                        "Please provide values or set the corresponding environment "
-                        "variables [`WATSONX_USERNAME`, 'WATSONX_PASSWORD', "
-                        "'WATSONX_INSTANCE_ID']."
-                    )
-
-            credentials = Credentials(
-                url=self.url.get_secret_value() if self.url else None,
-                api_key=self.apikey.get_secret_value() if self.apikey else None,
-                token=self.token.get_secret_value() if self.token else None,
-                username=self.username.get_secret_value() if self.username else None,
-                password=self.password.get_secret_value() if self.password else None,
-                instance_id=self.instance_id.get_secret_value()
-                if self.instance_id
-                else None,
-                version=self.version.get_secret_value() if self.version else None,
+            credentials = get_credentails(
+                url=self.url,
+                apikey=self.apikey,
+                token=self.token,
+                password=self.password,
+                username=self.username,
+                instance_id=self.instance_id,
+                version=self.version,
                 verify=self.verify,
             )
             self.watsonx_client = APIClient(
