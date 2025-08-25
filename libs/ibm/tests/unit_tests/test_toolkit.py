@@ -29,3 +29,12 @@ def test_initialize_watsonx_toolkit_cloud_bad_api_key() -> None:
     except ValueError as e:
         assert "apikey" in e.__str__() and "token" in e.__str__()
         assert "WATSONX_APIKEY" in e.__str__() and "WATSONX_TOKEN" in e.__str__()
+
+
+def test_initialize_watsonx_toolkit_cpd_invalid_credentials() -> None:
+    try:
+        WatsonxToolkit(url="https://cpd-cpd-instance.apps.sample.cp.fyre.ibm.com")  # type: ignore[arg-type]
+    except ValueError as e:
+        assert "username" in e.__str__()
+        assert "password" in e.__str__()
+        assert "instance_id" in e.__str__()

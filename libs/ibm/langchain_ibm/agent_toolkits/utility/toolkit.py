@@ -134,7 +134,7 @@ class WatsonxToolkit(BaseToolkit):
     Example:
         .. code-block:: python
 
-            from langchain_ibm.agents_toolkits.utility import WatsonxToolkit
+            from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
             watsonx_toolkit = WatsonxToolkit(
                 url="https://us-south.ml.cloud.ibm.com",
@@ -177,6 +177,27 @@ class WatsonxToolkit(BaseToolkit):
     )
     """Token to the watsonx.ai Runtime."""
 
+    password: Optional[SecretStr] = Field(
+        alias="password",
+        default_factory=secret_from_env("WATSONX_PASSWORD", default=None),
+    )
+    """Password to the CPD instance."""
+
+    username: Optional[SecretStr] = Field(
+        alias="username",
+        default_factory=secret_from_env("WATSONX_USERNAME", default=None),
+    )
+    """Username to the CPD instance."""
+
+    instance_id: Optional[SecretStr] = Field(
+        alias="instance_id",
+        default_factory=secret_from_env("WATSONX_INSTANCE_ID", default=None),
+    )
+    """Instance_id of the CPD instance."""
+
+    version: Optional[SecretStr] = None
+    """Version of the CPD instance."""
+
     verify: Union[str, bool, None] = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
@@ -213,15 +234,25 @@ class WatsonxToolkit(BaseToolkit):
                         " as a named parameter."
                     )
             else:
-                raise ValueError(
-                    "Invalid 'url'. Please note that WatsonxToolkit is supported "
-                    "only on Cloud and is not yet available for IBM Cloud Pak for Data."
-                )
+                if not all([self.username, self.password, self.instance_id]):
+                    raise ValueError(
+                        "One or more required variables "
+                        "['username', 'password', instance_id] are missing. "
+                        "Please provide values or set the corresponding environment "
+                        "variables [`WATSONX_USERNAME`, 'WATSONX_PASSWORD', "
+                        "'WATSONX_INSTANCE_ID']."
+                    )
 
             credentials = Credentials(
                 url=self.url.get_secret_value() if self.url else None,
                 api_key=self.apikey.get_secret_value() if self.apikey else None,
                 token=self.token.get_secret_value() if self.token else None,
+                username=self.username.get_secret_value() if self.username else None,
+                password=self.password.get_secret_value() if self.password else None,
+                instance_id=self.instance_id.get_secret_value()
+                if self.instance_id
+                else None,
+                version=self.version.get_secret_value() if self.version else None,
                 verify=self.verify,
             )
             self.watsonx_client = APIClient(
