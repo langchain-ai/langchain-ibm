@@ -28,7 +28,7 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from langchain_ibm.utils import get_credentails
+from langchain_ibm.utils import resolve_watsonx_credentials
 
 from .utils import convert_to_watsonx_tool
 
@@ -219,7 +219,7 @@ class WatsonxToolkit(BaseToolkit):
         if isinstance(self.watsonx_client, APIClient):
             self._watsonx_toolkit = Toolkit(self.watsonx_client)
         else:
-            credentials = get_credentails(
+            credentials = resolve_watsonx_credentials(
                 url=self.url,
                 apikey=self.apikey,
                 token=self.token,

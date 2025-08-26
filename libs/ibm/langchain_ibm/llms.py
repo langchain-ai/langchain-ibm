@@ -31,7 +31,7 @@ from langchain_ibm.utils import (
     async_gateway_error_handler,
     extract_params,
     gateway_error_handler,
-    get_credentails,
+    resolve_watsonx_credentials,
 )
 
 logger = logging.getLogger(__name__)
@@ -239,7 +239,7 @@ class WatsonxLLM(BaseLLM):
                     "parameters when initializing WatsonxLLM."
                 )
 
-            credentials = get_credentails(
+            credentials = resolve_watsonx_credentials(
                 url=self.url,
                 apikey=self.apikey,
                 token=self.token,

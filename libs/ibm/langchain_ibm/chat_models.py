@@ -92,7 +92,7 @@ from langchain_ibm.utils import (
     check_duplicate_chat_params,
     extract_chat_params,
     gateway_error_handler,
-    get_credentails,
+    resolve_watsonx_credentials,
 )
 
 logger = logging.getLogger(__name__)
@@ -707,7 +707,7 @@ class ChatWatsonx(BaseChatModel):
                     "parameters when initializing ChatWatsonx."
                 )
 
-            credentials = get_credentails(
+            credentials = resolve_watsonx_credentials(
                 url=self.url,
                 apikey=self.apikey,
                 token=self.token,

@@ -14,7 +14,7 @@ from langchain_core.utils.utils import secret_from_env
 from pydantic import ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import extract_params, get_credentails
+from langchain_ibm.utils import extract_params, resolve_watsonx_credentials
 
 
 class WatsonxRerank(BaseDocumentCompressor):
@@ -130,7 +130,7 @@ class WatsonxRerank(BaseDocumentCompressor):
             self.watsonx_rerank = watsonx_rerank
 
         else:
-            credentials = get_credentails(
+            credentials = resolve_watsonx_credentials(
                 url=self.url,
                 apikey=self.apikey,
                 token=self.token,

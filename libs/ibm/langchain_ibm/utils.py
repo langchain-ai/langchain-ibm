@@ -110,7 +110,7 @@ def async_gateway_error_handler(func: Callable) -> Callable:
     return wrapper
 
 
-def get_credentails(
+def resolve_watsonx_credentials(
     url: SecretStr | None = None,
     apikey: SecretStr | None = None,
     token: SecretStr | None = None,

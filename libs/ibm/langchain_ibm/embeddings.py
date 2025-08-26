@@ -13,7 +13,7 @@ from langchain_ibm.utils import (
     async_gateway_error_handler,
     extract_params,
     gateway_error_handler,
-    get_credentails,
+    resolve_watsonx_credentials,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                     "Please specify exactly one of these parameters when "
                     "initializing WatsonxEmbeddings."
                 )
-            credentials = get_credentails(
+            credentials = resolve_watsonx_credentials(
                 url=self.url,
                 apikey=self.apikey,
                 token=self.token,
