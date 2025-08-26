@@ -130,7 +130,7 @@ class WatsonxToolkit(BaseToolkit):
             export WATSONX_APIKEY="your-api-key"
 
 
-    Example:
+    Cloud example:
         .. code-block:: python
 
             from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
@@ -151,6 +151,30 @@ class WatsonxToolkit(BaseToolkit):
                 "input": "Search IBM",
             }
             search_result = google_search.invoke(input)
+
+    Cloud Pak for Data example:
+        .. code-block:: python
+
+            from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
+
+            watsonx_toolkit = WatsonxToolkit(
+                url="<CPD_URL>",
+                username="*****",
+                password="*****",
+                instance_id="*****",
+                version="*****"  # optional
+            )
+
+            rag_query = watsonx_toolkit.get_tool(tool_name="RAGQuery")
+
+            rag_query.set_tool_config(
+                {
+                    "vectorIndexId": "<vector-index-id>",
+                    "projectId": "<project-id>",
+                }
+            )
+
+            res = rag_query.run("How to initialize APIClient?")
 
     """
 
