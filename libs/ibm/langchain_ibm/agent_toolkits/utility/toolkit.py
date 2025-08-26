@@ -1,6 +1,5 @@
 """IBM watsonx.ai Toolkit wrapper."""
 
-import urllib.parse
 from typing import (
     Any,
     Dict,
@@ -10,7 +9,7 @@ from typing import (
     Union,
 )
 
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
+from ibm_watsonx_ai import APIClient  # type: ignore
 from ibm_watsonx_ai.foundation_models.utils import (  # type: ignore
     Tool,
     Toolkit,
@@ -29,7 +28,7 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute
+from langchain_ibm.utils import resolve_watsonx_credentials
 
 from .utils import convert_to_watsonx_tool
 
@@ -134,7 +133,7 @@ class WatsonxToolkit(BaseToolkit):
     Example:
         .. code-block:: python
 
-            from langchain_ibm.agents_toolkits.utility import WatsonxToolkit
+            from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
             watsonx_toolkit = WatsonxToolkit(
                 url="https://us-south.ml.cloud.ibm.com",
@@ -177,6 +176,27 @@ class WatsonxToolkit(BaseToolkit):
     )
     """Token to the watsonx.ai Runtime."""
 
+    password: Optional[SecretStr] = Field(
+        alias="password",
+        default_factory=secret_from_env("WATSONX_PASSWORD", default=None),
+    )
+    """Password to the CPD instance."""
+
+    username: Optional[SecretStr] = Field(
+        alias="username",
+        default_factory=secret_from_env("WATSONX_USERNAME", default=None),
+    )
+    """Username to the CPD instance."""
+
+    instance_id: Optional[SecretStr] = Field(
+        alias="instance_id",
+        default_factory=secret_from_env("WATSONX_INSTANCE_ID", default=None),
+    )
+    """Instance_id of the CPD instance."""
+
+    version: Optional[SecretStr] = None
+    """Version of the CPD instance."""
+
     verify: Union[str, bool, None] = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
@@ -199,29 +219,14 @@ class WatsonxToolkit(BaseToolkit):
         if isinstance(self.watsonx_client, APIClient):
             self._watsonx_toolkit = Toolkit(self.watsonx_client)
         else:
-            check_for_attribute(self.url, "url", "WATSONX_URL")
-
-            parsed_url = urllib.parse.urlparse(self.url.get_secret_value())
-            if parsed_url.netloc.endswith(".cloud.ibm.com"):
-                if not self.token and not self.apikey:
-                    raise ValueError(
-                        "Did not find 'apikey' or 'token',"
-                        " please add an environment variable"
-                        " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
-                        "which contains it,"
-                        " or pass 'apikey' or 'token'"
-                        " as a named parameter."
-                    )
-            else:
-                raise ValueError(
-                    "Invalid 'url'. Please note that WatsonxToolkit is supported "
-                    "only on Cloud and is not yet available for IBM Cloud Pak for Data."
-                )
-
-            credentials = Credentials(
-                url=self.url.get_secret_value() if self.url else None,
-                api_key=self.apikey.get_secret_value() if self.apikey else None,
-                token=self.token.get_secret_value() if self.token else None,
+            credentials = resolve_watsonx_credentials(
+                url=self.url,
+                apikey=self.apikey,
+                token=self.token,
+                password=self.password,
+                username=self.username,
+                instance_id=self.instance_id,
+                version=self.version,
                 verify=self.verify,
             )
             self.watsonx_client = APIClient(

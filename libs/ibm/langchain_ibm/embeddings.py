@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
+from ibm_watsonx_ai import APIClient  # type: ignore
 from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
 from ibm_watsonx_ai.gateway import Gateway  # type: ignore
 from langchain_core.embeddings import Embeddings as LangChainEmbeddings
@@ -11,9 +11,9 @@ from typing_extensions import Self
 
 from langchain_ibm.utils import (
     async_gateway_error_handler,
-    check_for_attribute,
     extract_params,
     gateway_error_handler,
+    resolve_watsonx_credentials,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,52 +157,14 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                     "Please specify exactly one of these parameters when "
                     "initializing WatsonxEmbeddings."
                 )
-            check_for_attribute(self.url, "url", "WATSONX_URL")
-
-            if "cloud.ibm.com" in self.url.get_secret_value():
-                if not self.token and not self.apikey:
-                    raise ValueError(
-                        "Did not find 'apikey' or 'token',"
-                        " please add an environment variable"
-                        " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
-                        "which contains it,"
-                        " or pass 'apikey' or 'token'"
-                        " as a named parameter."
-                    )
-            else:
-                if not self.token and not self.password and not self.apikey:
-                    raise ValueError(
-                        "Did not find 'token', 'password' or 'apikey',"
-                        " please add an environment variable"
-                        " `WATSONX_TOKEN`, 'WATSONX_PASSWORD' or 'WATSONX_APIKEY' "
-                        "which contains it,"
-                        " or pass 'token', 'password' or 'apikey'"
-                        " as a named parameter."
-                    )
-                elif self.token:
-                    check_for_attribute(self.token, "token", "WATSONX_TOKEN")
-                elif self.password:
-                    check_for_attribute(self.password, "password", "WATSONX_PASSWORD")
-                    check_for_attribute(self.username, "username", "WATSONX_USERNAME")
-                elif self.apikey:
-                    check_for_attribute(self.apikey, "apikey", "WATSONX_APIKEY")
-                    check_for_attribute(self.username, "username", "WATSONX_USERNAME")
-
-                if not self.instance_id:
-                    check_for_attribute(
-                        self.instance_id, "instance_id", "WATSONX_INSTANCE_ID"
-                    )
-
-            credentials = Credentials(
-                url=self.url.get_secret_value() if self.url else None,
-                api_key=self.apikey.get_secret_value() if self.apikey else None,
-                token=self.token.get_secret_value() if self.token else None,
-                password=self.password.get_secret_value() if self.password else None,
-                username=self.username.get_secret_value() if self.username else None,
-                instance_id=self.instance_id.get_secret_value()
-                if self.instance_id
-                else None,
-                version=self.version.get_secret_value() if self.version else None,
+            credentials = resolve_watsonx_credentials(
+                url=self.url,
+                apikey=self.apikey,
+                token=self.token,
+                password=self.password,
+                username=self.username,
+                instance_id=self.instance_id,
+                version=self.version,
                 verify=self.verify,
             )
             if self.model is not None:
