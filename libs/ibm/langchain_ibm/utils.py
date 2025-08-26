@@ -3,7 +3,7 @@ import logging
 from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Union
 
-from ibm_watsonx_ai import Credentials  # type: ignore
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema  # type: ignore
 from ibm_watsonx_ai.wml_client_error import ApiRequestFailure  # type: ignore
 from pydantic import SecretStr
@@ -111,7 +111,7 @@ def async_gateway_error_handler(func: Callable) -> Callable:
 
 
 def resolve_watsonx_credentials(
-    url: SecretStr | None = None,
+    url: SecretStr,
     apikey: SecretStr | None = None,
     token: SecretStr | None = None,
     password: SecretStr | None = None,
@@ -122,7 +122,7 @@ def resolve_watsonx_credentials(
 ) -> Credentials:
     check_for_attribute(url, "url", "WATSONX_URL")
 
-    if url and "cloud.ibm.com" in url.get_secret_value():
+    if url.get_secret_value() in APIClient.PLATFORM_URLS_MAP:
         if not token and not apikey:
             raise ValueError(
                 "Did not find 'apikey' or 'token',"
@@ -150,9 +150,6 @@ def resolve_watsonx_credentials(
         elif apikey:
             check_for_attribute(apikey, "apikey", "WATSONX_APIKEY")
             check_for_attribute(username, "username", "WATSONX_USERNAME")
-
-        if not instance_id:
-            check_for_attribute(instance_id, "instance_id", "WATSONX_INSTANCE_ID")
 
     return Credentials(
         url=url.get_secret_value() if url else None,
