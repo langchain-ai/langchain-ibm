@@ -28,7 +28,9 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from langchain_ibm.utils import check_for_attribute, convert_to_watsonx_tool
+from langchain_ibm.utils import check_for_attribute
+
+from .utils import convert_to_watsonx_tool
 
 
 class WatsonxTool(BaseTool):
@@ -131,7 +133,7 @@ class WatsonxToolkit(BaseToolkit):
     Example:
         .. code-block:: python
 
-            from langchain_ibm import WatsonxToolkit
+            from langchain_ibm.agents_toolkits.utility import WatsonxToolkit
 
             watsonx_toolkit = WatsonxToolkit(
                 url="https://us-south.ml.cloud.ibm.com",
