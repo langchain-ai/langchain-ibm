@@ -130,7 +130,7 @@ class WatsonxToolkit(BaseToolkit):
             export WATSONX_APIKEY="your-api-key"
 
 
-    Cloud example:
+    IBM watsonx.ai for IBM Cloud example:
         .. code-block:: python
 
             from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
@@ -152,7 +152,7 @@ class WatsonxToolkit(BaseToolkit):
             }
             search_result = google_search.invoke(input)
 
-    Cloud Pak for Data example:
+    IBM watsonx.ai software example:
         .. code-block:: python
 
             from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
