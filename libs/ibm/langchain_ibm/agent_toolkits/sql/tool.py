@@ -183,5 +183,4 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
         )
         if isinstance(resp, BaseMessage):
             return str(resp.content)
-        else:
-            return resp
+        return resp
