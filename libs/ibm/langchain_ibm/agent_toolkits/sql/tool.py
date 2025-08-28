@@ -178,7 +178,7 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
         query: str,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
-        resp = self.llm_chain.invoke(
+        resp = await self.llm_chain.ainvoke(
             {"query": query, "schema": self.db.schema},
             callbacks=run_manager.get_child() if run_manager else None,
         )
