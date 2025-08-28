@@ -95,9 +95,7 @@ class MockFlightSQLClient:
             raise flight.FlightError("Table not found")
 
     def execute(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
-        if kwargs.get("interaction_properties", {}).get("table_name") == "table1" or (
-            "table1" in kwargs.get("query", "")
-        ):
+        if "table1" in kwargs.get("query", ""):
             return pd.DataFrame({"id": [1], "name": ["test"], "age": [35]})
 
         elif "table1" not in kwargs.get("query", ""):
@@ -105,6 +103,11 @@ class MockFlightSQLClient:
 
         else:
             raise ValueError("syntax error")
+
+    def get_n_first_rows(
+        self, schema: str, table_name: str, n: int = 3
+    ) -> pd.DataFrame:
+        return pd.DataFrame({"id": [1], "name": ["test"], "age": [35]})
 
 
 ### truncate_word

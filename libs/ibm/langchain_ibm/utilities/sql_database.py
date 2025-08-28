@@ -368,11 +368,6 @@ class WatsonxSQLDatabase:
             if missing_tables:
                 raise ValueError(f"table_names {missing_tables} not found in database")
 
-        extra_interaction_properties = {
-            "schema_name": self.schema,
-            "row_limit": self._sample_rows_in_table_info,
-        }
-
         with self._flight_sql_client as flight_sql_client:
             if table_names is None:
                 table_names = self._all_tables
@@ -386,10 +381,10 @@ class WatsonxSQLDatabase:
                     )
                     + f"\n\nFirst {self._sample_rows_in_table_info} rows "
                     + f"of table {table_name}:\n\n"
-                    + flight_sql_client.execute(
-                        None,
-                        interaction_properties=extra_interaction_properties
-                        | {"table_name": table_name},
+                    + flight_sql_client.get_n_first_rows(
+                        schema=self.schema,
+                        table_name=table_name,
+                        n=self._sample_rows_in_table_info,
                     ).to_string()
                     for table_name in table_names
                 ]
