@@ -9,6 +9,7 @@ from langchain_core.callbacks import (
     CallbackManagerForToolRun,
 )
 from langchain_core.language_models import BaseLanguageModel
+from langchain_core.messages import BaseMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -163,18 +164,23 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         """Use the LLM to check the query."""
-        return self.llm_chain.invoke(
+        resp = self.llm_chain.invoke(
             {"query": query, "schema": self.db.schema},
             callbacks=run_manager.get_child() if run_manager else None,
-        ).content
+        )
+        if isinstance(resp, BaseMessage):
+            return str(resp.content)
+        return resp
 
     async def _arun(
         self,
         query: str,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
-        return await self.llm_chain.apredict(
-            query=query,
-            schema=self.db.schema,
+        resp = await self.llm_chain.ainvoke(
+            {"query": query, "schema": self.db.schema},
             callbacks=run_manager.get_child() if run_manager else None,
         )
+        if isinstance(resp, BaseMessage):
+            return str(resp.content)
+        return resp
