@@ -2,6 +2,9 @@
 
 import os
 
+import pytest
+from requests.exceptions import ConnectionError
+
 from langchain_ibm import WatsonxRerank
 
 os.environ.pop("WATSONX_APIKEY", None)
@@ -71,14 +74,14 @@ def test_initialize_watsonxllm_cpd_bad_path_apikey_without_username() -> None:
         assert "WATSONX_USERNAME" in e.__str__()
 
 
-def test_initialize_watsonxllm_cpd_bad_path_without_instance_id() -> None:
-    try:
-        WatsonxRerank(
-            model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            apikey="test_apikey",  # type: ignore[arg-type]
-            username="test_user",  # type: ignore[arg-type]
-        )
-    except ValueError as e:
-        assert "instance_id" in e.__str__()
-        assert "WATSONX_INSTANCE_ID" in e.__str__()
+def test_initialize_watsonxllm_cpd_deprecation_warning_with_instance_id() -> None:
+    with pytest.warns(DeprecationWarning) as w:
+        with pytest.raises(ConnectionError):
+            WatsonxRerank(
+                model_id=MODEL_ID,
+                url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
+                apikey="test_apikey",  # type: ignore[arg-type]
+                username="test_user",  # type: ignore[arg-type]
+                instance_id="openshift",  # type: ignore[arg-type]
+            )
+    assert "The `instance_id` parameter is deprecated" in str(w[-1].message)

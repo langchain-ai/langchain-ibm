@@ -3,8 +3,9 @@
 import os
 
 import pytest
+from requests.exceptions import ConnectionError
 
-from langchain_ibm import WatsonxToolkit
+from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
 os.environ.pop("WATSONX_APIKEY", None)
 os.environ.pop("WATSONX_PROJECT_ID", None)
@@ -71,12 +72,15 @@ def test_initialize_watsonx_toolkit_cpd_bad_path_apikey_without_username() -> No
     assert "WATSONX_USERNAME" in str(e.value)
 
 
-def test_initialize_watsonx_toolkit_cpd_bad_path_without_instance_id() -> None:
-    with pytest.raises(ValueError) as e:
-        WatsonxToolkit(
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            apikey="test_apikey",  # type: ignore[arg-type]
-            username="test_user",  # type: ignore[arg-type]
-        )
-    assert "instance_id" in str(e.value)
-    assert "WATSONX_INSTANCE_ID" in str(e.value)
+def test_initialize_watsonx_embeddings_cpd_deprecation_warning_with_instance_id() -> (
+    None
+):
+    with pytest.warns(DeprecationWarning) as w:
+        with pytest.raises(ConnectionError):
+            WatsonxToolkit(
+                url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
+                apikey="test_apikey",  # type: ignore[arg-type]
+                username="test_user",  # type: ignore[arg-type]
+                instance_id="openshift",  # type: ignore[arg-type]
+            )
+    assert "The `instance_id` parameter is deprecated" in str(w[-1].message)
