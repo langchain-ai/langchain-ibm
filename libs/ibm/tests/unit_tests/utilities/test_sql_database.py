@@ -146,7 +146,7 @@ CREATE TABLE test_schema.test_table (
 \tid INT NOT NULL,
 \tname VARCHAR(255),
 \tage INT,
-\tPRIMARY KEY (id)
+\tCONSTRAINT primary_key PRIMARY KEY (id)
 \t)"""
     assert pretty_print_table_info(schema, table_name, table_info) == expected_output
 
@@ -173,7 +173,7 @@ def test_pretty_print_table_info_with_nullable_columns() -> None:
 CREATE TABLE another_schema.another_table (
 \temail VARCHAR(255),
 \tcreated_at TIMESTAMP,
-\tPRIMARY KEY (email)
+\tCONSTRAINT primary_key PRIMARY KEY (email)
 \t)"""
     assert pretty_print_table_info(schema, table_name, table_info) == expected_output
 
@@ -193,7 +193,7 @@ def test_pretty_print_table_info_without_primary_key() -> None:
     expected_output = """
 CREATE TABLE no_pk_schema.no_pk_table (
 \tvalue1 INT NOT NULL,
-\tvalue2 VARCHAR(255),
+\tvalue2 VARCHAR(255)
 \t)"""
     assert pretty_print_table_info(schema, table_name, table_info) == expected_output
 
@@ -425,13 +425,13 @@ CREATE TABLE test_schema.table1 (
 \tid INT NOT NULL,
 \tname VARCHAR(255),
 \tage INT,
-\tPRIMARY KEY (id)
+\tCONSTRAINT primary_key PRIMARY KEY (id)
 \t)
 
 First 3 rows of table table1:
 
-   id  name  age
-0   1  test   35"""
+ id name  age
+  1 test   35"""
         print(wx_sql_database.get_table_info(["table1"]))
         assert wx_sql_database.get_table_info(["table1"]) == expected_output
 
