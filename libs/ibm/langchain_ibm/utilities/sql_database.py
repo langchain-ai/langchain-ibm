@@ -56,10 +56,10 @@ def pretty_print_table_info(schema: str, table_name: str, table_info: dict) -> s
         native_type = field_metadata_type.get("native_type")
         nullable = field_metadata_type.get("nullable")
 
-        return f"{name} {native_type}{'' if nullable else ' NOT NULL'}"
+        return f'"{name}" {native_type}{"" if nullable else " NOT NULL"}'
 
     create_table_template = """
-CREATE TABLE {schema}.{table_name} (
+CREATE TABLE "{schema}"."{table_name}" (
 \t{column_definitions}{primary_key}{foreign_key}
 \t)"""
 

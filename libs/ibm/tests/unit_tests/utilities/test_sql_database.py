@@ -142,10 +142,10 @@ def test_pretty_print_table_info(
     schema: str, table_name: str, table_info: dict
 ) -> None:
     expected_output = """
-CREATE TABLE test_schema.test_table (
-\tid INT NOT NULL,
-\tname VARCHAR(255),
-\tage INT,
+CREATE TABLE "test_schema"."test_table" (
+\t"id" INT NOT NULL,
+\t"name" VARCHAR(255),
+\t"age" INT,
 \tCONSTRAINT primary_key PRIMARY KEY (id)
 \t)"""
     assert pretty_print_table_info(schema, table_name, table_info) == expected_output
@@ -170,9 +170,9 @@ def test_pretty_print_table_info_with_nullable_columns() -> None:
         ],
     }
     expected_output = """
-CREATE TABLE another_schema.another_table (
-\temail VARCHAR(255),
-\tcreated_at TIMESTAMP,
+CREATE TABLE "another_schema"."another_table" (
+\t"email" VARCHAR(255),
+\t"created_at" TIMESTAMP,
 \tCONSTRAINT primary_key PRIMARY KEY (email)
 \t)"""
     assert pretty_print_table_info(schema, table_name, table_info) == expected_output
@@ -191,9 +191,9 @@ def test_pretty_print_table_info_without_primary_key() -> None:
         ]
     }
     expected_output = """
-CREATE TABLE no_pk_schema.no_pk_table (
-\tvalue1 INT NOT NULL,
-\tvalue2 VARCHAR(255)
+CREATE TABLE "no_pk_schema"."no_pk_table" (
+\t"value1" INT NOT NULL,
+\t"value2" VARCHAR(255)
 \t)"""
     assert pretty_print_table_info(schema, table_name, table_info) == expected_output
 
@@ -421,10 +421,10 @@ def test_initialize_watsonx_sql_database_get_table_info(
 
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
         expected_output = """
-CREATE TABLE test_schema.table1 (
-\tid INT NOT NULL,
-\tname VARCHAR(255),
-\tage INT,
+CREATE TABLE "test_schema"."table1" (
+\t"id" INT NOT NULL,
+\t"name" VARCHAR(255),
+\t"age" INT,
 \tCONSTRAINT primary_key PRIMARY KEY (id)
 \t)
 
