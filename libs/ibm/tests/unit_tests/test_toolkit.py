@@ -3,7 +3,7 @@
 import os
 
 import pytest
-from requests.exceptions import ConnectionError
+from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
 
 from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
@@ -76,7 +76,7 @@ def test_initialize_watsonx_embeddings_cpd_deprecation_warning_with_instance_id(
     None
 ):
     with pytest.warns(DeprecationWarning) as w:
-        with pytest.raises(ConnectionError):
+        with pytest.raises(WMLClientError):
             WatsonxToolkit(
                 url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
                 apikey="test_apikey",  # type: ignore[arg-type]

@@ -8,7 +8,7 @@ import pytest
 from ibm_watsonx_ai import APIClient  # type: ignore
 from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
 from ibm_watsonx_ai.gateway import Gateway  # type: ignore
-from requests.exceptions import ConnectionError
+from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
 
 from langchain_ibm import ChatWatsonx
 
@@ -91,7 +91,7 @@ def test_initialize_chat_watsonx_cpd_bad_path_apikey_without_username() -> None:
 
 def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> None:
     with pytest.warns(DeprecationWarning) as w:
-        with pytest.raises(ConnectionError):
+        with pytest.raises(WMLClientError):
             ChatWatsonx(
                 model_id="google/flan-ul2",
                 url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
@@ -215,7 +215,22 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
         logprobs=True,
         top_logprobs=3,
         presence_penalty=0.3,
-        response_format={"type": "json_object"},
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "Sample JSON schema",
+                "schema": {
+                    "title": "SimpleUser",
+                    "type": "object",
+                    "properties": {
+                        "username": {"type": "string"},
+                        "email": {"type": "string", "format": "email"},
+                    },
+                    "required": ["username", "email"],
+                },
+                "strict": False,
+            },
+        },
         temperature=0.7,
         max_tokens=100,
         max_completion_tokens=512,

@@ -3,7 +3,7 @@
 import os
 
 import pytest
-from requests.exceptions import ConnectionError
+from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
 
 from langchain_ibm import WatsonxRerank
 
@@ -76,7 +76,7 @@ def test_initialize_watsonxllm_cpd_bad_path_apikey_without_username() -> None:
 
 def test_initialize_watsonxllm_cpd_deprecation_warning_with_instance_id() -> None:
     with pytest.warns(DeprecationWarning) as w:
-        with pytest.raises(ConnectionError):
+        with pytest.raises(WMLClientError):
             WatsonxRerank(
                 model_id=MODEL_ID,
                 url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]

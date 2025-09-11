@@ -7,7 +7,7 @@ import pytest
 from ibm_watsonx_ai import APIClient  # type: ignore
 from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
 from ibm_watsonx_ai.gateway import Gateway  # type: ignore
-from requests.exceptions import ConnectionError
+from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
 
 from langchain_ibm import WatsonxEmbeddings
 
@@ -90,7 +90,7 @@ def test_initialize_watsonx_embeddings_cpd_deprecation_warning_with_instance_id(
     None
 ):
     with pytest.warns(DeprecationWarning) as w:
-        with pytest.raises(ConnectionError):
+        with pytest.raises(WMLClientError):
             WatsonxEmbeddings(
                 model_id="google/flan-ul2",
                 url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
