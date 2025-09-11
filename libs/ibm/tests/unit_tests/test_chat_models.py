@@ -90,7 +90,9 @@ def test_initialize_chat_watsonx_cpd_bad_path_apikey_without_username() -> None:
 
 
 def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> None:
-    with pytest.warns(DeprecationWarning) as w:
+    with pytest.warns(
+        DeprecationWarning, match="The `instance_id` parameter is deprecated"
+    ):
         with pytest.raises(WMLClientError):
             ChatWatsonx(
                 model_id="google/flan-ul2",
@@ -99,7 +101,6 @@ def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> N
                 username="test_user",  # type: ignore[arg-type]
                 instance_id="openshift",  # type: ignore[arg-type]
             )
-    assert "The `instance_id` parameter is deprecated" in str(w[-1].message)
 
 
 def test_initialize_chat_watsonx_with_two_exclusive_parameters() -> None:

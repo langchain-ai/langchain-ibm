@@ -75,7 +75,9 @@ def test_initialize_watsonxllm_cpd_bad_path_apikey_without_username() -> None:
 
 
 def test_initialize_watsonxllm_cpd_deprecation_warning_with_instance_id() -> None:
-    with pytest.warns(DeprecationWarning) as w:
+    with pytest.warns(
+        DeprecationWarning, match="The `instance_id` parameter is deprecated"
+    ):
         with pytest.raises(WMLClientError):
             WatsonxRerank(
                 model_id=MODEL_ID,
@@ -84,4 +86,3 @@ def test_initialize_watsonxllm_cpd_deprecation_warning_with_instance_id() -> Non
                 username="test_user",  # type: ignore[arg-type]
                 instance_id="openshift",  # type: ignore[arg-type]
             )
-    assert "The `instance_id` parameter is deprecated" in str(w[-1].message)
