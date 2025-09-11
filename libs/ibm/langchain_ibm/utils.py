@@ -2,6 +2,7 @@ import functools
 import logging
 from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Union
+from urllib.parse import urlparse
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema  # type: ignore
@@ -122,7 +123,11 @@ def resolve_watsonx_credentials(
 ) -> Credentials:
     check_for_attribute(url, "url", "WATSONX_URL")
 
-    if url.get_secret_value() in APIClient.PLATFORM_URLS_MAP:
+    raw_url = url.get_secret_value()
+    parsed_url = urlparse(raw_url)
+    clean_url = f"{parsed_url.scheme}://{parsed_url.hostname}"
+
+    if clean_url in APIClient.PLATFORM_URLS_MAP:
         if not token and not apikey:
             raise ValueError(
                 "Did not find 'apikey' or 'token',"
