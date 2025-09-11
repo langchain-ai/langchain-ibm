@@ -1850,4 +1850,4 @@ sql-toolkit = ["pyarrow"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "f276447cc7483aa3a5d5063982e3a121db225897aec957edfd63199d8f72b16d"
+content-hash = "846d7887120bce9613fff9942f52b6edae9e679591f6a5385a0d6bd7af93490f"
