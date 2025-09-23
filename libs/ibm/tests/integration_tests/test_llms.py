@@ -478,7 +478,7 @@ async def test_watsonx_agenerate() -> None:
         ["What color sunflower is?", "What color turtle is?"]
     )
     assert len(response.generations) > 0
-    assert response.llm_output["token_usage"]["generated_token_count"] != 0  # type: ignore
+    assert response.llm_output["token_usage"]["completion_tokens"] != 0  # type: ignore
 
 
 async def test_watsonx_agenerate_with_stream() -> None:
