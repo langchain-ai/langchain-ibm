@@ -322,7 +322,7 @@ class WatsonxLLM(BaseLLM):
         return {
             "completion_tokens": completion_tokens,
             "prompt_tokens": prompt_tokens,
-            "total_tokens": total_tokens
+            "total_tokens": total_tokens,
         }
 
     @staticmethod
@@ -505,10 +505,6 @@ class WatsonxLLM(BaseLLM):
         params, kwargs = self._get_chat_params(stop=stop, **kwargs)
         params = self._validate_chat_params(params)
         should_stream = stream if stream is not None else self.streaming
-
-        token_usage: dict[str, int] = {}
-        _keys = {"completion_tokens", "prompt_tokens", "total_tokens"}
-
         if should_stream:
             if len(prompts) > 1:
                 raise ValueError(
