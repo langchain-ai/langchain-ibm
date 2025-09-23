@@ -303,10 +303,10 @@ class WatsonxLLM(BaseLLM):
         response: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         if response is None:
-            return {"generated_token_count": 0, "input_token_count": 0}
+            return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
 
-        input_token_count = 0
-        generated_token_count = 0
+        completion_tokens = 0
+        prompt_tokens = 0
 
         def get_count_value(key: str, result: Dict[str, Any]) -> int:
             return result.get(key, 0) or 0
@@ -314,14 +314,15 @@ class WatsonxLLM(BaseLLM):
         for res in response:
             results = res.get("results")
             if results:
-                input_token_count += get_count_value("input_token_count", results[0])
-                generated_token_count += get_count_value(
+                prompt_tokens += get_count_value("input_token_count", results[0])
+                completion_tokens += get_count_value(
                     "generated_token_count", results[0]
                 )
-
+        total_tokens = completion_tokens + prompt_tokens
         return {
-            "generated_token_count": generated_token_count,
-            "input_token_count": input_token_count,
+            "completion_tokens": completion_tokens,
+            "prompt_tokens": prompt_tokens,
+            "total_tokens": total_tokens
         }
 
     @staticmethod
@@ -504,6 +505,10 @@ class WatsonxLLM(BaseLLM):
         params, kwargs = self._get_chat_params(stop=stop, **kwargs)
         params = self._validate_chat_params(params)
         should_stream = stream if stream is not None else self.streaming
+
+        token_usage: dict[str, int] = {}
+        _keys = {"completion_tokens", "prompt_tokens", "total_tokens"}
+
         if should_stream:
             if len(prompts) > 1:
                 raise ValueError(
