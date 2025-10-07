@@ -94,8 +94,41 @@ from langchain_ibm.utils import (
     gateway_error_handler,
     resolve_watsonx_credentials,
 )
+import json
+import ast
+
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_tool_arguments(args_str):
+    """
+    Normalize the 'arguments' field of a tool call so that it is always a proper JSON string.
+    Handles:
+    - JSON string
+    - Python dict string
+    - Extra wrapping quotes like '"{...}"'
+    Args:
+        args_str: tool call args_str.
+
+    Returns:
+        The LangChain tool call arguments args_str.
+    """
+
+    # Step 1: Remove outer quotes if it's a string starting and ending with quotes
+    if isinstance(args_str, str) and args_str.startswith('"') and args_str.endswith('"'):
+        args_str = args_str[1:-1].encode().decode("unicode_escape")
+
+    # Step 2: Try JSON
+    try:
+        parsed = json.loads(args_str)
+    except json.JSONDecodeError:
+        # Step 3: If JSON fails, try Python dict string
+        parsed = ast.literal_eval(args_str)
+
+    # Step 4: Convert back to JSON string
+    args_str = json.dumps(parsed, indent=2)
+    return args_str
 
 
 def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMessage:
@@ -123,12 +156,22 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
         if raw_tool_calls := _dict.get("tool_calls"):
             additional_kwargs["tool_calls"] = raw_tool_calls
             for raw_tool_call in raw_tool_calls:
+                ## Code change to support langgraph with A2A and graph.astream.
+                if "function" in raw_tool_call:
+                    func = raw_tool_call.get("function", {})
+                    args_raw = func.get("arguments", "{}")
+                    if "arguments" in func:
+                        raw_args = raw_tool_call["function"]["arguments"]
+                        json_args_str = normalize_tool_arguments(raw_args)
+                        raw_tool_call["function"]["arguments"] = json_args_str
+
                 try:
                     tool_calls.append(parse_tool_call(raw_tool_call, return_id=True))
                 except Exception as e:
                     invalid_tool_calls.append(
                         make_invalid_tool_call(raw_tool_call, str(e))
                     )
+
         return AIMessage(
             content=content,
             additional_kwargs=additional_kwargs,
