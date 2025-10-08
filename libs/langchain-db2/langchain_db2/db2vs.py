@@ -104,10 +104,12 @@ def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
 
 
 @_handle_exceptions
-def _create_table(client: Connection, table_name: str, embedding_dim: int) -> None:
+def _create_table(
+    client: Connection, table_name: str, embedding_dim: int, text_field: str = "text"
+) -> None:
     cols_dict = {
         "id": "CHAR(16) PRIMARY KEY NOT NULL",
-        "text": "CLOB",
+        text_field: "CLOB",
         "metadata": "BLOB",
         "embedding": f"vector({embedding_dim}, FLOAT32)",
     }
@@ -200,6 +202,7 @@ class DB2VS(VectorStore):
         query: Optional[str] = "What is a Db2 database",
         params: Optional[Dict[str, Any]] = None,
         connection_args: Optional[Dict[str, Any]] = None,
+        text_field: str = "text",
     ):
         if client is None:
             if connection_args is not None:
@@ -239,7 +242,10 @@ class DB2VS(VectorStore):
             self.table_name = table_name
             self.distance_strategy = distance_strategy
             self.params = params
-            _create_table(self.client, self.table_name, embedding_dim)
+            self._text_field = text_field
+            _create_table(
+                self.client, self.table_name, embedding_dim, text_field=self._text_field
+            )
         except ibm_db_dbi.DatabaseError as db_err:
             logger.exception(f"Database error occurred while create table: {db_err}")
             raise RuntimeError(
@@ -385,7 +391,8 @@ class DB2VS(VectorStore):
         ]
 
         SQL_INSERT = (
-            f"INSERT INTO {self.table_name} (id, embedding, metadata, text) "
+            f"INSERT INTO "
+            f"{self.table_name} (id, embedding, metadata, {self._text_field}) "
             f"VALUES (?, VECTOR(?, {embedding_len}, FLOAT32), SYSTOOLS.JSON2BSON(?), ?)"
         )
 
@@ -459,7 +466,7 @@ class DB2VS(VectorStore):
 
         query = f"""
         SELECT id,
-          text,
+          {self._text_field},
           SYSTOOLS.BSON2JSON(metadata),
           vector_distance(embedding, VECTOR('{embedding}', {embedding_len}, FLOAT32),
           {_get_distance_function(self.distance_strategy)}) as distance
@@ -513,7 +520,7 @@ class DB2VS(VectorStore):
 
         query = f"""
         SELECT id,
-          text,
+          {self._text_field},
           SYSTOOLS.BSON2JSON(metadata),
           vector_distance(embedding, VECTOR('{embedding}', {embedding_len}, FLOAT32),
           {_get_distance_function(self.distance_strategy)}) as distance,
