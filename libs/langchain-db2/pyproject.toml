@@ -60,6 +60,7 @@ pytest-socket = "^0.7.0"
 pytest-watcher = "^0.3.4"
 langchain-tests = "^0.3.5"
 sentence-transformers = "^4.0.1"
+transformers = "<4.57.0"  # https://github.com/python-poetry/poetry/issues/10577
 
 [tool.poetry.group.codespell.dependencies]
 codespell = "^2.2.6"

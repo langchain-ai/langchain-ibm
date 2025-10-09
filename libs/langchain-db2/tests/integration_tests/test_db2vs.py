@@ -4,6 +4,8 @@
 import threading
 import time
 
+import ibm_db_dbi  # type: ignore
+import pytest
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.utils import DistanceStrategy
 
@@ -15,24 +17,26 @@ from langchain_db2.db2vs import (
     drop_table,
 )
 
-database = ""
-username = ""
-password = ""
+DB_NAME = ""
+DB_HOST = ""
+DB_PORT = ""
+DB_USER = ""
+DB_PASSWORD = ""
+
+DSN = (
+    f"DATABASE={DB_NAME};hostname={DB_HOST};port={DB_PORT};uid={DB_USER};pwd={DB_PASSWORD};"
+    f"SECURITY=SSL;"
+)
+USER = ""
+PASSWORD = ""
 
 
 ############################
 ####### table_exists #######
 ############################
+@pytest.mark.xfail
 def test_table_exists_test() -> None:
-    try:
-        import ibm_db_dbi  # type: ignore
-    except ImportError:
-        return
-
-    try:
-        connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
 
     # 1. Create a Table
     _create_table(connection, "TB1", 8148)
@@ -47,31 +51,23 @@ def test_table_exists_test() -> None:
 
     # 4. Invalid Table Name
     # Expectation: SQL0104N
-    try:
+    with pytest.raises(Exception, match="SQL0104N"):
         _table_exists(connection, "123")
-    except Exception:
-        pass
 
     # 5. Empty String
     # Expectation: SQL0104N
-    try:
+    with pytest.raises(Exception, match="SQL0104N"):
         _table_exists(connection, "")
-    except Exception:
-        pass
 
     # 6. Special Character
     # Expectation: SQL0007N
-    try:
+    with pytest.raises(Exception, match="SQL0007N"):
         _table_exists(connection, "!!4")
-    except Exception:
-        pass
 
     # 7. Table name length > 128
     # Expectation: SQL0107N The name is too long.  The maximum length is "128".
-    try:
+    with pytest.raises(Exception, match="SQL0107N"):
         _table_exists(connection, "x" * 129)
-    except Exception:
-        pass
 
     # 8. Toggle Upper/Lower Case (like TaBlE)
     # Expectation:True
@@ -90,16 +86,9 @@ def test_table_exists_test() -> None:
 ############################
 ####### create_table #######
 ############################
+@pytest.mark.xfail
 def test_create_table_test() -> None:
-    try:
-        import ibm_db_dbi
-    except ImportError:
-        return
-
-    try:
-        connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
 
     # 1. New table - HELLO
     #    Dimension - 100
@@ -115,11 +104,9 @@ def test_create_table_test() -> None:
     # 3. New Table - 123
     #    Dimension - 100
     # Expectation: SQL0104N  invalid table name
-    try:
+    with pytest.raises(Exception, match="SQL0104N"):
         _create_table(connection, "123", 100)
         drop_table(connection, "123")
-    except Exception:
-        pass
 
     # 4. New Table - Hello123
     #    Dimension - 8148
@@ -131,29 +118,23 @@ def test_create_table_test() -> None:
     #    Dimension - 65536
     # Expectation: SQL0604N  VECTOR column exceed the supported
     # dimension length.
-    try:
+    with pytest.raises(Exception, match="SQL0604N"):
         _create_table(connection, "T1", 65536)
         drop_table(connection, "T1")
-    except Exception:
-        pass
 
     # 6. New Table - T1
     #    Dimension - 0
     # Expectation: SQL0604N  VECTOR column unsupported dimension length 0.
-    try:
+    with pytest.raises(Exception, match="SQL0604N"):
         _create_table(connection, "T1", 0)
         drop_table(connection, "T1")
-    except Exception:
-        pass
 
     # 7. New Table - T1
     #    Dimension - -1
     # Expectation: SQL0104N  An unexpected token "-" was found
-    try:
+    with pytest.raises(Exception, match="SQL0104N"):
         _create_table(connection, "T1", -1)
         drop_table(connection, "T1")
-    except Exception:
-        pass
 
     # 8. New Table - T2
     #     Dimension - '1000'
@@ -172,11 +153,9 @@ def test_create_table_test() -> None:
     # Expectation: SQL0104N  An unexpected token
     val2 = """H
     ello"""
-    try:
+    with pytest.raises(Exception, match="SQL0104N"):
         _create_table(connection, val2, 545)
         drop_table(connection, val2)
-    except Exception:
-        pass
 
     # 11. New Table - 表格
     #     Dimension - 545
@@ -201,13 +180,11 @@ def test_create_table_test() -> None:
 
     # 15. table_name as empty_string
     # Expectation: SQL0104N  An unexpected token
-    try:
+    with pytest.raises(Exception, match="SQL0104N"):
         _create_table(connection, "", 128)
         drop_table(connection, "")
         _create_table(connection, '""', 128)
         drop_table(connection, '""')
-    except Exception:
-        pass
 
     # 16. Arithmetic Operations in dimension parameter
     # Expectation: table is created
@@ -226,16 +203,9 @@ def test_create_table_test() -> None:
 ##################################
 ####### add_texts ################
 ##################################
+@pytest.mark.xfail
 def test_add_texts_test() -> None:
-    try:
-        import ibm_db_dbi
-    except ImportError:
-        return
-
-    try:
-        connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
 
     # 1. Add 2 records to table
     # Expectation: Successful
@@ -317,13 +287,11 @@ def test_add_texts_test() -> None:
 
     # 5. Add record with ids option but the id are duplicated
     # Expectations: SQL0803N having duplicate values for the index key
-    try:
+    with pytest.raises(Exception, match="SQL0803N"):
         vs_obj = DB2VS(model, "TB8", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
         ids8 = ["118", "118"]
         vs_obj.add_texts(texts2, ids=ids8)
         drop_table(connection, "TB8")
-    except Exception:
-        pass
 
     # 6. Add records with both ids and metadatas
     # Expectation: Successful, the ID will be generated based on ids
@@ -376,33 +344,25 @@ def test_add_texts_test() -> None:
         ids12 = texts
         vs_obj.add_texts(texts, ids=ids12)
 
-    try:
-        thread_1 = threading.Thread(target=add1, args=("Sam",))
-        thread_2 = threading.Thread(target=add1, args=("Sam",))
-        thread_1.start()
-        thread_2.start()
-        thread_1.join()
-        thread_2.join()
-    except Exception:
-        pass
+    thread_1 = threading.Thread(target=add1, args=("Sam",))
+    thread_2 = threading.Thread(target=add1, args=("Sam",))
+    thread_1.start()
+    thread_2.start()
+    thread_1.join()
+    thread_2.join()
+
     drop_table(connection, "TB12")
 
     connection.commit()
 
 
-##################################
+###################################
 ####### embed_documents(texts) ####
-##################################
+###################################
+@pytest.mark.xfail
 def test_embed_documents_test() -> None:
-    try:
-        import ibm_db_dbi
-    except ImportError:
-        return
+    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
 
-    try:
-        connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
     # 1. Embed String Example-'Sam'
     # Expectation: Successful.
     model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
@@ -424,16 +384,9 @@ def test_embed_documents_test() -> None:
 ##################################
 ####### embed_query(text) ########
 ##################################
+@pytest.mark.xfail
 def test_embed_query_test() -> None:
-    try:
-        import ibm_db_dbi
-    except ImportError:
-        return
-
-    try:
-        connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
 
     # 1. Embed String
     # Expectation: Successful.
@@ -452,16 +405,9 @@ def test_embed_query_test() -> None:
 ##################################
 ####### perform_search ###########
 ##################################
+@pytest.mark.xfail
 def test_perform_search_test() -> None:
-    try:
-        import ibm_db_dbi
-    except ImportError:
-        return
-
-    try:
-        connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
 
     model1 = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-mpnet-base-v2"
@@ -518,16 +464,9 @@ def test_perform_search_test() -> None:
     connection.commit()
 
 
+@pytest.mark.xfail
 def test_get_pks() -> None:
-    try:
-        import ibm_db_dbi  # type: ignore
-    except ImportError:
-        return
-
-    try:
-        connection = ibm_db_dbi.connect(database, username, password)
-    except Exception:
-        return
+    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
 
     model = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-mpnet-base-v2"
@@ -549,6 +488,38 @@ def test_get_pks() -> None:
     clear_table(client=connection, table_name=table_name)
     pks = db2vs.get_pks()
     assert len(pks) == 0
+
+    drop_table(connection, table_name)
+    connection.commit()
+
+
+@pytest.mark.xfail
+def test_similarity_search_with_custom_text_field() -> None:
+    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
+
+    model = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/paraphrase-mpnet-base-v2"
+    )
+
+    table_name = f"Unique_table_{int(time.time())}"
+
+    db2vs_unique_text_field = DB2VS(
+        embedding_function=model,
+        table_name=table_name,
+        client=connection,
+        text_field="text_v2",
+    )
+
+    assert db2vs_unique_text_field._text_field == "text_v2"
+
+    db2vs_unique_text_field.add_texts(texts=["Josh", "Mary"])
+
+    db2vs_unique_text_field.similarity_search(query="Mary")
+
+    db2vs = DB2VS(embedding_function=model, table_name=table_name, client=connection)
+
+    with pytest.raises(Exception, match="SQL0206N"):
+        db2vs.similarity_search(query="Mary")
 
     drop_table(connection, table_name)
     connection.commit()
