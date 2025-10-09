@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "langchain-db2"
-version = "0.1.6"
+version = "0.1.7"
 description = "An integration package connecting Db2 vector store and LangChain"
 authors = ["IBM"]
 readme = "README.md"
