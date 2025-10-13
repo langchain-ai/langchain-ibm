@@ -18,7 +18,66 @@ from langchain_ibm.utils import extract_params, resolve_watsonx_credentials
 
 
 class WatsonxRerank(BaseDocumentCompressor):
-    """Document compressor that uses `watsonx Rerank API`."""
+    """Document compressor that uses `watsonx Rerank API`.
+
+    ???+ info "Setup"
+
+        To use, you should have `langchain_ibm` python package installed,
+        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
+        it as a named parameter `apikey` to the constructor.
+
+        ```bash
+        pip install -U langchain-ibm
+
+        # or using uv
+        uv add langchain-ibm
+        ```
+
+        ```bash
+        export WATSONX_APIKEY="your-api-key"
+        ```
+
+    ??? info "Instantiate"
+
+        ```python
+        from langchain_ibm import WatsonxRerank
+        from ibm_watsonx_ai.foundation_models.schema import RerankParameters
+
+        parameters = RerankParameters(truncate_input_tokens=20)
+
+        ranker = WatsonxRerank(
+            model_id="ibm/slate-125m-english-rtrvr-v2",
+            url="https://us-south.ml.cloud.ibm.com",
+            project_id="*****",
+            params=parameters,
+            # apikey="*****"
+        )
+        ```
+
+    ??? info "Rerank"
+
+        ```python
+        query = "red cat chasing a laser pointer"
+        documents = [
+            "A red cat darts across the living room, pouncing on a red laser dot.",
+            "Two dogs play fetch in the park with a tennis ball.",
+            "The tabby cat naps on a sunny windowsill all afternoon.",
+            "A recipe for tuna casserole with crispy breadcrumbs.",
+        ]
+
+        ranker.rerank(documents=documents, query=query)
+        ```
+
+        ```python
+        [
+            {"index": 0, "relevance_score": 0.8719543218612671},
+            {"index": 2, "relevance_score": 0.6520894169807434},
+            {"index": 1, "relevance_score": 0.6270776391029358},
+            {"index": 3, "relevance_score": 0.4607713520526886},
+        ]
+        ```
+
+    """
 
     model_id: str
     """Type of model to use."""
@@ -82,7 +141,7 @@ class WatsonxRerank(BaseDocumentCompressor):
     streaming: bool = False
     """ Whether to stream the results or not. """
 
-    watsonx_rerank: Rerank = Field(default=None, exclude=True)  #: :meta private:
+    watsonx_rerank: Rerank = Field(default=None, exclude=True)
 
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 
@@ -94,18 +153,7 @@ class WatsonxRerank(BaseDocumentCompressor):
 
     @property
     def lc_secrets(self) -> Dict[str, str]:
-        """A map of constructor argument names to secret ids.
-
-        For example:
-            {
-                "url": "WATSONX_URL",
-                "apikey": "WATSONX_APIKEY",
-                "token": "WATSONX_TOKEN",
-                "password": "WATSONX_PASSWORD",
-                "username": "WATSONX_USERNAME",
-                "instance_id": "WATSONX_INSTANCE_ID",
-            }
-        """
+        """Mapping of secret environment variables."""
         return {
             "url": "WATSONX_URL",
             "apikey": "WATSONX_APIKEY",

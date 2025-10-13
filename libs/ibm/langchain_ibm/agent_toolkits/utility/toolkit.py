@@ -57,7 +57,7 @@ class WatsonxTool(BaseTool):
 
     args_schema: Type[BaseModel] = BaseModel
 
-    _watsonx_tool: Optional[Tool] = PrivateAttr(default=None)  #: :meta private:
+    _watsonx_tool: Optional[Tool] = PrivateAttr(default=None)
 
     watsonx_client: APIClient = Field(exclude=True)
 
@@ -100,15 +100,14 @@ class WatsonxTool(BaseTool):
     def set_tool_config(self, tool_config: dict) -> None:
         """Set tool config properties.
 
-        Example:
-        .. code-block:: python
+        ???+ example "Example"
 
+            ```python
             google_search = watsonx_toolkit.get_tool("GoogleSearch")
             print(google_search.tool_config_schema)
-            tool_config = {
-                "maxResults": 3
-            }
+            tool_config = {"maxResults": 3}
             google_search.set_tool_config(tool_config)
+            ```
 
         """
         self.tool_config = tool_config
@@ -117,64 +116,82 @@ class WatsonxTool(BaseTool):
 class WatsonxToolkit(BaseToolkit):
     """IBM watsonx.ai Toolkit.
 
-    .. dropdown:: Setup
-        :open:
+    ???+ info "Setup"
 
-        To use, you should have ``langchain_ibm`` python package installed,
-        and the environment variable ``WATSONX_APIKEY`` set with your API key, or pass
-        it as a named parameter to the constructor.
+        To use, you should have `langchain_ibm` python package installed,
+        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
+        it as a named parameter `apikey` to the constructor.
 
-        .. code-block:: bash
+        ```bash
+        pip install -U langchain-ibm
 
-            pip install -U langchain-ibm
-            export WATSONX_APIKEY="your-api-key"
+        # or using uv
+        uv add langchain-ibm
+        ```
 
+        ```bash
+        export WATSONX_APIKEY="your-api-key"
+        ```
 
-    IBM watsonx.ai for IBM Cloud example:
-        .. code-block:: python
+    ??? info "Instantiate"
 
-            from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
+        IBM watsonx.ai for IBM Cloud:
 
-            watsonx_toolkit = WatsonxToolkit(
-                url="https://us-south.ml.cloud.ibm.com",
-                apikey="*****",
-            )
-            tools = watsonx_toolkit.get_tools()
+        ```python
+        from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
-            google_search = watsonx_toolkit.get_tool(tool_name="GoogleSearch")
+        watsonx_toolkit = WatsonxToolkit(
+            url="https://us-south.ml.cloud.ibm.com",
+            project_id="*****",  # or `space_id`
+            apikey="*****",  # not needed if `WATSONX_APIKEY` is set
+        )
+        ```
 
-            tool_config = {
-                "maxResults": 3,
+        IBM watsonx.ai software:
+        ```python
+        from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
+
+        watsonx_toolkit = WatsonxToolkit(
+            url="<CPD_URL>",
+            project_id="*****",  # or `space_id`
+            username="*****",
+            password="*****",
+            instance_id="*****",
+            version="*****",  # optional
+        )
+        ```
+
+    ??? info "Invoke"
+
+        ```python
+        tools = watsonx_toolkit.get_tools()
+
+        google_search = watsonx_toolkit.get_tool(tool_name="GoogleSearch")
+
+        tool_config = {
+            "maxResults": 3,
+        }
+        google_search.set_tool_config(tool_config)
+        input = {
+            "input": "Search IBM",
+        }
+        search_result = google_search.invoke(input)
+        ```
+
+    ??? info "Run"
+
+        ```python
+        rag_query = watsonx_toolkit.get_tool(tool_name="RAGQuery")
+
+        rag_query.set_tool_config(
+            {
+                "vectorIndexId": "<vector-index-id>",
+                "projectId": "<project-id>",
             }
-            google_search.set_tool_config(tool_config)
-            input = {
-                "input": "Search IBM",
-            }
-            search_result = google_search.invoke(input)
+        )
 
-    IBM watsonx.ai software example:
-        .. code-block:: python
-
-            from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
-
-            watsonx_toolkit = WatsonxToolkit(
-                url="<CPD_URL>",
-                username="*****",
-                password="*****",
-                instance_id="*****",
-                version="*****"  # optional
-            )
-
-            rag_query = watsonx_toolkit.get_tool(tool_name="RAGQuery")
-
-            rag_query.set_tool_config(
-                {
-                    "vectorIndexId": "<vector-index-id>",
-                    "projectId": "<project-id>",
-                }
-            )
-
-            res = rag_query.run("How to initialize APIClient?")
+        res = rag_query.run("How to initialize APIClient?")
+        ```
 
     """
 
@@ -231,7 +248,7 @@ class WatsonxToolkit(BaseToolkit):
     _tools: Optional[List[WatsonxTool]] = None
     """Tools in the toolkit."""
 
-    _watsonx_toolkit: Optional[Toolkit] = PrivateAttr(default=None)  #: :meta private:
+    _watsonx_toolkit: Optional[Toolkit] = PrivateAttr(default=None)
 
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 

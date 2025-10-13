@@ -20,7 +20,79 @@ logger = logging.getLogger(__name__)
 
 
 class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
-    """IBM watsonx.ai embedding models."""
+    """`IBM watsonx.ai` embedding model integration.
+
+    ???+ info "Setup"
+
+        To use, you should have `langchain_ibm` python package installed,
+        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
+        it as a named parameter `apikey` to the constructor.
+
+        ```bash
+        pip install -U langchain-ibm
+
+        # or using uv
+        uv add langchain-ibm
+        ```
+
+        ```bash
+        export WATSONX_APIKEY="your-api-key"
+        ```
+
+    ??? info "Instantiate"
+
+        ```python
+        from langchain_ibm import WatsonxEmbeddings
+
+        embeddings = WatsonxEmbeddings(
+            model_id="ibm/granite-embedding-278m-multilingual",
+            url="https://us-south.ml.cloud.ibm.com",
+            project_id="*****",
+            # apikey="*****"
+        )
+        ```
+
+    ??? info "Embed single text"
+
+        ```python
+        input_text = "The meaning of life is 42"
+        vector = embeddings.embed_query("hello")
+        print(vector[:3])
+        ```
+
+        ```python
+        [-0.0020519258, 0.0147288125, -0.0090887165]
+        ```
+
+    ??? info "Embed multiple texts"
+
+        ```python
+        vectors = embeddings.embed_documents(["hello", "goodbye"])
+        # Showing only the first 3 coordinates
+        print(len(vectors))
+        print(vectors[0][:3])
+        ```
+
+        ```python
+        2
+        [-0.0020519265, 0.01472881, -0.009088721]
+        ```
+
+    ??? info "Async"
+
+        ```python
+        await embeddings.aembed_query(input_text)
+        print(vector[:3])
+
+        # multiple:
+        # await embeddings.aembed_documents(input_texts)
+        ```
+
+        ```python
+        [-0.0020519258, 0.0147288125, -0.0090887165]
+        ```
+
+    """
 
     model_id: Optional[str] = None
     """Type of model to use."""
@@ -34,7 +106,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     provisioned (opt-in) through the Gateway to ensure secure, vendor-agnostic access 
     and easy switch-over without reconfiguration.
     
-    For more details on configuration and usage, see IBM watsonx Model Gateway docs: https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp
+    For more details on configuration and usage, see [IBM watsonx Model Gateway docs](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp)
     """
 
     project_id: Optional[str] = None
@@ -91,13 +163,11 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         * False - no verification will be made
     """
 
-    watsonx_embed: Embeddings = Field(default=None)  #: :meta private:
+    watsonx_embed: Embeddings = Field(default=None)
 
-    watsonx_embed_gateway: Gateway = Field(
-        default=None, exclude=True
-    )  #: :meta private:
+    watsonx_embed_gateway: Gateway = Field(default=None, exclude=True)
 
-    watsonx_client: Optional[APIClient] = Field(default=None)  #: :meta private:
+    watsonx_client: Optional[APIClient] = Field(default=None)
 
     model_config = ConfigDict(
         extra="forbid",

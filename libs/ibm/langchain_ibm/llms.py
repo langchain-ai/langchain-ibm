@@ -41,35 +41,96 @@ textgen_valid_params = [
 
 
 class WatsonxLLM(BaseLLM):
-    """
-    IBM watsonx.ai large language models.
+    """`IBM watsonx.ai` large language models class.
 
-    To use the large language models, you need to have the ``langchain_ibm``
-    python package installed, and the environment variable ``WATSONX_APIKEY``
-    set with your API key or pass it as a named parameter to the constructor.
+    ???+ info "Setup"
 
+        To use the large language models, you need to have the `langchain_ibm` python
+        package installed, and the environment variable `WATSONX_APIKEY` set with your
+        API key or pass it as a named parameter `apikey` to the constructor.
 
-    Example:
-        .. code-block:: python
+        ```bash
+        pip install -U langchain-ibm
 
-            from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
-            parameters = {
-                GenTextParamsMetaNames.DECODING_METHOD: "sample",
-                GenTextParamsMetaNames.MAX_NEW_TOKENS: 100,
-                GenTextParamsMetaNames.MIN_NEW_TOKENS: 1,
-                GenTextParamsMetaNames.TEMPERATURE: 0.5,
-                GenTextParamsMetaNames.TOP_K: 50,
-                GenTextParamsMetaNames.TOP_P: 1,
-            }
+        # or using uv
+        uv add langchain-ibm
+        ```
 
-            from langchain_ibm import WatsonxLLM
-            watsonx_llm = WatsonxLLM(
-                model_id="google/flan-ul2",
-                url="https://us-south.ml.cloud.ibm.com",
-                apikey="*****",
-                project_id="*****",
-                params=parameters,
-            )
+        ```bash
+        export WATSONX_APIKEY="your-api-key"
+        ```
+
+    ??? info "Instantiate"
+
+        ```python
+        from langchain_ibm import WatsonxLLM
+        from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+
+        parameters = {
+            GenTextParamsMetaNames.DECODING_METHOD: "sample",
+            GenTextParamsMetaNames.MAX_NEW_TOKENS: 100,
+            GenTextParamsMetaNames.MIN_NEW_TOKENS: 1,
+            GenTextParamsMetaNames.TEMPERATURE: 0.5,
+            GenTextParamsMetaNames.TOP_K: 50,
+            GenTextParamsMetaNames.TOP_P: 1,
+        }
+
+        model = WatsonxLLM(
+            model_id="google/flan-t5-xl",
+            url="https://us-south.ml.cloud.ibm.com",
+            project_id="*****",
+            params=parameters,
+            # apikey="*****"
+        )
+        ```
+
+    ??? info "Invoke"
+
+        ```python
+        input_text = "The meaning of life is "
+        response = model.invoke(input_text)
+        print(response)
+        ```
+
+        ```txt
+        "42, but what was the question?
+        The answer to the ultimate question of life, the universe, and everything is 42.
+        But what was the question? This is a reference to Douglas Adams' science fiction
+        series "The Hitchhiker's Guide to the Galaxy."
+        ```
+
+    ??? info "Stream"
+
+        ```python
+        for chunk in model.stream(input_text):
+            print(chunk, end="")
+        ```
+
+        ```txt
+        "42, but what was the question?
+        The answer to the ultimate question of life, the universe, and everything is 42.
+        But what was the question? This is a reference to Douglas Adams' science fiction
+        series "The Hitchhiker's Guide to the Galaxy."
+        ```
+
+    ??? info "Async"
+        ```python
+        response = await model.ainvoke(input_text)
+
+        # stream:
+        # async for chunk in model.astream(input_text):
+        #     print(chunk, end="")
+
+        # batch:
+        # await model.abatch([input_text])
+        ```
+
+        ```txt
+        "42, but what was the question?
+        The answer to the ultimate question of life, the universe, and everything is 42.
+        But what was the question? This is a reference to Douglas Adams' science fiction
+        series "The Hitchhiker's Guide to the Galaxy."
+        ```
     """
 
     model_id: Optional[str] = None
@@ -84,7 +145,7 @@ class WatsonxLLM(BaseLLM):
     provisioned (opt-in) through the Gateway to ensure secure, vendor-agnostic access 
     and easy switch-over without reconfiguration.
 
-    For more details on configuration and usage, see IBM watsonx Model Gateway docs: https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp
+    For more details on configuration and usage, see [IBM watsonx Model Gateway docs](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp)
     """
 
     deployment_id: Optional[str] = None
@@ -146,11 +207,9 @@ class WatsonxLLM(BaseLLM):
     streaming: bool = False
     """ Whether to stream the results or not. """
 
-    watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
+    watsonx_model: ModelInference = Field(default=None, exclude=True)
 
-    watsonx_model_gateway: Gateway = Field(
-        default=None, exclude=True
-    )  #: :meta private:
+    watsonx_model_gateway: Gateway = Field(default=None, exclude=True)
 
     watsonx_client: Optional[APIClient] = Field(default=None)
 
@@ -164,18 +223,7 @@ class WatsonxLLM(BaseLLM):
 
     @property
     def lc_secrets(self) -> Dict[str, str]:
-        """A map of constructor argument names for secret IDs.
-
-        For example:
-            {
-                "url": "WATSONX_URL",
-                "apikey": "WATSONX_APIKEY",
-                "token": "WATSONX_TOKEN",
-                "password": "WATSONX_PASSWORD",
-                "username": "WATSONX_USERNAME",
-                "instance_id": "WATSONX_INSTANCE_ID",
-            }
-        """
+        """Mapping of secret environment variables."""
         return {
             "url": "WATSONX_URL",
             "apikey": "WATSONX_APIKEY",
@@ -459,9 +507,9 @@ class WatsonxLLM(BaseLLM):
         Returns:
             The string generated by the model.
         Example:
-            .. code-block:: python
-
-                response = watsonx_llm.invoke("What is a molecule")
+            ```python
+            response = model.invoke("What is a molecule")
+            ```
         """
         result = self._generate(
             prompts=[prompt], stop=stop, run_manager=run_manager, **kwargs
@@ -498,9 +546,9 @@ class WatsonxLLM(BaseLLM):
         Returns:
             The full LLMResult output.
         Example:
-            .. code-block:: python
-
-                response = watsonx_llm.generate(["What is a molecule"])
+            ```python
+            response = model.generate(["What is a molecule"])
+            ```
         """
         params, kwargs = self._get_chat_params(stop=stop, **kwargs)
         params = self._validate_chat_params(params)
@@ -584,11 +632,11 @@ class WatsonxLLM(BaseLLM):
         Returns:
             The iterator which yields generation chunks.
         Example:
-            .. code-block:: python
-
-                response = watsonx_llm.stream("What is a molecule")
-                for chunk in response:
-                    print(chunk, end='', flush=True)
+            ```python
+            response = model.stream("What is a molecule")
+            for chunk in response:
+                print(chunk, end="", flush=True)
+            ```
         """
         params, kwargs = self._get_chat_params(stop=stop, **kwargs)
         params = self._validate_chat_params(params)
