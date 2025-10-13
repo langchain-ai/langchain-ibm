@@ -207,9 +207,11 @@ class WatsonxLLM(BaseLLM):
     streaming: bool = False
     """ Whether to stream the results or not. """
 
-    watsonx_model: ModelInference = Field(default=None, exclude=True)
+    watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
-    watsonx_model_gateway: Gateway = Field(default=None, exclude=True)
+    watsonx_model_gateway: Gateway = Field(
+        default=None, exclude=True
+    )  #: :meta private:
 
     watsonx_client: Optional[APIClient] = Field(default=None)
 

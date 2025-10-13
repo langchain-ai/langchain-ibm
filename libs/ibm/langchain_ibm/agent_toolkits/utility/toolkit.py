@@ -57,7 +57,7 @@ class WatsonxTool(BaseTool):
 
     args_schema: Type[BaseModel] = BaseModel
 
-    _watsonx_tool: Optional[Tool] = PrivateAttr(default=None)
+    _watsonx_tool: Optional[Tool] = PrivateAttr(default=None)  #: :meta private:
 
     watsonx_client: APIClient = Field(exclude=True)
 
@@ -248,7 +248,7 @@ class WatsonxToolkit(BaseToolkit):
     _tools: Optional[List[WatsonxTool]] = None
     """Tools in the toolkit."""
 
-    _watsonx_toolkit: Optional[Toolkit] = PrivateAttr(default=None)
+    _watsonx_toolkit: Optional[Toolkit] = PrivateAttr(default=None)  #: :meta private:
 
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 

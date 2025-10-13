@@ -163,11 +163,13 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         * False - no verification will be made
     """
 
-    watsonx_embed: Embeddings = Field(default=None)
+    watsonx_embed: Embeddings = Field(default=None)  #: :meta private:
 
-    watsonx_embed_gateway: Gateway = Field(default=None, exclude=True)
+    watsonx_embed_gateway: Gateway = Field(
+        default=None, exclude=True
+    )  #: :meta private:
 
-    watsonx_client: Optional[APIClient] = Field(default=None)
+    watsonx_client: Optional[APIClient] = Field(default=None)  #: :meta private:
 
     model_config = ConfigDict(
         extra="forbid",

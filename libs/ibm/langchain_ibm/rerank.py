@@ -141,7 +141,7 @@ class WatsonxRerank(BaseDocumentCompressor):
     streaming: bool = False
     """ Whether to stream the results or not. """
 
-    watsonx_rerank: Rerank = Field(default=None, exclude=True)
+    watsonx_rerank: Rerank = Field(default=None, exclude=True)  #: :meta private:
 
     watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
 
