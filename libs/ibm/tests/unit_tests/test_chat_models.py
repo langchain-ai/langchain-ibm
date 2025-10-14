@@ -189,6 +189,9 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
                 k: v
                 for k, v in TextChatParameters.get_sample_params().items()
                 if "guided" not in k
+                if "chat_template_kwargs" not in k
+                if "reasoning_effort" not in k
+                if "include_reasoning" not in k
             }
             | dict(
                 logit_bias={"1003": -100, "1004": -100},
@@ -233,7 +236,6 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
             },
         },
         temperature=0.7,
-        max_tokens=100,
         max_completion_tokens=512,
         time_limit=600000,
         top_p=0.9,

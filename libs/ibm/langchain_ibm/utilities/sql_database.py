@@ -125,61 +125,61 @@ class WatsonxSQLDatabase:
     """Watsonx SQL Database class for IBM watsonx.ai databases
     connection assets. Uses Arrow Flight to interact with databases via watsonx.
 
-    :param connection_id: ID of db connection asset
-    :type connection_id: str
+    Args:
+        connection_id: ID of db connection asset
+        schema: name of the database schema from which tables will be read
+        project_id: ID of project
+        space_id: ID of space
+        url: URL to the Watson Machine Learning or CPD instance
+        apikey: API key to the Watson Machine Learning or CPD instance
+        token: service token, used in token authentication
+        password: password to the CPD instance
+        username: username to the CPD instance
+        instance_id: instance_id of the CPD instance
+        version: version of the CPD instance
+        verify: certificate verification flag
+        watsonx_client: instance of `ibm_watsonx_ai.APIClient`
+        ignore_tables: list of tables that will be ignored
+        include_tables: list of tables that should be included
+        sample_rows_in_table_info: number of first rows to be added to the table info
+        max_string_length: max length of string
 
-    :param schema: name of the database schema from which tables will be read
-    :type schema: str
 
-    :param project_id: ID of project, defaults to None
-    :type project_id: Optional[str], optional
+    ???+ info "Setup"
 
-    :param space_id: ID of space, defaults to None
-    :type space_id: Optional[str], optional
+        To use, you should have `langchain_ibm` python package installed,
+        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
+        it as a named parameter `apikey` to the constructor.
 
-    :param url: URL to the Watson Machine Learning or CPD instance, defaults to None
-    :type url: Optional[str], optional
+        ```bash
+        pip install -U langchain-ibm
 
-    :param apikey: API key to the Watson Machine Learning
-                   or CPD instance, defaults to None
-    :type apikey: Optional[str], optional
+        # or using uv
+        uv add langchain-ibm
+        ```
 
-    :param token: service token, used in token authentication, defaults to None
-    :type token: Optional[str], optional
+        ```bash
+        export WATSONX_APIKEY="your-api-key"
+        ```
 
-    :param password: password to the CPD instance., defaults to None
-    :type password: Optional[str], optional
+    ??? info "Instantiate"
 
-    :param username: username to the CPD instance., defaults to None
-    :type username: Optional[str], optional
+        ```python
+        from langchain_ibm.utilities.sql_database import WatsonxSQLDatabase
 
-    :param instance_id: instance_id of the CPD instance., defaults to None
-    :type instance_id: Optional[str], optional
+        wx_sql_database = WatsonxSQLDatabase(
+            connection_id="<CONNECTION_ID>",
+            schema="<SCHEMA>",
+            url=credentials["url"],
+            project_id=project_id,
+            apikey=credentials["apikey"],
+        )
+        ```
 
-    :param version: version of the CPD instance, defaults to None
-    :type version: Optional[str], optional
+    ??? warning "Raises"
+        - `ValueError` - if some required credentials are missing
+        - `RuntimeError` - if no tables found in given schema
 
-    :param verify: certificate verification flag, defaults to None
-    :type verify: Union[str, bool, None], optional
-
-    :param watsonx_client: instance of `ibm_watsonx_ai.APIClient`, defaults to None
-    :type watsonx_client: Optional[APIClient], optional
-
-    :param ignore_tables: list of tables that will be ignored, defaults to None
-    :type ignore_tables: Optional[List[str]], optional
-
-    :param include_tables: list of tables that should be included, defaults to None
-    :type include_tables: Optional[List[str]], optional
-
-    :param sample_rows_in_table_info: number of first rows to be added to the
-                                     table info, defaults to 3
-    :type sample_rows_in_table_info: int, optional
-
-    :param max_string_length: max length of string, defaults to 300
-    :type max_string_length: int, optional
-
-    :raises ValueError: raise if some required credentials are missing
-    :raises RuntimeError: raise if no tables found in given schema
     """
 
     def __init__(

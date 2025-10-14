@@ -1,4 +1,4 @@
-"""IBM watsonx.ai large language chat models wrapper."""
+"""IBM watsonx.ai chat wrapper."""
 
 import hashlib
 import json
@@ -398,40 +398,398 @@ class _FunctionCall(TypedDict):
 
 
 class ChatWatsonx(BaseChatModel):
-    """IBM watsonx.ai large language chat models.
+    """`IBM watsonx.ai` chat models integration.
 
-    .. dropdown:: Setup
-        :open:
+    ???+ info "Setup"
 
-        To use, you should have ``langchain_ibm`` python package installed,
-        and the environment variable ``WATSONX_APIKEY`` set with your API key, or pass
-        it as a named parameter to the constructor.
+        To use, you should have `langchain_ibm` python package installed,
+        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
+        it as a named parameter `apikey` to the constructor.
 
-        .. code-block:: bash
+        ```bash
+        pip install -U langchain-ibm
 
-            pip install -U langchain-ibm
-            export WATSONX_APIKEY="your-api-key"
+        # or using uv
+        uv add langchain-ibm
+        ```
+
+        ```bash
+        export WATSONX_APIKEY="your-api-key"
+        ```
+
+    ??? info "Instantiate"
+
+        Create a model instance with desired params. For example:
+
+        ```python
+        from langchain_ibm import ChatWatsonx
+        from ibm_watsonx_ai.foundation_models.schema import TextChatParameters
+
+        parameters = TextChatParameters(
+            top_p=1, temperature=0.5, max_completion_tokens=None
+        )
+
+        model = ChatWatsonx(
+            model_id="meta-llama/llama-3-3-70b-instruct",
+            url="https://us-south.ml.cloud.ibm.com",
+            project_id="*****",
+            params=parameters,
+            # apikey="*****"
+        )
+        ```
+
+    ??? info "Invoke"
+
+        Generate a response from the model:
+
+        ```python
+        messages = [
+            (
+                "system",
+                "You are a helpful translator. Translate the user sentence to French.",
+            ),
+            ("human", "I love programming."),
+        ]
+        model.invoke(messages)
+        ```
+
+        Results in an `AIMessage` response:
+
+        ```python
+        AIMessage(
+            content="J'adore programmer.",
+            additional_kwargs={},
+            response_metadata={
+                "token_usage": {
+                    "completion_tokens": 7,
+                    "prompt_tokens": 30,
+                    "total_tokens": 37,
+                },
+                "model_name": "ibm/granite-3-3-8b-instruct",
+                "system_fingerprint": "",
+                "finish_reason": "stop",
+            },
+            id="chatcmpl-529352c4-93ba-4801-8f1d-a3b4e3935194---daed91fb74d0405f200db1e63da9a48a---7a3ef799-4413-47e4-b24c-85d267e37fa2",
+            usage_metadata={"input_tokens": 30, "output_tokens": 7, "total_tokens": 37},
+        )
+        ```
+
+    ??? info "Stream"
+
+        Stream a response from the model:
+
+        ```python
+        for chunk in model.stream(messages):
+            print(chunk.text)
+        ```
+
+        Results in a sequence of `AIMessageChunk` objects with partial content:
+
+        ```python
+        AIMessageChunk(content="", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
+        AIMessageChunk(content="J", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
+        AIMessageChunk(content="'", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
+        AIMessageChunk(content="ad", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
+        AIMessageChunk(content="ore", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
+        AIMessageChunk(
+            content=" programmer", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775"
+        )
+        AIMessageChunk(content=".", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
+        AIMessageChunk(
+            content="",
+            response_metadata={
+                "finish_reason": "stop",
+                "model_name": "ibm/granite-3-3-8b-instruct",
+            },
+            id="run--e48a38d3-1500-4b5e-870c-6313e8cff775",
+        )
+        AIMessageChunk(
+            content="",
+            id="run--e48a38d3-1500-4b5e-870c-6313e8cff775",
+            usage_metadata={"input_tokens": 30, "output_tokens": 7, "total_tokens": 37},
+        )
+        ```
+
+        To collect the full message, you can concatenate the chunks:
+
+        ```python
+        stream = model.stream(messages)
+        full = next(stream)
+        for chunk in stream:
+            full += chunk
+
+        full
+        ```
+
+        ```python
+        AIMessageChunk(
+            content="J'adore programmer.",
+            response_metadata={
+                "finish_reason": "stop",
+                "model_name": "ibm/granite-3-3-8b-instruct",
+            },
+            id="chatcmpl-88a48b71-c149-4a0c-9c02-d6b97ca5dc6c---b7ba15879a8c5283b1e8a3b8db0229f0---0037ca4f-8a74-4f84-a46c-ab3fd1294f24",
+            usage_metadata={"input_tokens": 30, "output_tokens": 7, "total_tokens": 37},
+        )
+        ```
+
+    ??? info "Async"
+
+        Asynchronous equivalents of `invoke`, `stream`, and `batch` are also available:
+
+        ```python
+        # Invoke
+        await model.ainvoke(messages)
+
+        # Stream
+        async for chunk in model.astream(messages):
+            print(chunk.text)
+
+        # Batch
+        await model.abatch([messages])
+        ```
+
+        Results in an `AIMessage` response:
+
+        ```python
+        AIMessage(
+            content="J'adore programmer.",
+            additional_kwargs={},
+            response_metadata={
+                "token_usage": {
+                    "completion_tokens": 7,
+                    "prompt_tokens": 30,
+                    "total_tokens": 37,
+                },
+                "model_name": "ibm/granite-3-3-8b-instruct",
+                "system_fingerprint": "",
+                "finish_reason": "stop",
+            },
+            id="chatcmpl-5bef2d81-ef56-463b-a8fa-c2bcc2a3c348---821e7750d18925f2b36226db66667e26---6396c786-9da9-4468-883e-11ed90a05937",
+            usage_metadata={"input_tokens": 30, "output_tokens": 7, "total_tokens": 37},
+        )
+        ```
+
+        For batched calls, results in a `list[AIMessage]`.
+
+    ??? info "Tool calling"
+
+        ```python
+        from pydantic import BaseModel, Field
 
 
-    Example:
-        .. code-block:: python
+        class GetWeather(BaseModel):
+            '''Get the current weather in a given location'''
 
-            from ibm_watsonx_ai.foundation_models.schema import TextChatParameters
-
-            parameters = TextChatParameters(
-                max_completion_tokens=100,
-                temperature=0.5,
-                top_p=1,
-                )
-
-            from langchain_ibm import ChatWatsonx
-            watsonx_llm = ChatWatsonx(
-                model_id="meta-llama/llama-3-3-70b-instruct",
-                url="https://us-south.ml.cloud.ibm.com",
-                apikey="*****",
-                project_id="*****",
-                params=parameters,
+            location: str = Field(
+                ..., description="The city and state, e.g. San Francisco, CA"
             )
+
+
+        class GetPopulation(BaseModel):
+            '''Get the current population in a given location'''
+
+            location: str = Field(
+                ..., description="The city and state, e.g. San Francisco, CA"
+            )
+
+
+        model_with_tools = model.bind_tools(
+            [GetWeather, GetPopulation]
+            # strict = True  # Enforce tool args schema is respected
+        )
+        ai_msg = model_with_tools.invoke(
+            "Which city is hotter today and which is bigger: LA or NY?"
+        )
+        ai_msg.tool_calls
+        ```
+
+        ```python
+        [
+            {
+                "name": "GetWeather",
+                "args": {"location": "Los Angeles, CA"},
+                "id": "chatcmpl-tool-59632abcee8f48a18a5f3a81422b917b",
+                "type": "tool_call",
+            },
+            {
+                "name": "GetWeather",
+                "args": {"location": "New York, NY"},
+                "id": "chatcmpl-tool-c6f3b033b4594918bb53f656525b0979",
+                "type": "tool_call",
+            },
+            {
+                "name": "GetPopulation",
+                "args": {"location": "Los Angeles, CA"},
+                "id": "chatcmpl-tool-175a23281e4747ea81cbe472b8e47012",
+                "type": "tool_call",
+            },
+            {
+                "name": "GetPopulation",
+                "args": {"location": "New York, NY"},
+                "id": "chatcmpl-tool-e1ccc534835945aebab708eb5e685bf7",
+                "type": "tool_call",
+            },
+        ]
+        ```
+
+    ??? info "Structured output"
+
+        ```python
+        from pydantic import BaseModel, Field
+
+
+        class Joke(BaseModel):
+            '''Joke to tell user.'''
+
+            setup: str = Field(description="The setup of the joke")
+            punchline: str = Field(description="The punchline to the joke")
+            rating: int | None = Field(description="How funny the joke is, 1 to 10")
+
+
+        structured_model = model.with_structured_output(Joke)
+        structured_model.invoke("Tell me a joke about cats")
+        ```
+
+        ```python
+        Joke(
+            setup="Why was the cat sitting on the computer?",
+            punchline="To keep an eye on the mouse!",
+            rating=None,
+        )
+        ```
+
+        See `with_structured_output` for more info.
+
+    ??? info "JSON mode"
+
+        ```python
+        json_model = model.bind(response_format={"type": "json_object"})
+        ai_msg = json_model.invoke(
+            “Return JSON with 'random_ints': an array of 10 random integers from 0–99.”
+        )
+        ai_msg.content
+        ```
+
+        ```txt
+        '{\\n  "random_ints": [12, 34, 56, 78, 10, 22, 44, 66, 88, 99]\\n}'
+        ```
+
+    ??? info "Image input"
+
+        ```python
+        import base64
+        import httpx
+        from langchain.messages import HumanMessage
+
+        image_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+        image_data = base64.b64encode(httpx.get(image_url).content).decode("utf-8")
+        message = HumanMessage(
+            content=[
+                {"type": "text", "text": "describe the weather in this image"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
+                },
+            ]
+        )
+
+        ai_msg = model.invoke([message])
+        ai_msg.content
+        ```
+
+        ```txt
+        "The weather in the image presents a clear, sunny day with good visibility
+        and no immediate signs of rain or strong winds. The vibrant blue sky with
+        scattered white clouds gives the impression of a tranquil, pleasant day
+        conducive to outdoor activities."
+        ```
+
+    ??? info "Token usage"
+
+        ```python
+        ai_msg = model.invoke(messages)
+        ai_msg.usage_metadata
+        ```
+
+        ```txt
+        {'input_tokens': 30, 'output_tokens': 7, 'total_tokens': 37}
+        ```
+
+        ```python
+        stream = model.stream(messages)
+        full = next(stream)
+        for chunk in stream:
+            full += chunk
+        full.usage_metadata
+        ```
+
+        ```txt
+        {'input_tokens': 30, 'output_tokens': 7, 'total_tokens': 37}
+        ```
+
+    ??? info "Logprobs"
+
+        ```python
+        logprobs_model = model.bind(logprobs=True)
+        ai_msg = logprobs_model.invoke(messages)
+        ai_msg.response_metadata["logprobs"]
+        ```
+
+        ```txt
+        {
+            'content': [
+                {
+                    'token': 'J',
+                    'logprob': -0.0017940393
+                },
+                {
+                    'token': "'",
+                    'logprob': -1.7523613e-05
+                },
+                {
+                    'token': 'ad',
+                    'logprob': -0.16112353
+                },
+                {
+                    'token': 'ore',
+                    'logprob': -0.0003091811
+                },
+                {
+                    'token': ' programmer',
+                    'logprob': -0.24849245
+                },
+                {
+                    'token': '.',
+                    'logprob': -2.5033638e-05
+                },
+                {
+                    'token': '<|end_of_text|>',
+                    'logprob': -7.080781e-05
+                }
+            ]
+        }
+        ```
+
+    ??? info "Response metadata"
+
+        ```python
+        ai_msg = model.invoke(messages)
+        ai_msg.response_metadata
+        ```
+
+        ```txt
+        {
+            'token_usage': {
+                'completion_tokens': 7,
+                'prompt_tokens': 30,
+                'total_tokens': 37
+            },
+            'model_name': 'ibm/granite-3-3-8b-instruct',
+            'system_fingerprint': '',
+            'finish_reason': 'stop'
+        }
+        ```
     """
 
     model_id: Optional[str] = None
@@ -446,7 +804,7 @@ class ChatWatsonx(BaseChatModel):
     provisioned (opt-in) through the Gateway to ensure secure, vendor-agnostic access 
     and easy switch-over without reconfiguration.
 
-    For more details on configuration and usage, see IBM watsonx Model Gateway docs: https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp
+    For more details on configuration and usage, see [IBM watsonx Model Gateway docs](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp)
     """
 
     deployment_id: Optional[str] = None
@@ -498,9 +856,10 @@ class ChatWatsonx(BaseChatModel):
     params: Optional[Union[dict, TextChatParameters]] = None
     """Model parameters to use during request generation.
 
-    Note:
-        `ValueError` is raised if the same Chat generation parameter is provided 
-        within the params attribute and as keyword argument."""
+    !!! note
+        `ValueError` is raised if the same Chat generation parameter is provided
+        within the params attribute and as keyword argument.
+    """
 
     frequency_penalty: Optional[float] = None
     """Positive values penalize new tokens based on their existing frequency in the 
@@ -614,18 +973,7 @@ class ChatWatsonx(BaseChatModel):
 
     @property
     def lc_secrets(self) -> Dict[str, str]:
-        """A map of constructor argument names to secret ids.
-
-        For example:
-            {
-                "url": "WATSONX_URL",
-                "apikey": "WATSONX_APIKEY",
-                "token": "WATSONX_TOKEN",
-                "password": "WATSONX_PASSWORD",
-                "username": "WATSONX_USERNAME",
-                "instance_id": "WATSONX_INSTANCE_ID",
-            }
-        """
+        """Mapping of secret environment variables."""
         return {
             "url": "WATSONX_URL",
             "apikey": "WATSONX_APIKEY",
@@ -1025,8 +1373,7 @@ class ChatWatsonx(BaseChatModel):
                 Must be the name of the single provided function or
                 "auto" to automatically determine which function to call
                 (if any).
-            **kwargs: Any additional parameters to pass to the
-                :class:`~langchain.runnable.Runnable` constructor.
+            **kwargs: Any additional parameters to pass to the Runnable constructor.
         """
 
         formatted_functions = [convert_to_openai_function(fn) for fn in functions]
@@ -1072,17 +1419,16 @@ class ChatWatsonx(BaseChatModel):
                 Can be  a dictionary, pydantic model, callable, or BaseTool. Pydantic
                 models, callables, and BaseTools will be automatically converted to
                 their schema dictionary representation.
-            tool_choice: Which tool to require the model to call.
-                Options are:
-                    - str of the form ``"<<tool_name>>"``: calls <<tool_name>> tool.
-                    - ``"auto"``: automatically selects a tool (including no tool).
-                    - ``"none"``: does not call a tool.
-                    - ``"any"`` or ``"required"`` or ``True``: force at least one tool to be called.
-                    - dict of the form ``{"type": "function", "function": {"name": <<tool_name>>}}``: calls <<tool_name>> tool.
-                    - ``False`` or ``None``: no effect, default OpenAI behavior.
+            tool_choice: Which tool to require the model to call. Options are:
 
-            kwargs: Any additional parameters are passed directly to
-                ``self.bind(**kwargs)``.
+                - `str` of the form `'<<tool_name>>'`: calls `<<tool_name>>` tool.
+                - `'auto'`: automatically selects a tool (including no tool).
+                - `'none'`: does not call a tool.
+                - `'any'` or `'required'` or `True`: force at least one tool to be called.
+                - `dict` of the form `{"type": "function", "function": {"name": <<tool_name>>}}`: calls `<<tool_name>>` tool.
+                - `False` or `None`: no effect, default OpenAI behavior.
+
+            kwargs: Any additional parameters are passed directly to `bind`.
         """  # noqa: E501
         formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
         if tool_choice:
@@ -1145,16 +1491,16 @@ class ChatWatsonx(BaseChatModel):
                 - a TypedDict class,
                 - or a Pydantic class,
 
-                If ``schema`` is a Pydantic class then the model output will be a
+                If `schema` is a Pydantic class then the model output will be a
                 Pydantic instance of that class, and the model-generated fields will be
                 validated by the Pydantic class. Otherwise the model output will be a
                 dict and will not be validated.
 
             method: The method for steering model generation, one of:
 
-                - ``'function_calling'``: uses tool-calling features.
-                - ``'json_schema'``: uses dedicated structured output features.
-                - ``'json_mode'``: uses JSON mode.
+                - `'function_calling'`: uses tool-calling features.
+                - `'json_schema'`: uses dedicated structured output features.
+                - `'json_mode'`: uses JSON mode.
 
             include_raw:
                 If False then only the parsed structured output is returned. If
@@ -1162,201 +1508,279 @@ class ChatWatsonx(BaseChatModel):
                 then both the raw model response (a BaseMessage) and the parsed model
                 response will be returned. If an error occurs during output parsing it
                 will be caught and returned as well. The final output is always a dict
-                with keys ``'raw'``, ``'parsed'``, and ``'parsing_error'``.
+                with keys `'raw'`, `'parsed'`, and `'parsing_error'`.
 
         Returns:
-            A Runnable that takes same inputs as a :class:`langchain_core.language_models.chat.BaseChatModel`.
+            A Runnable that takes same inputs as a `langchain_core.language_models.chat.BaseChatModel`.
 
-            If ``include_raw`` is True, then Runnable outputs a dict with keys:
+            If `include_raw` is True, then Runnable outputs a dict with keys:
 
-            - ``'raw'``: BaseMessage
-            - ``'parsed'``: None if there was a parsing error, otherwise the type depends on the ``schema`` as described above.
-            - ``'parsing_error'``: Optional[BaseException]
+            - `'raw'`: BaseMessage
+            - `'parsed'`: None if there was a parsing error, otherwise the type depends on the `schema` as described above.
+            - `'parsing_error'`: Optional[BaseException]
 
-        .. dropdown:: Example: schema=Pydantic class, method="function_calling", include_raw=False
+        ??? note "Example: `schema=Pydantic` class, `method='function_calling'`, `include_raw=True`"
 
-            .. code-block:: python
+            ```python
+            from langchain_ibm import ChatWatsonx
+            from pydantic import BaseModel
 
-                from langchain_ibm import ChatWatsonx
-                from pydantic import BaseModel
 
-                class AnswerWithJustification(BaseModel):
-                    '''An answer to the user question along with justification for the answer.'''
-                    answer: str
-                    justification: str
+            class AnswerWithJustification(BaseModel):
+                '''An answer to the user question along with justification for the answer.'''
 
-                llm = ChatWatsonx(...)
-                structured_llm = llm.with_structured_output(
-                    AnswerWithJustification, , method="function_calling"
-                )
+                answer: str
+                justification: str
 
-                structured_llm.invoke("What weighs more a pound of bricks or a pound of feathers")
 
-                # -> AnswerWithJustification(
-                #     answer='They weigh the same',
-                #     justification='Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume or density of the objects may differ.'
-                # )
+            model = ChatWatsonx(...)
+            structured_model = model.with_structured_output(
+                AnswerWithJustification, include_raw=True
+            )
 
-        .. dropdown:: Example: schema=Pydantic class, method="function_calling", include_raw=True
+            structured_model.invoke(
+                "What weighs more a pound of bricks or a pound of feathers"
+            )
+            ```
 
-            .. code-block:: python
+            ```python
+            {
+                "raw": AIMessage(
+                    content="",
+                    additional_kwargs={
+                        "tool_calls": [
+                            {
+                                "id": "call_Ao02pnFYXD6GN1yzc0uXPsvF",
+                                "function": {
+                                    "arguments": '{"answer":"They weigh the same.","justification":"Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume or density of the objects may differ."}',
+                                    "name": "AnswerWithJustification",
+                                },
+                                "type": "function",
+                            }
+                        ]
+                    },
+                ),
+                "parsed": AnswerWithJustification(
+                    answer="They weigh the same.",
+                    justification="Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume or density of the objects may differ.",
+                ),
+                "parsing_error": None,
+            }
+            ```
 
-                from langchain_ibm import ChatWatsonx
-                from pydantic import BaseModel
+        ??? note "Example: `schema=JSON` schema, `method='function_calling'`, `include_raw=False`"
 
-                class AnswerWithJustification(BaseModel):
-                    '''An answer to the user question along with justification for the answer.'''
-                    answer: str
-                    justification: str
+            ```python
+            from langchain_ibm import ChatWatsonx
+            from pydantic import BaseModel
+            from langchain_core.utils.function_calling import convert_to_openai_tool
 
-                llm = ChatWatsonx(...)
-                structured_llm = llm.with_structured_output(AnswerWithJustification, include_raw=True)
 
-                structured_llm.invoke("What weighs more a pound of bricks or a pound of feathers")
-                # -> {
-                #     'raw': AIMessage(content='', additional_kwargs={'tool_calls': [{'id': 'call_Ao02pnFYXD6GN1yzc0uXPsvF', 'function': {'arguments': '{"answer":"They weigh the same.","justification":"Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume or density of the objects may differ."}', 'name': 'AnswerWithJustification'}, 'type': 'function'}]}),
-                #     'parsed': AnswerWithJustification(answer='They weigh the same.', justification='Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume or density of the objects may differ.'),
-                #     'parsing_error': None
-                # }
+            class AnswerWithJustification(BaseModel):
+                '''An answer to the user question along with justification for the answer.'''
 
-        .. dropdown:: Example: schema=JSON Schema, method="function_calling", include_raw=False
+                answer: str
+                justification: str
 
-            .. code-block:: python
 
-                from langchain_ibm import ChatWatsonx
-                from pydantic import BaseModel
-                from langchain_core.utils.function_calling import convert_to_openai_tool
+            dict_schema = convert_to_openai_tool(AnswerWithJustification)
+            model = ChatWatsonx(...)
+            structured_model = model.with_structured_output(dict_schema)
 
-                class AnswerWithJustification(BaseModel):
-                    '''An answer to the user question along with justification for the answer.'''
-                    answer: str
-                    justification: str
+            structured_model.invoke(
+                "What weighs more a pound of bricks or a pound of feathers"
+            )
+            ```
 
-                dict_schema = convert_to_openai_tool(AnswerWithJustification)
-                llm = ChatWatsonx(...)
-                structured_llm = llm.with_structured_output(dict_schema)
+            ```python
+            {
+                "answer": "They weigh the same",
+                "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume and density of the two substances differ.",
+            }
+            ```
 
-                structured_llm.invoke("What weighs more a pound of bricks or a pound of feathers")
-                # -> {
-                #     'answer': 'They weigh the same',
-                #     'justification': 'Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume and density of the two substances differ.'
-                # }
+        ??? note "Example: `schema=Pydantic` class, `method='json_schema'`, `include_raw=True`"
 
-        .. dropdown:: Example: schema=Pydantic class, method="json_schema", include_raw=True
+            ```python
+            from langchain_ibm import ChatWatsonx
+            from pydantic import BaseModel
 
-            .. code-block::
 
-                from langchain_ibm import ChatWatsonx
-                from pydantic import BaseModel
+            class AnswerWithJustification(BaseModel):
+                '''An answer to the user question along with justification for the answer.'''
 
-                class AnswerWithJustification(BaseModel):
-                    '''An answer to the user question along with justification for the answer.'''
+                answer: str
+                justification: str
 
-                    answer: str
-                    justification: str
 
-                llm = ChatWatsonx(...)
-                structured_llm = llm.with_structured_output(
-                    AnswerWithJustification,
-                    method="json_schema",
-                    include_raw=True
-                )
+            model = ChatWatsonx(...)
+            structured_model = model.with_structured_output(
+                AnswerWithJustification, method="json_schema", include_raw=True
+            )
 
-                structured_llm.invoke(
-                    "What weighs more a pound of bricks or a pound of feathers"
-                )
-                # -> {
-                #     'raw': AIMessage(content='', additional_kwargs={'tool_calls': [{'id': 'chatcmpl-tool-bfbd6f6dd33b438990c5ddf277485971', 'type': 'function', 'function': {'name': 'AnswerWithJustification', 'arguments': '{"answer": "They weigh the same", "justification": "A pound is a unit of weight or mass, so both a pound of bricks and a pound of feathers weigh the same amount, one pound."}'}}]}, response_metadata={'token_usage': {'completion_tokens': 45, 'prompt_tokens': 275, 'total_tokens': 320}, 'model_name': 'meta-llama/llama-3-3-70b-instruct', 'system_fingerprint': '', 'finish_reason': 'stop'}, id='chatcmpl-461ca5bd-1982-412c-b886-017c483bf481---8c18b06eead65ae4691364798787bda7---71896588-efa5-439f-a25f-d1abfe289f5a', tool_calls=[{'name': 'AnswerWithJustification', 'args': {'answer': 'They weigh the same', 'justification': 'A pound is a unit of weight or mass, so both a pound of bricks and a pound of feathers weigh the same amount, one pound.'}, 'id': 'chatcmpl-tool-bfbd6f6dd33b438990c5ddf277485971', 'type': 'tool_call'}], usage_metadata={'input_tokens': 275, 'output_tokens': 45, 'total_tokens': 320}),
-                #     'parsed': AnswerWithJustification(answer='They weigh the same', justification='A pound is a unit of weight or mass, so both a pound of bricks and a pound of feathers weigh the same amount, one pound.'),
-                #     'parsing_error': None
-                # }
+            structured_model.invoke(
+                "What weighs more a pound of bricks or a pound of feathers"
+            )
+            ```
 
-        .. dropdown:: Example: schema=function schema, method="json_schema", include_raw=False
-
-            .. code-block:: python
-
-                from langchain_ibm import ChatWatsonx
-                from pydantic import BaseModel
-
-                function__schema = {
-                    'name': 'AnswerWithJustification',
-                    'description': 'An answer to the user question along with justification for the answer.',
-                    'parameters': {
-                        'type': 'object',
-                        'properties': {
-                            'answer': {'type': 'string'},
-                            'justification': {'description': 'A justification for the answer.', 'type': 'string'}
+            ```python
+            {
+                "raw": AIMessage(
+                    content="",
+                    additional_kwargs={
+                        "tool_calls": [
+                            {
+                                "id": "chatcmpl-tool-bfbd6f6dd33b438990c5ddf277485971",
+                                "type": "function",
+                                "function": {
+                                    "name": "AnswerWithJustification",
+                                    "arguments": '{"answer": "They weigh the same", "justification": "A pound is a unit of weight or mass, so both a pound of bricks and a pound of feathers weigh the same amount, one pound."}',
+                                },
+                            }
+                        ]
+                    },
+                    response_metadata={
+                        "token_usage": {
+                            "completion_tokens": 45,
+                            "prompt_tokens": 275,
+                            "total_tokens": 320,
                         },
-                       'required': ['answer']
-                   }
-               }
+                        "model_name": "meta-llama/llama-3-3-70b-instruct",
+                        "system_fingerprint": "",
+                        "finish_reason": "stop",
+                    },
+                    id="chatcmpl-461ca5bd-1982-412c-b886-017c483bf481---8c18b06eead65ae4691364798787bda7---71896588-efa5-439f-a25f-d1abfe289f5a",
+                    tool_calls=[
+                        {
+                            "name": "AnswerWithJustification",
+                            "args": {
+                                "answer": "They weigh the same",
+                                "justification": "A pound is a unit of weight or mass, so both a pound of bricks and a pound of feathers weigh the same amount, one pound.",
+                            },
+                            "id": "chatcmpl-tool-bfbd6f6dd33b438990c5ddf277485971",
+                            "type": "tool_call",
+                        }
+                    ],
+                    usage_metadata={
+                        "input_tokens": 275,
+                        "output_tokens": 45,
+                        "total_tokens": 320,
+                    },
+                ),
+                "parsed": AnswerWithJustification(
+                    answer="They weigh the same",
+                    justification="A pound is a unit of weight or mass, so both a pound of bricks and a pound of feathers weigh the same amount, one pound.",
+                ),
+                "parsing_error": None,
+            }
+            ```
 
-                llm = ChatWatsonx(...)
-                structured_llm = llm.with_structured_output(
-                    function__schema,
-                    method="json_schema",
-                    include_raw=False
-                )
+        ??? note "Example: `schema=function` schema, `method='json_schema'`, `include_raw=False`"
 
-                structured_llm.invoke(
-                    "What weighs more a pound of bricks or a pound of feathers"
-                )
-                # -> {
-                #     'answer': 'They weigh the same',
-                #     'justification': 'Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume and density of the two substances differ.'
-                # }
+            ```python
+            from langchain_ibm import ChatWatsonx
+            from pydantic import BaseModel
 
-        .. dropdown:: Example: schema=Pydantic schema, method="json_mode", include_raw=True
+            function__schema = {
+                "name": "AnswerWithJustification",
+                "description": "An answer to the user question along with justification for the answer.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "answer": {"type": "string"},
+                        "justification": {
+                            "description": "A justification for the answer.",
+                            "type": "string",
+                        },
+                    },
+                    "required": ["answer"],
+                },
+            }
 
-            .. code-block::
+            model = ChatWatsonx(...)
+            structured_model = model.with_structured_output(
+                function_schema, method="json_schema", include_raw=False
+            )
 
-                from langchain_ibm import ChatWatsonx
-                from pydantic import BaseModel
+            structured_model.invoke(
+                "What weighs more a pound of bricks or a pound of feathers"
+            )
+            ```
 
-                class AnswerWithJustification(BaseModel):
-                    answer: str
-                    justification: str
+            ```python
+            {
+                "answer": "They weigh the same",
+                "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The weight is the same, but the volume and density of the two substances differ.",
+            }
+            ```
 
-                llm = ChatWatsonx(...)
-                structured_llm = llm.with_structured_output(
-                    AnswerWithJustification,
-                    method="json_mode",
-                    include_raw=True
-                )
+        ??? note "Example: `schema=Pydantic` class, `method='json_mode'`, `include_raw=True`"
 
-                structured_llm.invoke(
-                    "Answer the following question. "
-                    "Make sure to return a JSON blob with keys 'answer' and 'justification'.\n\n"
-                    "What's heavier a pound of bricks or a pound of feathers?"
-                )
-                # -> {
-                #     'raw': AIMessage(content='{\n    "answer": "They are both the same weight.",\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \n}'),
-                #     'parsed': AnswerWithJustification(answer='They are both the same weight.', justification='Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight.'),
-                #     'parsing_error': None
-                # }
+            ```python
+            from langchain_ibm import ChatWatsonx
+            from pydantic import BaseModel
 
-        .. dropdown:: Example: schema=None, method="json_mode", include_raw=True
 
-            .. code-block::
+            class AnswerWithJustification(BaseModel):
+                answer: str
+                justification: str
 
-                from langchain_ibm import ChatWatsonx
 
-                llm = ChatWatsonx(...)
-                structured_llm = llm.with_structured_output(method="json_mode", include_raw=True)
+            model = ChatWatsonx(...)
+            structured_model = model.with_structured_output(
+                AnswerWithJustification, method="json_mode", include_raw=True
+            )
 
-                structured_llm.invoke(
-                    "Answer the following question. "
-                    "Make sure to return a JSON blob with keys 'answer' and 'justification'.\n\n"
-                    "What's heavier a pound of bricks or a pound of feathers?"
-                )
-                # -> {
-                #     'raw': AIMessage(content='{\n    "answer": "They are both the same weight.",\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \n}'),
-                #     'parsed': {
-                #         'answer': 'They are both the same weight.',
-                #         'justification': 'Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight.'
-                #     },
-                #     'parsing_error': None
-                # }
+            structured_model.invoke(
+                "Answer the following question. "
+                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\\n\\n"
+                "What's heavier a pound of bricks or a pound of feathers?"
+            )
+            ```
+
+            ```python
+            {
+                "raw": AIMessage(
+                    content='{\\n    "answer": "They are both the same weight.",\\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \\n}'
+                ),
+                "parsed": AnswerWithJustification(
+                    answer="They are both the same weight.",
+                    justification="Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight.",
+                ),
+                "parsing_error": None,
+            }
+            ```
+
+        ??? note "Example: `schema=None`, `method='json_mode'`, `include_raw=True`"
+
+            ```python
+            from langchain_ibm import ChatWatsonx
+
+            model = ChatWatsonx(...)
+            structured_model = model.with_structured_output(
+                method="json_mode", include_raw=True
+            )
+
+            structured_model.invoke(
+                "Answer the following question. "
+                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\\n\\n"
+                "What's heavier a pound of bricks or a pound of feathers?"
+            )
+            ```
+
+            ```python
+            {
+                "raw": AIMessage(
+                    content='{\\n    "answer": "They are both the same weight.",\\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \\n}'
+                ),
+                "parsed": {
+                    "answer": "They are both the same weight.",
+                    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight.",
+                },
+                "parsing_error": None,
+            }
+            ```
+
         """  # noqa: E501
         if kwargs:
             raise ValueError(f"Received unsupported arguments {kwargs}")
@@ -1369,7 +1793,7 @@ class ChatWatsonx(BaseChatModel):
                 )
             formatted_tool = convert_to_openai_tool(schema)
             tool_name = formatted_tool["function"]["name"]
-            llm = self.bind_tools(
+            model = self.bind_tools(
                 [schema],
                 tool_choice=tool_name,
                 ls_structured_output_format={
@@ -1387,7 +1811,7 @@ class ChatWatsonx(BaseChatModel):
                     key_name=tool_name, first_tool_only=True
                 )
         elif method == "json_mode":
-            llm = self.bind(
+            model = self.bind(
                 response_format={"type": "json_object"},
                 ls_structured_output_format={
                     "kwargs": {"method": method},
@@ -1424,7 +1848,7 @@ class ChatWatsonx(BaseChatModel):
                     },
                 )
             }
-            llm = self.bind(**bind_kwargs)
+            model = self.bind(**bind_kwargs)
             output_parser = (
                 PydanticOutputParser(pydantic_object=schema)  # type: ignore[arg-type]
                 if is_pydantic_schema
@@ -1444,9 +1868,9 @@ class ChatWatsonx(BaseChatModel):
             parser_with_fallback = parser_assign.with_fallbacks(
                 [parser_none], exception_key="parsing_error"
             )
-            return RunnableMap(raw=llm) | parser_with_fallback
+            return RunnableMap(raw=model) | parser_with_fallback
         else:
-            return llm | output_parser
+            return model | output_parser
 
 
 def _is_pydantic_class(obj: Any) -> bool:

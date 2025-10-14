@@ -11,11 +11,9 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
     Args:
         tool: `WatsonxTool` from `WatsonxToolkit`
 
+    ???+ example "Example"
 
-    Example:
-
-    .. code-block:: python
-
+        ```python
         from langchain_ibm.agents_toolkits.utility import WatsonxToolkit
 
         watsonx_toolkit = WatsonxToolkit(
@@ -24,32 +22,33 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
         )
         weather_tool = watsonx_toolkit.get_tool("Weather")
         convert_to_watsonx_tool(weather_tool)
+        ```
 
-        # Return
-        # {
-        #     "type": "function",
-        #     "function": {
-        #         "name": "Weather",
-        #         "description": "Find the weather for a city.",
-        #         "parameters": {
-        #             "type": "object",
-        #             "properties": {
-        #                 "location": {
-        #                     "title": "location",
-        #                     "description": "Name of the location",
-        #                     "type": "string",
-        #                 },
-        #                 "country": {
-        #                     "title": "country",
-        #                     "description": "Name of the state or country",
-        #                     "type": "string",
-        #                 },
-        #             },
-        #             "required": ["location"],
-        #         },
-        #     },
-        # }
-
+        ```json
+        {
+            "type": "function",
+            "function": {
+                "name": "Weather",
+                "description": "Find the weather for a city.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "title": "location",
+                            "description": "Name of the location",
+                            "type": "string",
+                        },
+                        "country": {
+                            "title": "country",
+                            "description": "Name of the state or country",
+                            "type": "string",
+                        },
+                    },
+                    "required": ["location"],
+                },
+            },
+        }
+        ```
     """
 
     def parse_parameters(input_schema: Optional[dict]) -> dict:

@@ -48,7 +48,7 @@ optional = true
 optional = true
 
 [tool.poetry.group.lint.dependencies]
-ruff = "^0.5"
+ruff = ">=0.13.1,<0.14.0"
 pyarrow = ">=3.0.0"
 
 
@@ -60,6 +60,9 @@ types-requests = "^2"
 optional = true
 
 [tool.poetry.group.dev.dependencies]
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.ruff.lint]
 select = [
