@@ -931,6 +931,27 @@ class ChatWatsonx(BaseChatModel):
     """Stop sequences are one or more strings which will cause the text generation 
     to stop if/when they are produced as part of the output."""
 
+    chat_template_kwargs: Optional[dict] = None
+    """Extra options for the chat template.
+
+    Use to toggle template features, e.g. `{"thinking": true}`."""
+
+    include_reasoning: Optional[bool] = None
+    """Return intermediate reasoning (if the model supports it).
+
+    May increase latency and token usage. Ignored for non-reasoning models.
+    Can be used with `reasoning_effort`."""
+
+    reasoning_effort: Optional[Literal["low", "medium", "high"]] = None
+    """Constrains effort on reasoning for reasoning models. For use with the Chat
+    Completions API.
+
+    Reasoning models only.
+
+    Currently supported values are `'low'`, `'medium'`, and `'high'`. 
+    Reducing reasoning effort can result in faster responses and fewer
+    tokens used on reasoning in a response."""
+
     verify: Union[str, bool, None] = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
@@ -1352,6 +1373,9 @@ class ChatWatsonx(BaseChatModel):
             "logit_bias",
             "seed",
             "stop",
+            "chat_template_kwargs",
+            "include_reasoning",
+            "reasoning_effort",
         ]
 
     def bind_functions(

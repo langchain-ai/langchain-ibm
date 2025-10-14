@@ -51,13 +51,19 @@ def test_chat_invoke_with_reasoning_content() -> None:
         model_id=MODEL_ID_REASONING_CONTENT,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        include_reasoning=True,
+        reasoning_effort="low",
     )
     messages = [("human", "Say hello!")]
     response = chat.invoke(messages)
     assert response
     assert response.content
-    assert response.additional_kwargs
-    assert "reasoning_content" in response.additional_kwargs
+    assert response.additional_kwargs.get("reasoning_content")
+
+    response_2 = chat.invoke(messages, include_reasoning=False)
+    assert response_2
+    assert response_2.content
+    assert not response_2.additional_kwargs.get("reasoning_content")
 
 
 def test_chat_invoke_with_params_as_dict_in_invoke() -> None:
