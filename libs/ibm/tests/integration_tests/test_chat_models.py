@@ -27,6 +27,7 @@ URL = "https://us-south.ml.cloud.ibm.com"
 MODEL_ID = "ibm/granite-3-3-8b-instruct"
 MODEL_ID_TOOL = "mistralai/mistral-large"
 MODEL_ID_TOOL_2 = "meta-llama/llama-3-3-70b-instruct"
+MODEL_ID_REASONING_CONTENT = "openai/gpt-oss-120b"
 
 PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
 
@@ -40,6 +41,18 @@ def test_chat_invoke() -> None:
             "Translate this sentence from English to French. I love programming.",
         ),
     ]
+    response = chat.invoke(messages)
+    assert response
+    assert response.content
+
+
+def test_chat_invoke_with_reasoning_content() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_REASONING_CONTENT,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    messages = [("human", "Say hello!")]
     response = chat.invoke(messages)
     assert response
     assert response.content
@@ -136,6 +149,23 @@ def test_chat_generate_with_few_inputs() -> None:
     assert response
     for generation in response.generations:
         assert generation[0].text
+
+
+def test_chat_generate_with_reasoning_content() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_REASONING_CONTENT,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+    )
+    message = HumanMessage(content="Hello")
+    response = chat.generate([[message], [message]])
+    assert response
+    for generation in response.generations:
+        assert generation[0].text
+        assert generation[0].message  # type: ignore[attr-defined]
+        assert generation[0].message.additional_kwargs  # type: ignore[attr-defined]
+        assert "reasoning_content" in generation[0].message.additional_kwargs  # type: ignore[attr-defined]
+        assert generation[0].message.additional_kwargs["reasoning_content"]  # type: ignore[attr-defined]
 
 
 async def test_chat_agenerate() -> None:
@@ -259,7 +289,7 @@ def test_chain_invoke() -> None:
     assert response.content
 
 
-def test_chat_invoke_2() -> None:
+def test_chain_invoke_2() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID,
         url=URL,  # type: ignore[arg-type]
