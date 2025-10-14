@@ -46,7 +46,7 @@ class WatsonxRerank(BaseDocumentCompressor):
         parameters = RerankParameters(truncate_input_tokens=20)
 
         ranker = WatsonxRerank(
-            model_id="ibm/slate-125m-english-rtrvr-v2",
+            model_id="cross-encoder/ms-marco-minilm-l-12-v2",
             url="https://us-south.ml.cloud.ibm.com",
             project_id="*****",
             params=parameters,
