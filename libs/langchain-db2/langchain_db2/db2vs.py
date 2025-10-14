@@ -135,11 +135,23 @@ def drop_table(client: Connection, table_name: str) -> None:
     """Drop a table from the database.
 
     Args:
-        client: The ibm_db_dbi connection object.
-        table_name: The name of the table to drop.
+        client: The `ibm_db_dbi` connection object
+        table_name: The name of the table to drop
 
     Raises:
-        RuntimeError: If an error occurs while dropping the table.
+        RuntimeError: If an error occurs while dropping the table
+
+    ??? example "Example"
+
+        ```python
+        from langchain_db2.db2vs import drop_table
+
+        drop_table(
+            client=db_client,  # ibm_db_dbi.Connection
+            table_name="TABLE_NAME",
+        )
+        ```
+
     """
     if _table_exists(client, table_name):
         cursor = client.cursor()
@@ -160,8 +172,19 @@ def clear_table(client: Connection, table_name: str) -> None:
     """Remove all records from the table using TRUNCATE.
 
     Args:
-        client: The ibm_db_dbi connection object.
-        table_name: The name of the table to clear.
+        client: The ibm_db_dbi connection object
+        table_name: The name of the table to clear
+
+    ??? example "Example"
+
+        ```python
+        from langchain_db2.db2vs import clear_table
+
+        clear_table(
+            client=db_client,  # ibm_db_dbi.Connection
+            table_name="TABLE_NAME",
+        )
+        ```
     """
     if not _table_exists(client, table_name):
         logger.info(f"Table {table_name} not found…")
@@ -185,9 +208,65 @@ def clear_table(client: Connection, table_name: str) -> None:
 class DB2VS(VectorStore):
     """`DB2VS` vector store.
 
-    To use, you should have:
-    - the ``ibm_db`` python package installed
-    - a connection to db2 database with vector store feature (v12.1.2+)
+    Args:
+        embedding_function: The embedding backend used to generate vectors for stored
+            texts and queries
+        table_name: DB2 table name
+        client: Existing DB2 connection. Required if `connection_args` is not provided
+        distance_strategy: Similarity metric used by Db2 `VECTOR_DISTANCE` when
+            ranking results
+        query: Probe text used once to infer embedding dimension
+        params: Extra options
+        connection_args: Connection parameters used when `client` is not supplied.
+            Expected keys: `{"database": str, "host": str, "port": str,
+            "username": str, "password": str, "security": bool}`
+        text_field: Column name for the raw text (CLOB)
+
+    ???+ info "Setup"
+
+        To use, you should have:
+
+        - the `langchain_db2` python package installed
+        - a connection to db2 database with vector store feature (v12.1.2+)
+
+        ```bash
+        pip install -U langchain-db2
+
+        # or using uv
+        uv add langchain-db2
+        ```
+
+    ??? info "Instantiate"
+
+        Create a Vector Store instance with `ibm_db_dbi.Connection` object
+
+        ```python
+        from langchain_db2 import DB2VS
+
+        db2vs = DB2VS(
+            embedding_function=embeddings, table_name=table_name, client=db_client
+        )
+        ```
+
+        Create a Vector Store instance with `connection_args`
+
+        ```python
+        from langchain_db2 import DB2VS
+
+        db2vs = DB2VS(
+            embedding_function=embeddings,
+            table_name=table_name,
+            connection_args={
+                "database": "<DATABASE>",
+                "host": "<HOST>",
+                "port": "<PORT>",
+                "username": "<USERNAME>",
+                "password": "<PASSWORD>",
+                "security": False,
+            },
+        )
+        ```
+
     """
 
     def __init__(
@@ -269,8 +348,8 @@ class DB2VS(VectorStore):
         is an instance of Embeddings, otherwise returns None.
 
         Returns:
-            Optional[Embeddings]: Embeddings instance if embedding_function
-            is an instance of Embeddings, otherwise returns None.
+            Embeddings instance if embedding_function is an instance of
+                Embeddings, otherwise returns None
         """
         return (
             self.embedding_function
@@ -312,14 +391,16 @@ class DB2VS(VectorStore):
         **kwargs: Any,
     ) -> List[str]:
         """Add more texts to the vectorstore.
+
         Args:
-          texts: Iterable of strings to add to the vectorstore.
-          metadatas: Optional list of metadatas associated with the texts.
-          ids: Optional list of ids for the texts that are being added to
-          the vector store.
-          kwargs: vectorstore specific parameters
-        Return:
-          List of ids from adding the texts into the vectorstore.
+            texts: Iterable of strings to add to the vectorstore
+            metadatas: Optional list of metadatas associated with the texts
+            ids: Optional list of ids for the texts that are being added to
+                the vector store
+            kwargs: vectorstore specific parameters
+
+        Returns:
+            List of ids from adding the texts into the vectorstore
         """
 
         texts = list(texts)
@@ -412,12 +493,14 @@ class DB2VS(VectorStore):
         **kwargs: Any,
     ) -> List[Document]:
         """Return docs most similar to query.
+
         Args:
-            query: str,
-            k: int, the number for documents to retrieve
-            filter: Optional, the filter to apply
-        Return:
-            List[Document]: documents most similar to a query
+            query: The natural-language text to search for
+            k: Number of Documents to return
+            filter: Filter by metadata
+
+        Returns:
+            Documents most similar to a query
         """
         if isinstance(self.embedding_function, EmbeddingsSchema):
             embedding = self.embedding_function.embed_query(query)
@@ -433,6 +516,16 @@ class DB2VS(VectorStore):
         filter: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> List[Document]:
+        """Return documents most similar to a query embedding.
+
+        Args:
+            embedding: Embedding to look up documents similar to
+            k: Number of Documents to return
+            filter: Filter by metadata
+
+        Returns:
+            Documents ordered from most to least similar
+        """
         docs_and_scores = self.similarity_search_by_vector_with_relevance_scores(
             embedding=embedding, k=k, filter=filter, **kwargs
         )
@@ -445,7 +538,18 @@ class DB2VS(VectorStore):
         filter: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
-        """Return docs most similar to query."""
+        """Return the top-k documents most similar to a text query, with scores.
+
+        Args:
+            query: Natural-language query to embed and search with
+            k: Number of results to return
+            filter: Filter by metadata
+
+        Returns:
+            A list of (document, score) pairs ordered by similarity.
+                The score is the vector **distance**; lower values indicate
+                closer matches.
+        """
         if isinstance(self.embedding_function, EmbeddingsSchema):
             embedding = self.embedding_function.embed_query(query)
         docs_and_scores = self.similarity_search_by_vector_with_relevance_scores(
@@ -459,8 +563,18 @@ class DB2VS(VectorStore):
         embedding: List[float],
         k: int = 4,
         filter: Optional[dict[str, Any]] = None,
-        **kwargs: Any,
     ) -> List[Tuple[Document, float]]:
+        """Return top-k documents for a query embedding, with relevance scores.
+
+        Args:
+            embedding: Embedding to look up documents similar to
+            k: Number of Documents to return
+            filter: Filter by metadata
+
+        Returns:
+            A list of `(Document, distance)` pairs ordered from most to least
+                similar (smallest distance first).
+        """
         docs_and_scores = []
         embedding_len = self.get_embedding_dimension()
 
@@ -513,8 +627,18 @@ class DB2VS(VectorStore):
         embedding: List[float],
         k: int,
         filter: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
     ) -> List[Tuple[Document, float, np.ndarray]]:
+        """Return top-k documents, their distances, and stored embeddings.
+
+        Args:
+            embedding: Embedding to look up documents similar to
+            k: Number of Documents to return
+            filter: Filter by metadata
+
+        Returns:
+            Tuples of `(document, distance, embedding_array)`, ordered from
+                most to least similar (ascending distance)
+        """
         documents = []
         embedding_len = self.get_embedding_dimension()
 
@@ -582,20 +706,18 @@ class DB2VS(VectorStore):
         diversity among selected documents.
 
         Args:
-          self: An instance of the class
-          embedding: Embedding to look up documents similar to.
-          k: Number of Documents to return. The default value is 4.
-          fetch_k: Number of Documents to fetch before filtering to
-                   pass to MMR algorithm.
-          filter: (Optional[Dict[str, str]]): Filter by metadata. Defaults
-          to None.
-          lambda_mult: Number between 0 and 1 that determines the degree
-                       of diversity among the results with 0 corresponding
-                       to maximum diversity and 1 to minimum diversity.
-                       The default value is 0.5.
+            embedding: Embedding to look up documents similar to
+            k: Number of Documents to return
+            fetch_k: Number of Documents to fetch before filtering to
+                pass to MMR algorithm
+            lambda_mult: Number between 0 and 1 that determines the degree
+                of diversity among the results with 0 corresponding
+                to maximum diversity and 1 to minimum diversity
+            filter: Filter by metadata
+
         Returns:
             List of Documents and similarity scores selected by maximal
-            marginal relevance and score for each.
+                marginal relevance and score for each.
         """
 
         # Fetch documents and their scores
@@ -642,18 +764,16 @@ class DB2VS(VectorStore):
         diversity among selected documents.
 
         Args:
-          self: An instance of the class
-          embedding: Embedding to look up documents similar to.
-          k: Number of Documents to return. Defaults to 4.
-          fetch_k: Number of Documents to fetch to pass to MMR algorithm.
-          lambda_mult: Number between 0 and 1 that determines the degree
-                       of diversity among the results with 0 corresponding
-                       to maximum diversity and 1 to minimum diversity.
-                       Defaults to 0.5.
-          filter: Optional[Dict[str, Any]]
-          **kwargs: Any
+            embedding: Embedding to look up documents similar to
+            k: Number of Documents to return
+            fetch_k: Number of Documents to fetch to pass to MMR algorithm.
+            lambda_mult: Number between 0 and 1 that determines the degree
+                of diversity among the results with 0 corresponding
+                to maximum diversity and 1 to minimum diversity
+            filter: Filter by metadata
+
         Returns:
-          List of Documents selected by maximal marginal relevance.
+            List of Documents selected by maximal marginal relevance
         """
         docs_and_scores = self.max_marginal_relevance_search_with_score_by_vector(
             embedding, k=k, fetch_k=fetch_k, lambda_mult=lambda_mult, filter=filter
@@ -676,18 +796,16 @@ class DB2VS(VectorStore):
         diversity among selected documents.
 
         Args:
-          self: An instance of the class
-          query: Text to look up documents similar to.
-          k: Number of Documents to return. The default value is 4.
-          fetch_k: Number of Documents to fetch to pass to MMR algorithm.
-          lambda_mult: Number between 0 and 1 that determines the degree
-                       of diversity among the results with 0 corresponding
-                       to maximum diversity and 1 to minimum diversity.
-                       The default value is 0.5.
-          filter: Optional[Dict[str, Any]]
-          **kwargs
+            query: Text to look up documents similar to
+            k: Number of Documents to return
+            fetch_k: Number of Documents to fetch to pass to MMR algorithm.
+            lambda_mult: Number between 0 and 1 that determines the degree
+                of diversity among the results with 0 corresponding
+                to maximum diversity and 1 to minimum diversity
+            filter: Filter by metadata
+
         Returns:
-          List of Documents selected by maximal marginal relevance.
+            List of Documents selected by maximal marginal relevance
 
         `max_marginal_relevance_search` requires that `query` returns matched
         embeddings alongside the match documents.
@@ -705,13 +823,11 @@ class DB2VS(VectorStore):
 
     @_handle_exceptions
     def delete(self, ids: Optional[List[str]] = None, **kwargs: Any) -> None:
-        """Delete by vector IDs.
-        Args:
-          self: An instance of the class
-          ids: List of ids to delete.
-          **kwargs
-        """
+        """Delete by vector IDs
 
+        Args:
+            ids: List of ids to delete
+        """
         if ids is None:
             raise ValueError("No ids provided to delete.")
 
@@ -746,7 +862,16 @@ class DB2VS(VectorStore):
         metadatas: Optional[List[dict]] = None,
         **kwargs: Any,
     ) -> DB2VS:
-        """Return VectorStore initialized from texts and embeddings."""
+        """Return VectorStore initialized from texts and embeddings.
+
+        Args:
+            texts: Iterable of strings to add to the vectorstore
+            embedding: Embedding to look up documents similar to
+            metadatas: Optional list of metadatas associated with the texts
+
+        Returns:
+            A ready-to-use vector store with the provided texts loaded
+        """
         client = kwargs.get("client")
         if client is None:
             raise ValueError("client parameter is required...")
@@ -783,10 +908,11 @@ class DB2VS(VectorStore):
 
         Args:
             expr: SQL boolean expression to filter rows, e.g.:
-                  "id IN ('ABC123','DEF456')" or "title LIKE 'Abc%'".
-                  If None, returns all rows.
+                `id IN ('ABC123','DEF456')` or `title LIKE 'Abc%'`.
+                If None, returns all rows.
+
         Returns:
-            List[str]: List of matching primary-key values.
+            List of matching primary-key values.
         """
         sql = f"SELECT id FROM {self.table_name}"
 
