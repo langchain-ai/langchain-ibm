@@ -25,7 +25,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/granite-3-3-8b-instruct"
-MODEL_ID_TOOL = "mistralai/mistral-large"
+MODEL_ID_TOOL = "ibm/granite-3-3-8b-instruct"
 MODEL_ID_TOOL_2 = "meta-llama/llama-3-3-70b-instruct"
 MODEL_ID_REASONING_CONTENT = "openai/gpt-oss-120b"
 
@@ -56,6 +56,8 @@ def test_chat_invoke_with_reasoning_content() -> None:
     response = chat.invoke(messages)
     assert response
     assert response.content
+    assert response.additional_kwargs
+    assert "reasoning_content" in response.additional_kwargs
 
 
 def test_chat_invoke_with_params_as_dict_in_invoke() -> None:
@@ -556,7 +558,7 @@ def test_chat_bind_tools_list_tool_choice_dict() -> None:
 def test_chat_bind_tools_list_tool_choice_auto() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID_TOOL_2,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -656,7 +658,7 @@ def test_chat_bind_tools_with_watsonx_tools_tool_choice_auto() -> None:
 def test_chat_bind_tools_with_watsonx_tools_tool_choice_as_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID_TOOL_2,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
