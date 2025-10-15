@@ -639,14 +639,14 @@ syrupy = ">=4,<5"
 
 [[package]]
 name = "langsmith"
-version = "0.4.34"
+version = "0.4.35"
 description = "Client library to connect to the LangSmith LLM Tracing and Evaluation Platform."
 optional = false
 python-versions = ">=3.9"
 groups = ["main", "test"]
 files = [
-    {file = "langsmith-0.4.34-py3-none-any.whl", hash = "sha256:3b83b2544f99bb8f6fca2681ee80fe6a44b0578c29e809e5a4e72fdee4db9146"},
-    {file = "langsmith-0.4.34.tar.gz", hash = "sha256:5b90c0b49ab03f78331005df1591abd86b41afceda6ac7144ad7d23693c62f31"},
+    {file = "langsmith-0.4.35-py3-none-any.whl", hash = "sha256:3c3e6ec236e31099c0be175918d21a342cdb87df35138051205da726b9058b8e"},
+    {file = "langsmith-0.4.35.tar.gz", hash = "sha256:de589346911ed2bfeb92de9f634a7090efb8961a0c842fd1fb17c75ceefa5be7"},
 ]
 
 [package.dependencies]

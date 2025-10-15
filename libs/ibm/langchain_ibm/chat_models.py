@@ -931,11 +931,6 @@ class ChatWatsonx(BaseChatModel):
     """Stop sequences are one or more strings which will cause the text generation 
     to stop if/when they are produced as part of the output."""
 
-    chat_template_kwargs: Optional[dict] = None
-    """Extra options for the chat template.
-
-    Use to toggle template features, e.g. `{"thinking": true}`."""
-
     include_reasoning: Optional[bool] = None
     """Return intermediate reasoning (if the model supports it).
 
@@ -1373,7 +1368,6 @@ class ChatWatsonx(BaseChatModel):
             "logit_bias",
             "seed",
             "stop",
-            "chat_template_kwargs",
             "include_reasoning",
             "reasoning_effort",
         ]
