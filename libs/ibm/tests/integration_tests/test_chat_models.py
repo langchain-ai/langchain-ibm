@@ -241,6 +241,27 @@ def test_chat_stream() -> None:
         assert isinstance(chunk.content, str)
 
 
+def test_chat_stream_with_reasoning_content() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID_REASONING_CONTENT,
+        url=URL,  # type: ignore[arg-type]
+        project_id=WX_PROJECT_ID,
+        params={
+            "include_reasoning": True,
+            "reasoning_effort": "low",
+        },
+    )
+    response = chat.stream("hello")
+
+    reasoning_content = ""
+
+    for chunk in response:
+        assert isinstance(chunk.content, str)
+        reasoning_content += chunk.additional_kwargs.get("reasoning_content", "")
+
+    assert reasoning_content
+
+
 async def test_chat_astream() -> None:
     chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
     messages = [

@@ -321,6 +321,9 @@ def _convert_delta_to_message_chunk(
         except KeyError:
             pass
 
+    if reasoning_content := _dict.get("reasoning_content"):
+        additional_kwargs["reasoning_content"] = reasoning_content
+
     if role == "user" or default_class == HumanMessageChunk:
         return HumanMessageChunk(content=content, id=id_)
     elif role == "assistant" or default_class == AIMessageChunk:
@@ -634,6 +637,43 @@ class ChatWatsonx(BaseChatModel):
             },
         ]
         ```
+
+    ??? info "Reasoning output"
+
+        ```python
+        from langchain_ibm import ChatWatsonx
+        from ibm_watsonx_ai.foundation_models.schema import TextChatParameters
+
+        parameters = TextChatParameters(
+            include_reasoning=True, reasoning_effort="medium"
+        )
+
+        model = ChatWatsonx(
+            model_id="openai/gpt-oss-120b",
+            url="https://us-south.ml.cloud.ibm.com",
+            project_id="*****",
+            params=parameters,
+            # apikey="*****"
+        )
+
+        response = model.invoke("What is 3^3?")
+
+        # Response text
+        print(f"Output: {response.content}")
+
+        # Reasoning summaries
+        print(f"Reasoning: {response.additional_kwargs['reasoning_content']}")
+        ```
+
+        ```txt
+        Output: 3^3 = 27
+        Reasoning: The user asks "What is 3^3?" That's 27. Provide answer.
+        ```
+
+        !!! version-added "Added in version 0.3.19: Updated `AIMessage` format"
+            [`langchain-ibm >= 0.3.19`](https://pypi.org/project/langchain-ibm/#history)
+            allows users to set Reasoning output parameters and will format output from
+            reasoning summaries into `additional_kwargs` field.
 
     ??? info "Structured output"
 
