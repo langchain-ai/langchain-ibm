@@ -18,7 +18,6 @@ from langchain_ibm import WatsonxLLM
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 MODEL_ID = "ibm/granite-3-3-8b-instruct"
-MODEL_ID_2 = "google/flan-t5-xl"
 
 
 def test_watsonxllm_invoke() -> None:
@@ -34,18 +33,21 @@ def test_watsonxllm_invoke() -> None:
 
 
 def test_watsonxllm_invoke_with_params() -> None:
-    parameters = {GenTextParamsMetaNames.MAX_NEW_TOKENS: 4}
+    parameters = {
+        GenTextParamsMetaNames.TEMPERATURE: 0,
+        GenTextParamsMetaNames.STOP_SEQUENCES: ["am"],
+    }
 
     watsonxllm = WatsonxLLM(
-        model_id=MODEL_ID_2,
+        model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
         params=parameters,
     )
-    response = watsonxllm.invoke("Write: 'ttttttttttttt'?")
+    response = watsonxllm.invoke("Write: 'I am superhero!'\n")
     print(f"\nResponse: {response}")
     assert isinstance(response, str)
-    assert 0 < len(response) < 5
+    assert response.endswith("am")
 
 
 def test_watsonxllm_invoke_with_params_2() -> None:
@@ -110,28 +112,28 @@ def test_watsonxllm_invoke_with_params_4() -> None:
 
 def test_watsonxllm_invoke_with_params_5_diff() -> None:
     parameters_1 = {
-        GenTextParamsMetaNames.MAX_NEW_TOKENS: 5,
+        GenTextParamsMetaNames.TEMPERATURE: 0,
+        GenTextParamsMetaNames.STOP_SEQUENCES: ["am"],
     }
     parameters_2 = {
-        GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
+        GenTextParamsMetaNames.TEMPERATURE: 0,
+        GenTextParamsMetaNames.STOP_SEQUENCES: ["random_lorem"],
     }
 
     watsonxllm = WatsonxLLM(
-        model_id=MODEL_ID_2,
+        model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
         params=parameters_1,
     )
-    response_1 = watsonxllm.invoke("Please write 'ttttttttttttttttttttttt'?")
+    response_1 = watsonxllm.invoke("Write: 'I am superhero!'\n")
     print(f"\nResponse 1: {response_1}")
     assert isinstance(response_1, str)
-    assert 3 < len(response_1) < 5
-    response_2 = watsonxllm.invoke(
-        "Please write 'ttttttttttttttttttttttt'?", params=parameters_2
-    )
+    assert response_1.endswith("am")
+    response_2 = watsonxllm.invoke("Write: 'I am superhero!'\n", params=parameters_2)
     print(f"\nResponse 2: {response_2}")
     assert isinstance(response_2, str)
-    assert 8 < len(response_2) < 10
+    assert not response_2.endswith("am")
 
 
 def test_watsonxllm_generate() -> None:

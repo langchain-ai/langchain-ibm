@@ -13,7 +13,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://us-south.ml.cloud.ibm.com"
 
-MODEL_ID = "mistralai/mistral-large"
+MODEL_ID = "ibm/granite-3-3-8b-instruct"
 MODEL_ID_2 = "meta-llama/llama-3-3-70b-instruct"
 MODEL_ID_IMAGE = "meta-llama/llama-3-2-90b-vision-instruct"
 MODEL_ID_DOUBLE_MSG_CONV = "meta-llama/llama-3-2-3b-instruct"
