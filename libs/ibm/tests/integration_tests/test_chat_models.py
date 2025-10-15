@@ -51,8 +51,10 @@ def test_chat_invoke_with_reasoning_content() -> None:
         model_id=MODEL_ID_REASONING_CONTENT,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
-        include_reasoning=True,
-        reasoning_effort="low",
+        params={
+            "include_reasoning": True,
+            "reasoning_effort": "low",
+        },
     )
     messages = [("human", "Say hello!")]
     response = chat.invoke(messages)
@@ -60,7 +62,7 @@ def test_chat_invoke_with_reasoning_content() -> None:
     assert response.content
     assert response.additional_kwargs.get("reasoning_content")
 
-    response_2 = chat.invoke(messages, include_reasoning=False)
+    response_2 = chat.invoke(messages, params={"include_reasoning": False})
     assert response_2
     assert response_2.content
     assert not response_2.additional_kwargs.get("reasoning_content")
@@ -164,6 +166,10 @@ def test_chat_generate_with_reasoning_content() -> None:
         model_id=MODEL_ID_REASONING_CONTENT,
         url=URL,  # type: ignore[arg-type]
         project_id=WX_PROJECT_ID,
+        params={
+            "include_reasoning": True,
+            "reasoning_effort": "low",
+        },
     )
     message = HumanMessage(content="Hello")
     response = chat.generate([[message], [message]])
@@ -171,9 +177,17 @@ def test_chat_generate_with_reasoning_content() -> None:
     for generation in response.generations:
         assert generation[0].text
         assert generation[0].message  # type: ignore[attr-defined]
-        assert generation[0].message.additional_kwargs  # type: ignore[attr-defined]
         assert "reasoning_content" in generation[0].message.additional_kwargs  # type: ignore[attr-defined]
         assert generation[0].message.additional_kwargs["reasoning_content"]  # type: ignore[attr-defined]
+
+    response_2 = chat.generate(
+        [[message], [message]], params={"include_reasoning": False}
+    )
+    assert response_2
+    for generation in response_2.generations:
+        assert generation[0].text
+        assert generation[0].message  # type: ignore[attr-defined]
+        assert "reasoning_content" not in generation[0].message.additional_kwargs  # type: ignore[attr-defined]
 
 
 async def test_chat_agenerate() -> None:
