@@ -969,7 +969,6 @@ def _create_diskann_index(
     """
     params = params or {}
 
-    # --- helpers -------------------------------------------------------------
     def _quote_ident_and_capitalize(ident: str) -> str:
         if ident is None or ident.strip() == "":
             raise ValueError("Identifier must be a non-empty string")
@@ -1042,7 +1041,7 @@ def _create_diskann_index(
         with connection.cursor() as cur:
             cur.execute(ddl)
 
-    # --- extract & validate inputs ------------------------------------------
+    # Extract & validate inputs
     vector_column = params.get("vector_column")
     if not vector_column or not isinstance(vector_column, str):
         raise ValueError("params['vector_column'] (str) is required")
@@ -1064,7 +1063,7 @@ def _create_diskann_index(
     fq_index = f'{_quote_ident_and_capitalize(schema)}.{_quote_ident_and_capitalize(index_name)}'
     q_column = _quote_ident_and_capitalize(vector_column)
 
-    # --- existence handling --------------------------------------------------
+    # Existence handling
     already = _exists_index(schema, index_name)
     if already:
         if if_exists == "skip":
@@ -1074,15 +1073,27 @@ def _create_diskann_index(
         else:  # "error"
             raise ValueError(f"Index {schema}.{index_name} already exists")
 
-    # --- DDL construction ----------------------------------------------------
+    # Create the index
     ddl = (
         f"CREATE VECTOR INDEX {fq_index} ON {fq_table} ({q_column}) "
         f"WITH DISTANCE {metric}"
     )
 
-    # --- Execute & commit ----------------------------------------------------
     with connection.cursor() as cur:
         cur.execute(ddl)
+
+    try:
+        connection.commit()
+    except Exception:
+        raise
+
+    # RUNSTATS to allow the optimizer to choose the index in queries
+    runstats_sql = (
+        f"RUNSTATS ON TABLE {fq_table} FOR INDEXES ALL"
+    )
+
+    with connection.cursor() as cur:
+        cur.execute(runstats_sql)
 
     try:
         connection.commit()
