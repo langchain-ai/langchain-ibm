@@ -927,3 +927,171 @@ class DB2VS(VectorStore):
             cursor.close()
 
         return [row[0] for row in rows]
+
+@_handle_exceptions
+def create_index(
+    connection: Connection,
+    vector_store: DB2VS,
+    params: Optional[dict[str, Any]] = None,
+) -> None:
+    if connection is None:
+        raise ValueError("Expected an open ibm_db_dbi connection object")
+
+    _create_diskann_index(
+        connection,
+        vector_store.table_name,
+        vector_store.distance_strategy,
+        params,
+    )
+    return
+
+@_handle_exceptions
+def _create_diskann_index(
+    connection: Connection,
+    table_name: str,
+    distance_strategy: DistanceStrategy,
+    params: Optional[dict[str, Any]] = None,
+) -> None:
+    """
+    Create a DiskANN index on a given table/column.
+
+    Required:
+      - params["vector_column"]: str
+      - params["index_name"]: str
+
+    Optional:
+      - params["schema"]: str                 # If not included in table_name
+      - params["if_exists"]: str              # "error" | "skip" | "replace" (default: "error")
+
+    Notes:
+      - Supported distances: EUCLIDEAN/L2 and EUCLIDEAN_SQUARED.
+      - Identifiers are quoted safely (") with internal " escaped as "".
+    """
+    if connection is None:
+        raise ValueError("Expected an open ibm_db_dbi connection object")
+
+    params = params or {}
+
+    # --- helpers -------------------------------------------------------------
+    def _quote_ident(ident: str) -> str:
+        if ident is None or ident.strip() == "":
+            raise ValueError("Identifier must be a non-empty string")
+        # Capitalize and escape internal quotes
+        return '"' + ident.upper().replace('"', '""') + '"'
+
+    def _parse_qualified_name(name: str, explicit_schema: Optional[str]) -> tuple[str, str]:
+        # Returns (schema, table)
+        if "." in name:
+            schema, tbl = name.split(".", 1)
+            schema = schema.strip('"')
+            tbl = tbl.strip('"')
+            return schema, tbl
+        if explicit_schema:
+            return explicit_schema.strip('"'), name.strip('"')
+        # Fallback to CURRENT SCHEMA at runtime via a query
+        with connection.cursor() as cur:
+            cur.execute("VALUES CURRENT SCHEMA")
+            row = cur.fetchone()
+            if not row or not row[0]:
+                raise ValueError("Unable to determine CURRENT SCHEMA for unqualified table name")
+            return str(row[0]), name.strip('"')
+
+    def _metric_from_strategy(strategy: DistanceStrategy) -> str:
+        """
+        Map the DistanceStrategy to the engine's DISTANCE token.
+        Adjust METRIC_TOKEN_MAP if your DDL expects a different literal.
+        """
+        name = getattr(strategy, "name", str(strategy)).upper()
+
+        # Common aliases supported here for convenience:
+        METRIC_TOKEN_MAP = {
+            # Euclidean
+            "EUCLIDEAN": "EUCLIDEAN",
+            "L2": "EUCLIDEAN",
+            "EUCLIDEAN_DISTANCE": "EUCLIDEAN",
+
+            # Squared Euclidean
+            "EUCLIDEAN_SQUARED": "EUCLIDEAN_SQUARED",
+            "EUCLIDEAN_SQUARED_DISTANCE": "EUCLIDEAN_SQUARED",
+            "SQUARED_EUCLIDEAN": "EUCLIDEAN_SQUARED",
+            "L2_SQUARED": "EUCLIDEAN_SQUARED",
+            "L2SQUARED": "EUCLIDEAN_SQUARED",
+            "SQEUCLIDEAN": "EUCLIDEAN_SQUARED",
+        }
+
+        token = METRIC_TOKEN_MAP.get(name)
+        if token:
+            return token
+
+        # Keep the error message explicit about what's supported.
+        raise ValueError(
+            f"Unsupported distance strategy '{name}'. "
+            "Supported: EUCLIDEAN/L2, EUCLIDEAN_SQUARED."
+        )
+
+    def _exists_index(schema: str, index_name: str) -> bool:
+        sql = """
+            SELECT 1
+              FROM SYSCAT.INDEXES
+             WHERE INDSCHEMA = ?
+               AND INDNAME   = ?
+             FETCH FIRST 1 ROW ONLY
+        """
+        with connection.cursor() as cur:
+            cur.execute(sql, (schema.upper(), index_name.upper()))
+            return cur.fetchone() is not None
+
+    def _drop_index(schema: str, index_name: str) -> None:
+        ddl = f'DROP INDEX {_quote_ident(schema)}.{_quote_ident(index_name)}'
+        with connection.cursor() as cur:
+            cur.execute(ddl)
+
+    # --- extract & validate inputs ------------------------------------------
+    vector_column = params.get("vector_column")
+    if not vector_column or not isinstance(vector_column, str):
+        raise ValueError("params['vector_column'] (str) is required")
+
+    explicit_schema = params.get("schema")
+    schema, table = _parse_qualified_name(table_name, explicit_schema)
+
+    index_name = params.get("index_name")
+    if not index_name or not isinstance(index_name, str):
+        raise ValueError("params['index_name'] (str) is required")
+
+    if_exists = (params.get("if_exists") or "error").lower()
+    if if_exists not in ("error", "skip", "replace"):
+        raise ValueError("params['if_exists'] must be one of: 'error', 'skip', 'replace'")
+
+    metric = _metric_from_strategy(distance_strategy)
+
+    fq_table = f'{_quote_ident(schema)}.{_quote_ident(table)}'
+    fq_index = f'{_quote_ident(schema)}.{_quote_ident(index_name)}'
+    q_column = _quote_ident(vector_column)
+
+    # --- existence handling --------------------------------------------------
+    already = _exists_index(schema, index_name)
+    if already:
+        if if_exists == "skip":
+            return
+        if if_exists == "replace":
+            _drop_index(schema, index_name)
+        else:  # "error"
+            raise ValueError(f"Index {schema}.{index_name} already exists")
+
+    # --- DDL construction ----------------------------------------------------
+    ddl = (
+        f"CREATE VECTOR INDEX {fq_index} ON {fq_table} ({q_column}) "
+        f"WITH DISTANCE {metric}"
+    )
+    print(f"DDL: {ddl}")
+
+    # --- Execute & commit ----------------------------------------------------
+    with connection.cursor() as cur:
+        cur.execute(ddl)
+
+    try:
+        connection.commit()
+    except Exception:
+        # If your environment autocommits DDL, ignore commit errors only if DDL succeeded.
+        raise
+    return
