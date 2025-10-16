@@ -578,6 +578,8 @@ class DB2VS(VectorStore):
         docs_and_scores = []
         embedding_len = self.get_embedding_dimension()
 
+        # If a vector index exists on the embedding with a matching distance type,
+        # approximate nearest neighbor (ANN) search will be used by default.
         query = f"""
         SELECT id,
           {self._text_field},
@@ -588,8 +590,6 @@ class DB2VS(VectorStore):
         ORDER BY distance
         FETCH FIRST {k} ROWS ONLY
         """
-        # TODO: No APPROX in "FETCH APPROX FIRST" now. This will be added once
-        # approximate nearest neighbors search in db2 is implemented.
 
         # Execute the query
         cursor = self.client.cursor()
@@ -642,6 +642,8 @@ class DB2VS(VectorStore):
         documents = []
         embedding_len = self.get_embedding_dimension()
 
+        # If a vector index exists on the embedding with a matching distance type,
+        # approximate nearest neighbor (ANN) search will be used by default.
         query = f"""
         SELECT id,
           {self._text_field},
@@ -653,8 +655,6 @@ class DB2VS(VectorStore):
         ORDER BY distance
         FETCH FIRST {k} ROWS ONLY
         """
-        # TODO: No APPROX in "FETCH APPROX FIRST" now. This will be added once
-        # approximate nearest neighbors search in db2 is implemented.
 
         # Execute the query
         cursor = self.client.cursor()
@@ -967,13 +967,10 @@ def _create_diskann_index(
       - Supported distances: EUCLIDEAN/L2 and EUCLIDEAN_SQUARED.
       - Identifiers are quoted safely (") with internal " escaped as "".
     """
-    if connection is None:
-        raise ValueError("Expected an open ibm_db_dbi connection object")
-
     params = params or {}
 
     # --- helpers -------------------------------------------------------------
-    def _quote_ident(ident: str) -> str:
+    def _quote_ident_and_capitalize(ident: str) -> str:
         if ident is None or ident.strip() == "":
             raise ValueError("Identifier must be a non-empty string")
         # Capitalize and escape internal quotes
@@ -999,7 +996,6 @@ def _create_diskann_index(
     def _metric_from_strategy(strategy: DistanceStrategy) -> str:
         """
         Map the DistanceStrategy to the engine's DISTANCE token.
-        Adjust METRIC_TOKEN_MAP if your DDL expects a different literal.
         """
         name = getattr(strategy, "name", str(strategy)).upper()
 
@@ -1042,7 +1038,7 @@ def _create_diskann_index(
             return cur.fetchone() is not None
 
     def _drop_index(schema: str, index_name: str) -> None:
-        ddl = f'DROP INDEX {_quote_ident(schema)}.{_quote_ident(index_name)}'
+        ddl = f'DROP INDEX {_quote_ident_and_capitalize(schema)}.{_quote_ident_and_capitalize(index_name)}'
         with connection.cursor() as cur:
             cur.execute(ddl)
 
@@ -1064,9 +1060,9 @@ def _create_diskann_index(
 
     metric = _metric_from_strategy(distance_strategy)
 
-    fq_table = f'{_quote_ident(schema)}.{_quote_ident(table)}'
-    fq_index = f'{_quote_ident(schema)}.{_quote_ident(index_name)}'
-    q_column = _quote_ident(vector_column)
+    fq_table = f'{_quote_ident_and_capitalize(schema)}.{_quote_ident_and_capitalize(table)}'
+    fq_index = f'{_quote_ident_and_capitalize(schema)}.{_quote_ident_and_capitalize(index_name)}'
+    q_column = _quote_ident_and_capitalize(vector_column)
 
     # --- existence handling --------------------------------------------------
     already = _exists_index(schema, index_name)
@@ -1083,7 +1079,6 @@ def _create_diskann_index(
         f"CREATE VECTOR INDEX {fq_index} ON {fq_table} ({q_column}) "
         f"WITH DISTANCE {metric}"
     )
-    print(f"DDL: {ddl}")
 
     # --- Execute & commit ----------------------------------------------------
     with connection.cursor() as cur:
@@ -1092,6 +1087,5 @@ def _create_diskann_index(
     try:
         connection.commit()
     except Exception:
-        # If your environment autocommits DDL, ignore commit errors only if DDL succeeded.
         raise
     return
