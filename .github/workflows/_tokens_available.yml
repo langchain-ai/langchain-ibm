@@ -1,4 +1,4 @@
-name: Tokens available check
+name: "📋 Tokens available check"
 
 on:
   workflow_dispatch:
@@ -41,16 +41,16 @@ jobs:
           repository: "${{ inputs.fork }}/langchain-ibm"
           ref: "${{ inputs.branch }}"
 
-      - name: Set up Python ${{ inputs.python-version }} + uv
+      - name: "🐍 Set up Python ${{ inputs.python-version }} + UV"
         uses: "./.github/actions/uv_setup"
         with:
           python-version: ${{ inputs.python-version }}
 
-      - name: Install dependencies
+      - name: "📦 Install Dependencies"
         shell: bash
         run: uv sync --group test --group test_integration
 
-      - name: Run tokens available check
+      - name: "🔗 Run tokens available check"
         shell: bash
         env:
           WATSONX_APIKEY: ${{ secrets.WATSONX_APIKEY }}
@@ -58,7 +58,7 @@ jobs:
         run: |
           make token
 
-      - name: Ensure the tests did not create any additional files
+      - name: "🧹 Verify Clean Working Directory"
         shell: bash
         run: |
           set -eu

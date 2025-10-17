@@ -1,4 +1,4 @@
-name: test
+name: "🧪 Unit Testing"
 
 on:
   workflow_call:
@@ -29,21 +29,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up Python ${{ matrix.python-version }} + uv
+      - name: "🐍 Set up Python ${{ matrix.python-version }} + UV"
         uses: "./.github/actions/uv_setup"
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: "📦 Install Dependencies"
         shell: bash
         run: uv sync --group test --group test_integration
 
-      - name: Run core tests
+      - name: "🧪 Run core tests"
         shell: bash
         run: |
           make test
 
-      - name: Ensure the tests did not create any additional files
+      - name: "🧹 Verify Clean Working Directory"
         shell: bash
         run: |
           set -eu

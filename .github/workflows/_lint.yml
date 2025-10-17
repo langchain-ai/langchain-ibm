@@ -33,24 +33,24 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up Python ${{ matrix.python-version }} + uv
+      - name: "🐍 Set up Python ${{ matrix.python-version }} + UV"
         uses: "./.github/actions/uv_setup"
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Check pyproject.toml
+      - name: "📋 Check pyproject.toml"
         shell: bash
         working-directory: ${{ inputs.working-directory }}
         run: |
           uv tree
 
-      - name: Check lock file
+      - name: "🔏 Check Lock File"
         shell: bash
         working-directory: ${{ inputs.working-directory }}
         run: |
           uv lock --check
 
-      - name: Install dependencies
+      - name: "📦 Install Dependencies"
         # Also installs dev/lint/test/typing dependencies, to ensure we have
         # type hints for as many of our libraries as possible.
         # This helps catch errors that require dependencies to be spotted, for example:
@@ -63,7 +63,7 @@ jobs:
         run: |
           uv sync --group lint --group typing
 
-      - name: Get .mypy_cache to speed up mypy
+      - name: "⚡️ Get .mypy_cache to speed up mypy"
         uses: actions/cache@v4
         env:
           SEGMENT_DOWNLOAD_TIMEOUT_MIN: "2"
@@ -72,18 +72,17 @@ jobs:
             ${{ env.WORKDIR }}/.mypy_cache
           key: mypy-lint-${{ runner.os }}-${{ runner.arch }}-py${{ matrix.python-version }}-${{ inputs.working-directory }}-${{ hashFiles(format('{0}/poetry.lock', inputs.working-directory)) }}
 
-
-      - name: Analysing the code with our lint
+      - name: "️📊 Analysing the code (package) with our lint"
         working-directory: ${{ inputs.working-directory }}
         run: |
           make lint_package
 
-      - name: Install unit+integration test dependencies
+      - name: "🧪 Install unit+integration test dependencies"
         working-directory: ${{ inputs.working-directory }}
         run: |
           uv sync --group test --group test_integration
 
-      - name: Get .mypy_cache_test to speed up mypy
+      - name: "⚡️ Get .mypy_cache_test to speed up mypy"
         uses: actions/cache@v4
         env:
           SEGMENT_DOWNLOAD_TIMEOUT_MIN: "2"
@@ -92,7 +91,7 @@ jobs:
             ${{ env.WORKDIR }}/.mypy_cache_test
           key: mypy-test-${{ runner.os }}-${{ runner.arch }}-py${{ matrix.python-version }}-${{ inputs.working-directory }}-${{ hashFiles(format('{0}/poetry.lock', inputs.working-directory)) }}
 
-      - name: Analysing the code with our lint
+      - name: "️📊 Analysing the code (tests) with our lint"
         working-directory: ${{ inputs.working-directory }}
         run: |
           make lint_tests
