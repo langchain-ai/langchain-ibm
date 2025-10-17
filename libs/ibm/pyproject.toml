@@ -50,6 +50,8 @@ codespell = [
   "codespell>=2.2.0,<3.0.0",
 ]
 
+dev = []
+
 [tool.ruff]
 fix = true
 
@@ -88,10 +90,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
-    "D",     # Docstring checks in tests
-    "S101", # Tests need assertions
-    "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
-    "SLF001", # Private member access in tests
+    "D",       # Docstring checks in tests
+    "S101",    # Tests need assertions
+    "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "SLF001",  # Private member access in tests
     "T201",
     "FIX",     # TODOs
     "TD",      # TODOs
