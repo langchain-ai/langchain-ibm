@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Literal, Type
+from typing import Literal
 
 import pytest
 from langchain_core.language_models import BaseChatModel
@@ -21,7 +21,7 @@ MODEL_ID_DOUBLE_MSG_CONV = "meta-llama/llama-3-2-3b-instruct"
 
 class TestChatWatsonxStandard(ChatModelIntegrationTests):
     @property
-    def chat_model_class(self) -> Type[BaseChatModel]:
+    def chat_model_class(self) -> type[BaseChatModel]:
         return ChatWatsonx
 
     @property
@@ -39,9 +39,9 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
     @property
     def supported_usage_metadata_details(
         self,
-    ) -> Dict[
+    ) -> dict[
         Literal["invoke", "stream"],
-        List[
+        list[
             Literal[
                 "audio_input",
                 "audio_output",

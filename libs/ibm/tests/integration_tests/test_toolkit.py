@@ -18,7 +18,7 @@ TOOL_NAME_2 = "Weather"
 
 def test_01_get_tools() -> None:
     watsonx_toolkit = WatsonxToolkit(
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
     )
     tools = watsonx_toolkit.get_tools()
     assert tools
@@ -26,7 +26,7 @@ def test_01_get_tools() -> None:
 
 def test_02_get_tool_with_config_schema() -> None:
     watsonx_toolkit = WatsonxToolkit(
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
     )
     tool = watsonx_toolkit.get_tool(tool_name=TOOL_NAME_1)
     assert tool.name == TOOL_NAME_1
@@ -36,7 +36,7 @@ def test_02_get_tool_with_config_schema() -> None:
 
 def test_03_get_tool_with_input_schema() -> None:
     watsonx_toolkit = WatsonxToolkit(
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
     )
     tool = watsonx_toolkit.get_tool(tool_name=TOOL_NAME_2)
     assert tool.name == TOOL_NAME_2
@@ -46,7 +46,7 @@ def test_03_get_tool_with_input_schema() -> None:
 
 def test_04_invoke_tool_with_config_schema() -> None:
     watsonx_toolkit = WatsonxToolkit(
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
     )
     tool = watsonx_toolkit.get_tool(tool_name=TOOL_NAME_1)
 
@@ -72,7 +72,7 @@ def test_04_invoke_tool_with_config_schema() -> None:
 
 def test_05_invoke_tool_with_input_schema() -> None:
     watsonx_toolkit = WatsonxToolkit(
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
     )
     tool = watsonx_toolkit.get_tool(tool_name=TOOL_NAME_2)
 
@@ -90,7 +90,7 @@ def test_05_invoke_tool_with_input_schema() -> None:
 
 def test_06_invoke_tool_with_simple_input() -> None:
     watsonx_toolkit = WatsonxToolkit(
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
     )
     tool = watsonx_toolkit.get_tool(tool_name=TOOL_NAME_1)
 

@@ -18,7 +18,7 @@ MODEL_ID = "ibm/slate-125m-english-rtrvr"
 
 
 def test_01_rerank_init() -> None:
-    wx_rerank = WatsonxRerank(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
+    wx_rerank = WatsonxRerank(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)
     assert isinstance(wx_rerank, WatsonxRerank)
 
 
@@ -36,7 +36,7 @@ def test_01_rerank_init_with_client() -> None:
 
 
 def test_02_rerank_documents() -> None:
-    wx_rerank = WatsonxRerank(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)  # type: ignore[arg-type]
+    wx_rerank = WatsonxRerank(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)
     test_documents = [
         Document(page_content="This is a test document."),
         Document(page_content="Another test document."),
@@ -55,7 +55,7 @@ def test_02_rerank_documents_with_params() -> None:
 
     wx_rerank = WatsonxRerank(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
     )
 
@@ -71,7 +71,7 @@ def test_02_rerank_documents_with_params() -> None:
 def test_03_compress_documents() -> None:
     wx_rerank = WatsonxRerank(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
     )
     doc_list = [
@@ -83,7 +83,7 @@ def test_03_compress_documents() -> None:
         "on electronic advancements.",
         "Rivers provide water, irrigation, and habitat for aquatic species, "
         "vital for ecosystems.",
-        "Apple’s conference call to discuss fourth fiscal quarter results and "
+        "Apple's conference call to discuss fourth fiscal quarter results and "
         "business updates is scheduled for Thursday, November 2, 2023 at 2:00 "
         "p.m. PT / 5:00 p.m. ET.",
         "Shakespeare's works, like 'Hamlet' and 'A Midsummer Night's Dream,' "
@@ -104,7 +104,7 @@ def test_04_compress_documents_with_param() -> None:
     params_2 = RerankParameters(truncate_input_tokens=2)
     wx_rerank = WatsonxRerank(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1,
     )
@@ -117,7 +117,7 @@ def test_04_compress_documents_with_param() -> None:
         "on electronic advancements.",
         "Rivers provide water, irrigation, and habitat for aquatic species, "
         "vital for ecosystems.",
-        "Apple’s conference call to discuss fourth fiscal quarter results and "
+        "Apple's conference call to discuss fourth fiscal quarter results and "
         "business updates is scheduled for Thursday, November 2, 2023 at 2:00 "
         "p.m. PT / 5:00 p.m. ET.",
         "Shakespeare's works, like 'Hamlet' and 'A Midsummer Night's Dream,' "
@@ -136,12 +136,12 @@ def test_04_compress_documents_with_param() -> None:
     )
     assert len(doc_list) == len(result_2)
 
-    assert [
+    assert next(
         el.metadata["relevance_score"]
         for el in result_1
         if el.page_content.startswith("20th")
-    ][0] != [
+    ) != next(
         el.metadata["relevance_score"]
         for el in result_2
         if el.page_content.startswith("20th")
-    ][0]
+    )

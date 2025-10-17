@@ -1,4 +1,4 @@
-name: test
+name: "🧪 Unit Testing"
 
 on:
   workflow_call:
@@ -9,7 +9,8 @@ on:
         description: "From which folder this pipeline executes"
 
 env:
-  POETRY_VERSION: "1.7.1"
+  UV_FROZEN: "true"
+  UV_NO_SYNC: "true"
 
 jobs:
   build:
@@ -26,26 +27,23 @@ jobs:
           - "3.13"
     name: "make test #${{ matrix.python-version }}"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - name: Set up Python ${{ matrix.python-version }} + Poetry ${{ env.POETRY_VERSION }}
-        uses: "./.github/actions/poetry_setup"
+      - name: "🐍 Set up Python ${{ matrix.python-version }} + UV"
+        uses: "./.github/actions/uv_setup"
         with:
           python-version: ${{ matrix.python-version }}
-          poetry-version: ${{ env.POETRY_VERSION }}
-          working-directory: ${{ inputs.working-directory }}
-          cache-key: core
 
-      - name: Install dependencies
+      - name: "📦 Install Dependencies"
         shell: bash
-        run: poetry install --with test
+        run: uv sync --group test --group test_integration
 
-      - name: Run core tests
+      - name: "🧪 Run core tests"
         shell: bash
         run: |
           make test
 
-      - name: Ensure the tests did not create any additional files
+      - name: "🧹 Verify Clean Working Directory"
         shell: bash
         run: |
           set -eu

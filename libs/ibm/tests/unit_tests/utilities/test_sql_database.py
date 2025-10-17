@@ -1,11 +1,12 @@
 import os
-from typing import Any, Dict, Generator
+from collections.abc import Generator
+from typing import Any
 from unittest import mock
 from unittest.mock import Mock, patch
 
 import pandas as pd  # type: ignore[import-untyped]
 import pytest
-from pyarrow import flight  # type: ignore
+from pyarrow import flight  # type: ignore[import-untyped]
 
 from langchain_ibm.utilities.sql_database import (
     WatsonxSQLDatabase,
@@ -54,13 +55,13 @@ class MockFlightSQLClient:
     def __enter__(self, *args: Any, **kwargs: Any) -> "MockFlightSQLClient":
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *args: object) -> None:
         pass
 
-    def get_tables(self, *args: Any, **kwargs: Any) -> Dict:
+    def get_tables(self, *args: Any, **kwargs: Any) -> dict:
         return {"assets": [{"name": "table1"}, {"name": "table2"}]}
 
-    def get_table_info(self, table_name: str, *args: Any, **kwargs: Any) -> Dict:
+    def get_table_info(self, table_name: str, *args: Any, **kwargs: Any) -> dict:
         if table_name == "table1":
             return {
                 "path": "/public/table1",
@@ -76,7 +77,7 @@ class MockFlightSQLClient:
                     {"name": "primary_key", "value": {"key_columns": ["id"]}}
                 ],
             }
-        elif table_name == "table2":
+        if table_name == "table2":
             return {
                 "path": "/public/table2",
                 "fields": [
@@ -91,18 +92,19 @@ class MockFlightSQLClient:
                     {"name": "primary_key", "value": {"key_columns": ["id"]}}
                 ],
             }
-        else:
-            raise flight.FlightError("Table not found")
+        error_msg = "Table not found"
+        raise flight.FlightError(error_msg)
 
     def execute(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
         if "table1" in kwargs.get("query", ""):
             return pd.DataFrame({"id": [1], "name": ["test"], "age": [35]})
 
-        elif "table1" not in kwargs.get("query", ""):
-            raise flight.FlightError("Table not found")
+        if "table1" not in kwargs.get("query", ""):
+            error_msg = "Table not found"
+            raise flight.FlightError(error_msg)
 
-        else:
-            raise ValueError("syntax error")
+        error_msg = "syntax error"
+        raise ValueError(error_msg)
 
     def get_n_first_rows(
         self, schema: str, table_name: str, n: int = 3
@@ -201,9 +203,7 @@ CREATE TABLE "no_pk_schema"."no_pk_table" (
 ### WatsonSQLDatabase
 
 
-def test_initialize_watsonx_sql_database_without_url(
-    clear_env: None, schema: str
-) -> None:
+def test_initialize_watsonx_sql_database_without_url(schema: str) -> None:
     with pytest.raises(ValueError) as e:
         WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
@@ -211,28 +211,24 @@ def test_initialize_watsonx_sql_database_without_url(
     assert "WATSONX_URL" in str(e.value)
 
 
-def test_initialize_watsonx_sql_database_cloud_bad_path(
-    clear_env: None, schema: str
-) -> None:
+def test_initialize_watsonx_sql_database_cloud_bad_path(schema: str) -> None:
     with pytest.raises(ValueError) as e:
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
             url="https://us-south.ml.cloud.ibm.com",
-        )  # type: ignore[arg-type]
+        )
 
     assert "apikey" in str(e.value) and "token" in str(e.value)
     assert "WATSONX_APIKEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
 
 
-def test_initialize_watsonx_sql_database_cpd_bad_path_without_all(
-    clear_env: None, schema: str
-) -> None:
+def test_initialize_watsonx_sql_database_cpd_bad_path_without_all(schema: str) -> None:
     with pytest.raises(ValueError) as e:
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
         )
     assert (
         "apikey" in str(e.value)
@@ -247,28 +243,28 @@ def test_initialize_watsonx_sql_database_cpd_bad_path_without_all(
 
 
 def test_initialize_watsonx_sql_database_cpd_bad_path_password_without_username(
-    clear_env: None, schema: str
+    schema: str,
 ) -> None:
     with pytest.raises(ValueError) as e:
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            password="test_password",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            password="test_password",
         )
     assert "username" in str(e.value)
     assert "WATSONX_USERNAME" in str(e.value)
 
 
 def test_initialize_watsonx_sql_database_cpd_bad_path_apikey_without_username(
-    clear_env: None, schema: str
+    schema: str,
 ) -> None:
     with pytest.raises(ValueError) as e:
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            apikey="test_apikey",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            apikey="test_apikey",
         )
 
     assert "username" in str(e.value)
@@ -276,15 +272,15 @@ def test_initialize_watsonx_sql_database_cpd_bad_path_apikey_without_username(
 
 
 def test_initialize_watsonx_sql_database_cpd_bad_path_without_instance_id(
-    clear_env: None, schema: str
+    schema: str,
 ) -> None:
     with pytest.raises(ValueError) as e:
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            apikey="test_apikey",  # type: ignore[arg-type]
-            username="test_user",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            apikey="test_apikey",
+            username="test_user",
         )
     assert "instance_id" in str(e.value)
     assert "WATSONX_INSTANCE_ID" in str(e.value)

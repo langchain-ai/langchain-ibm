@@ -19,8 +19,8 @@ class TestEmbeddingsGateway:
     def test_embedding_model_gateway_init_credentials(self) -> None:
         watsonx_embedding = WatsonxEmbeddings(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         assert isinstance(watsonx_embedding, WatsonxEmbeddings)
@@ -41,8 +41,8 @@ class TestEmbeddingsGateway:
     def test_embedding_model_gateway_embed_query(self) -> None:
         watsonx_embedding = WatsonxEmbeddings(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         generate_embedding = watsonx_embedding.embed_query(text=self.documents[0])
@@ -52,8 +52,8 @@ class TestEmbeddingsGateway:
     async def test_embedding_model_gateway_aembed_query(self) -> None:
         watsonx_embedding = WatsonxEmbeddings(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         generate_embedding = await watsonx_embedding.aembed_query(
@@ -65,8 +65,8 @@ class TestEmbeddingsGateway:
     def test_embedding_model_gateway_embed_documents(self) -> None:
         watsonx_embedding = WatsonxEmbeddings(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         generate_embedding = watsonx_embedding.embed_documents(texts=self.documents)
@@ -83,8 +83,8 @@ class TestEmbeddingsGateway:
     async def test_embedding_model_gateway_aembed_documents(self) -> None:
         watsonx_embedding = WatsonxEmbeddings(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         generate_embedding = await watsonx_embedding.aembed_documents(

@@ -1,8 +1,9 @@
 """Tools for interacting with a watsonx SQL databases via pyarrow.flight.FlightClient.
 
-Based on the langchain_community.tools.sql_database.tool module."""
+Based on the langchain_community.tools.sql_database.tool module.
+"""
 
-from typing import Any, Dict, Optional, Type, cast
+from typing import Any, cast
 
 from langchain_core.callbacks import (
     AsyncCallbackManagerForToolRun,
@@ -57,15 +58,15 @@ class QuerySQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     description: str = """
     Execute a SQL query against the database and get back the result.
     If the query is not correct, an error message will be returned.
-    If an error is returned, rewrite the query, check the query correctness, 
+    If an error is returned, rewrite the query, check the query correctness,
     and try again.
     """
-    args_schema: Type[BaseModel] = _QuerySQLDatabaseToolInput
+    args_schema: type[BaseModel] = _QuerySQLDatabaseToolInput
 
     def _run(
         self,
         query: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Execute the query, return the results or an error message."""
         return self.db.run_no_throw(query)
@@ -87,16 +88,16 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
 
     name: str = "sql_db_schema"
     description: str = "Get the schema and sample rows for the specified SQL tables."
-    args_schema: Type[BaseModel] = _InfoSQLDatabaseToolInput
+    args_schema: type[BaseModel] = _InfoSQLDatabaseToolInput
 
     def _run(
         self,
         table_names: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Get the schema for tables in a comma-separated list."""
         return self.db.get_table_info_no_throw(
-            [t.strip() for t in table_names.split(",")]
+            [t.strip() for t in table_names.split(",")],
         )
 
 
@@ -112,12 +113,12 @@ class ListSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
         "Input is an empty string, output is a comma-separated list "
         "of tables in the database."
     )
-    args_schema: Type[BaseModel] = _ListSQLDatabaseToolInput
+    args_schema: type[BaseModel] = _ListSQLDatabaseToolInput
 
     def _run(
         self,
         tool_input: str = "",
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Get a comma-separated list of table names."""
         return ", ".join(self.db.get_usable_table_names())
@@ -138,30 +139,33 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
     Use this tool to double check if your query is correct before executing it.
     Always use this tool before executing a query with sql_db_query!
     """
-    args_schema: Type[BaseModel] = _QuerySQLCheckerToolInput
+    args_schema: type[BaseModel] = _QuerySQLCheckerToolInput
 
     @model_validator(mode="before")
     @classmethod
-    def initialize_llm_chain(cls, values: Dict[str, Any]) -> Any:
+    def initialize_llm_chain(cls, values: dict[str, Any]) -> Any:
+        """Initialize llm chain."""
         if "llm_chain" not in values:
             prompt = PromptTemplate(
-                template=QUERY_CHECKER, input_variables=["query", "schema"]
+                template=QUERY_CHECKER,
+                input_variables=["query", "schema"],
             )
-            llm = cast(BaseLanguageModel, values.get("llm"))
+            llm = cast("BaseLanguageModel", values.get("llm"))
 
             values["llm_chain"] = prompt | llm
 
         if values["llm_chain"].first.input_variables != ["query", "schema"]:
-            raise ValueError(
-                "LLM chain for QueryCheckerTool must have input variables ['query', 'schema']"  # noqa: E501
+            error_msg = (
+                "LLM chain for QueryCheckerTool must have input variables ['query', 'schema']",  # noqa: E501
             )
+            raise ValueError(error_msg)
 
         return values
 
     def _run(
         self,
         query: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Use the LLM to check the query."""
         resp = self.llm_chain.invoke(
@@ -170,12 +174,12 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
         )
         if isinstance(resp, BaseMessage):
             return str(resp.content)
-        return resp
+        return cast("str", resp)
 
     async def _arun(
         self,
         query: str,
-        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,
     ) -> str:
         resp = await self.llm_chain.ainvoke(
             {"query": query, "schema": self.db.schema},
@@ -183,4 +187,4 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
         )
         if isinstance(resp, BaseMessage):
             return str(resp.content)
-        return resp
+        return cast("str", resp)

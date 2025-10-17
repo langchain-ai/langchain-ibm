@@ -40,7 +40,7 @@ def test_initialize_watsonx_embeddings_bad_path_without_url() -> None:
 
 def test_initialize_watsonx_embeddings_cloud_bad_path() -> None:
     with pytest.raises(ValueError) as e:
-        WatsonxEmbeddings(model_id=MODEL_ID, url="https://us-south.ml.cloud.ibm.com")  # type: ignore[arg-type]
+        WatsonxEmbeddings(model_id=MODEL_ID, url="https://us-south.ml.cloud.ibm.com")
 
     assert "apikey" in str(e.value) and "token" in str(e.value)
     assert "WATSONX_APIKEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
@@ -50,7 +50,7 @@ def test_initialize_watsonx_embeddings_cpd_bad_path_without_all() -> None:
     with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(
             model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
         )
     assert (
         "apikey" in str(e.value)
@@ -68,8 +68,8 @@ def test_initialize_watsonx_embeddings_cpd_bad_path_password_without_username() 
     with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(
             model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            password="test_password",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            password="test_password",
         )
     assert "username" in str(e.value)
     assert "WATSONX_USERNAME" in str(e.value)
@@ -79,8 +79,8 @@ def test_initialize_watsonx_embeddings_cpd_bad_path_apikey_without_username() ->
     with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(
             model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            apikey="test_apikey",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            apikey="test_apikey",
         )
     assert "username" in str(e.value)
     assert "WATSONX_USERNAME" in str(e.value)
@@ -89,17 +89,19 @@ def test_initialize_watsonx_embeddings_cpd_bad_path_apikey_without_username() ->
 def test_initialize_watsonx_embeddings_cpd_deprecation_warning_with_instance_id() -> (
     None
 ):
-    with pytest.warns(
-        DeprecationWarning, match="The `instance_id` parameter is deprecated"
+    with (
+        pytest.warns(
+            DeprecationWarning, match="The `instance_id` parameter is deprecated"
+        ),
+        pytest.raises(WMLClientError),
     ):
-        with pytest.raises(WMLClientError):
-            WatsonxEmbeddings(
-                model_id="google/flan-ul2",
-                url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-                apikey="test_apikey",  # type: ignore[arg-type]
-                username="test_user",  # type: ignore[arg-type]
-                instance_id="openshift",  # type: ignore[arg-type]
-            )
+        WatsonxEmbeddings(
+            model_id="google/flan-ul2",
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            apikey="test_apikey",
+            username="test_user",
+            instance_id="openshift",
+        )
 
 
 def test_initialize_watsonx_embeddings_with_two_exclusive_parameters() -> None:
@@ -107,8 +109,8 @@ def test_initialize_watsonx_embeddings_with_two_exclusive_parameters() -> None:
         WatsonxEmbeddings(
             model_id=MODEL_ID,
             model=MODEL_ID,
-            url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
-            apikey="test_apikey",  # type: ignore[arg-type]
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="test_apikey",
         )
 
     assert (

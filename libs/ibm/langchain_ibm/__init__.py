@@ -1,3 +1,4 @@
+# noqa: D104
 import importlib
 import warnings
 from typing import Any
@@ -8,9 +9,9 @@ from langchain_ibm.llms import WatsonxLLM
 from langchain_ibm.rerank import WatsonxRerank
 
 __all__ = [
-    "WatsonxLLM",
-    "WatsonxEmbeddings",
     "ChatWatsonx",
+    "WatsonxEmbeddings",
+    "WatsonxLLM",
     "WatsonxRerank",
 ]
 
@@ -34,4 +35,5 @@ def __getattr__(name: str) -> Any:
         )
         module = importlib.import_module(_module_lookup[name])
         return getattr(module, name)
-    raise AttributeError(f"module {__name__} has no attribute {name}")
+    error_msg = f"module {__name__} has no attribute {name}"
+    raise AttributeError(error_msg)

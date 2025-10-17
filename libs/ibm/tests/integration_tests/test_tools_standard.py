@@ -1,5 +1,4 @@
 import os
-from typing import Type, Union
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from langchain_core.tools import BaseTool
@@ -17,7 +16,7 @@ wx_credentials = Credentials(url=URL, api_key=WX_APIKEY)
 
 class TestWatsonxToolsStandard(ToolsIntegrationTests):
     @property
-    def tool_constructor(self) -> Union[Type[BaseTool], BaseTool]:
+    def tool_constructor(self) -> type[BaseTool] | BaseTool:
         return WatsonxTool
 
     @property

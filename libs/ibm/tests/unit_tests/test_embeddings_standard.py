@@ -1,5 +1,3 @@
-from typing import Type
-
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.service_instance import ServiceInstance  # type: ignore
 from langchain_tests.unit_tests.embeddings import EmbeddingsUnitTests
@@ -18,7 +16,7 @@ client._async_httpx_client = None
 
 class TestWatsonxEmbeddingsStandard(EmbeddingsUnitTests):
     @property
-    def embeddings_class(self) -> Type[WatsonxEmbeddings]:
+    def embeddings_class(self) -> type[WatsonxEmbeddings]:
         return WatsonxEmbeddings
 
     @property

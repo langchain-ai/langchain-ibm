@@ -3,38 +3,30 @@
 import hashlib
 import json
 import logging
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from operator import itemgetter
 from typing import (
     Any,
-    AsyncIterator,
-    Callable,
-    Dict,
-    Iterator,
-    List,
     Literal,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
     TypedDict,
-    Union,
     cast,
 )
 
-from ibm_watsonx_ai import APIClient  # type: ignore
-from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
-from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
+from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+    ModelInference,
+)
+from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
     BaseSchema,
     TextChatParameters,
 )
-from ibm_watsonx_ai.gateway import Gateway  # type: ignore
+from ibm_watsonx_ai.gateway import Gateway  # type: ignore[import-untyped]
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
 )
 from langchain_core.language_models import LanguageModelInput
-from langchain_core.language_models.chat_models import (
+from langchain_core.language_models.chat_models import (  # type: ignore[attr-defined]
     BaseChatModel,
     LangSmithParams,
     agenerate_from_stream,
@@ -113,9 +105,9 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
     id_ = call_id
     if role == "user":
         return HumanMessage(content=_dict.get("content", ""), id=id_, name=name)
-    elif role == "assistant":
+    if role == "assistant":
         content = _dict.get("content", "") or ""
-        additional_kwargs: Dict = {}
+        additional_kwargs: dict = {}
         if function_call := _dict.get("function_call"):
             additional_kwargs["function_call"] = dict(function_call)
         if reasoning_content := _dict.get("reasoning_content"):
@@ -129,7 +121,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
                     tool_calls.append(parse_tool_call(raw_tool_call, return_id=True))
                 except Exception as e:
                     invalid_tool_calls.append(
-                        make_invalid_tool_call(raw_tool_call, str(e))
+                        make_invalid_tool_call(raw_tool_call, str(e)),
                     )
         return AIMessage(
             content=content,
@@ -139,25 +131,26 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
             tool_calls=tool_calls,
             invalid_tool_calls=invalid_tool_calls,
         )
-    elif role == "system":
+    if role == "system":
         return SystemMessage(content=_dict.get("content", ""), name=name, id=id_)
-    elif role == "function":
+    if role == "function":
         return FunctionMessage(
-            content=_dict.get("content", ""), name=cast(str, _dict.get("name")), id=id_
+            content=_dict.get("content", ""),
+            name=cast("str", _dict.get("name")),
+            id=id_,
         )
-    elif role == "tool":
+    if role == "tool":
         additional_kwargs = {}
         if "name" in _dict:
             additional_kwargs["name"] = _dict["name"]
         return ToolMessage(
             content=_dict.get("content", ""),
-            tool_call_id=cast(str, _dict.get("tool_call_id")),
+            tool_call_id=cast("str", _dict.get("tool_call_id")),
             additional_kwargs=additional_kwargs,
             name=name,
             id=id_,
         )
-    else:
-        return ChatMessage(content=_dict.get("content", ""), role=role, id=id_)  # type: ignore[arg-type]
+    return ChatMessage(content=_dict.get("content", ""), role=role, id=id_)  # type: ignore[unused-ignore]
 
 
 def _format_message_content(content: Any) -> Any:
@@ -172,8 +165,7 @@ def _format_message_content(content: Any) -> Any:
                 and block["type"] == "tool_use"
             ):
                 continue
-            else:
-                formatted_content.append(block)
+            formatted_content.append(block)
     else:
         formatted_content = content
 
@@ -195,14 +187,13 @@ def _base62_encode(num: int) -> str:
 
 
 def _convert_tool_call_id_to_mistral_compatible(tool_call_id: str) -> str:
-    """Convert a tool call ID to a Mistral-compatible format"""
+    """Convert a tool call ID to a Mistral-compatible format."""
     hash_bytes = hashlib.sha256(tool_call_id.encode()).digest()
     hash_int = int.from_bytes(hash_bytes, byteorder="big")
     base62_str = _base62_encode(hash_int)
     if len(base62_str) >= 9:
         return base62_str[:9]
-    else:
-        return base62_str.rjust(9, "0")
+    return base62_str.rjust(9, "0")
 
 
 def _convert_message_to_dict(message: BaseMessage, model_id: str | None) -> dict:
@@ -215,7 +206,7 @@ def _convert_message_to_dict(message: BaseMessage, model_id: str | None) -> dict
     Returns:
         The dictionary.
     """
-    message_dict: Dict[str, Any] = {"content": _format_message_content(message.content)}
+    message_dict: dict[str, Any] = {"content": _format_message_content(message.content)}
     if (name := message.name or message.additional_kwargs.get("name")) is not None:
         message_dict["name"] = name
 
@@ -259,7 +250,7 @@ def _convert_message_to_dict(message: BaseMessage, model_id: str | None) -> dict
                 tool_call_id = tool_calls[0].get("id", "")
                 if len(tool_call_id) < 9:
                     tool_call_id = _convert_tool_call_id_to_mistral_compatible(
-                        tool_call_id
+                        tool_call_id,
                     )
 
                 message_dict["tool_calls"][0]["id"] = tool_call_id
@@ -282,20 +273,21 @@ def _convert_message_to_dict(message: BaseMessage, model_id: str | None) -> dict
         supported_props = {"content", "role", "tool_call_id"}
         message_dict = {k: v for k, v in message_dict.items() if k in supported_props}
     else:
-        raise TypeError(f"Got unknown type {message}")
+        error_msg = f"Got unknown type {message}"
+        raise TypeError(error_msg)
     return message_dict
 
 
 def _convert_delta_to_message_chunk(
     _dict: Mapping[str, Any],
-    default_class: Type[BaseMessageChunk],
+    default_class: type[BaseMessageChunk],
     call_id: str,
     is_first_tool_chunk: bool,
 ) -> BaseMessageChunk:
     id_ = call_id
-    role = cast(str, _dict.get("role"))
-    content = cast(str, _dict.get("content") or "")
-    additional_kwargs: Dict = {}
+    role = cast("str", _dict.get("role"))
+    content = cast("str", _dict.get("content") or "")
+    additional_kwargs: dict = {}
     if _dict.get("function_call"):
         function_call = dict(_dict["function_call"])
         if "name" in function_call and function_call["name"] is None:
@@ -326,37 +318,38 @@ def _convert_delta_to_message_chunk(
 
     if role == "user" or default_class == HumanMessageChunk:
         return HumanMessageChunk(content=content, id=id_)
-    elif role == "assistant" or default_class == AIMessageChunk:
+    if role == "assistant" or default_class == AIMessageChunk:
         return AIMessageChunk(
             content=content,
             additional_kwargs=additional_kwargs,
             id=id_,
-            tool_call_chunks=tool_call_chunks,  # type: ignore[arg-type]
+            tool_call_chunks=tool_call_chunks,  # type: ignore[unused-ignore]
         )
-    elif role == "system" or default_class == SystemMessageChunk:
+    if role == "system" or default_class == SystemMessageChunk:
         return SystemMessageChunk(content=content, id=id_)
-    elif role == "function" or default_class == FunctionMessageChunk:
+    if role == "function" or default_class == FunctionMessageChunk:
         return FunctionMessageChunk(content=content, name=_dict["name"], id=id_)
-    elif role == "tool" or default_class == ToolMessageChunk:
+    if role == "tool" or default_class == ToolMessageChunk:
         return ToolMessageChunk(
-            content=content, tool_call_id=_dict["tool_call_id"], id=id_
+            content=content,
+            tool_call_id=_dict["tool_call_id"],
+            id=id_,
         )
-    elif role or default_class == ChatMessageChunk:
+    if role or default_class == ChatMessageChunk:
         return ChatMessageChunk(content=content, role=role, id=id_)
-    else:
-        return default_class(content=content, id=id_)  # type: ignore
+    return default_class(content=content, id=id_)  # type: ignore[call-arg]
 
 
 def _convert_chunk_to_generation_chunk(
     chunk: dict,
-    default_chunk_class: Type,
+    default_chunk_class: type,
     is_first_tool_chunk: bool,
     _prompt_tokens_included: bool,
-) -> Optional[ChatGenerationChunk]:
+) -> ChatGenerationChunk | None:
     token_usage = chunk.get("usage")
     choices = chunk.get("choices", [])
 
-    usage_metadata: Optional[UsageMetadata] = (
+    usage_metadata: UsageMetadata | None = (
         _create_usage_metadata(token_usage, _prompt_tokens_included)
         if token_usage
         else None
@@ -364,17 +357,19 @@ def _convert_chunk_to_generation_chunk(
 
     if len(choices) == 0:
         # logprobs is implicitly None
-        generation_chunk = ChatGenerationChunk(
-            message=default_chunk_class(content="", usage_metadata=usage_metadata)
+        return ChatGenerationChunk(
+            message=default_chunk_class(content="", usage_metadata=usage_metadata),
         )
-        return generation_chunk
 
     choice = choices[0]
     if choice["delta"] is None:
         return None
 
     message_chunk = _convert_delta_to_message_chunk(
-        choice["delta"], default_chunk_class, chunk["id"], is_first_tool_chunk
+        choice["delta"],
+        default_chunk_class,
+        chunk["id"],
+        is_first_tool_chunk,
     )
     generation_info = {}
 
@@ -392,10 +387,10 @@ def _convert_chunk_to_generation_chunk(
     if usage_metadata and isinstance(message_chunk, AIMessageChunk):
         message_chunk.usage_metadata = usage_metadata
 
-    generation_chunk = ChatGenerationChunk(
-        message=message_chunk, generation_info=generation_info or None
+    return ChatGenerationChunk(
+        message=message_chunk,
+        generation_info=generation_info or None,
     )
-    return generation_chunk
 
 
 class _FunctionCall(TypedDict):
@@ -495,7 +490,7 @@ class ChatWatsonx(BaseChatModel):
         AIMessageChunk(content="J", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
         AIMessageChunk(content="'", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
         AIMessageChunk(content="ad", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
-        AIMessageChunk(content="ore", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
+        AIMessageChunk(content="or", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775")
         AIMessageChunk(
             content=" programmer", id="run--e48a38d3-1500-4b5e-870c-6313e8cff775"
         )
@@ -708,7 +703,7 @@ class ChatWatsonx(BaseChatModel):
         ```python
         json_model = model.bind(response_format={"type": "json_object"})
         ai_msg = json_model.invoke(
-            “Return JSON with 'random_ints': an array of 10 random integers from 0–99.”
+            “Return JSON with 'random_ints': an array of 10 random integers from 0-99.”
         )
         ai_msg.content
         ```
@@ -834,28 +829,28 @@ class ChatWatsonx(BaseChatModel):
         ```
     """
 
-    model_id: Optional[str] = None
+    model_id: str | None = None
     """Type of model to use."""
 
-    model: Optional[str] = None
+    model: str | None = None
     """
-    Name or alias of the foundation model to use.  
-    When using IBM’s watsonx.ai Model Gateway (public preview), you can specify any 
-    supported third-party model—OpenAI, Anthropic, NVIDIA, Cerebras, or IBM’s own 
-    Granite series—via a single, OpenAI-compatible interface. Models must be explicitly 
-    provisioned (opt-in) through the Gateway to ensure secure, vendor-agnostic access 
+    Name or alias of the foundation model to use.
+    When using IBM's watsonx.ai Model Gateway (public preview), you can specify any
+    supported third-party model—OpenAI, Anthropic, NVIDIA, Cerebras, or IBM's own
+    Granite series—via a single, OpenAI-compatible interface. Models must be explicitly
+    provisioned (opt-in) through the Gateway to ensure secure, vendor-agnostic access
     and easy switch-over without reconfiguration.
 
     For more details on configuration and usage, see [IBM watsonx Model Gateway docs](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp)
     """
 
-    deployment_id: Optional[str] = None
+    deployment_id: str | None = None
     """Type of deployed model to use."""
 
-    project_id: Optional[str] = None
+    project_id: str | None = None
     """ID of the Watson Studio project."""
 
-    space_id: Optional[str] = None
+    space_id: str | None = None
     """ID of the Watson Studio space."""
 
     url: SecretStr = Field(
@@ -864,38 +859,40 @@ class ChatWatsonx(BaseChatModel):
     )
     """URL to the Watson Machine Learning or CPD instance."""
 
-    apikey: Optional[SecretStr] = Field(
-        alias="apikey", default_factory=secret_from_env("WATSONX_APIKEY", default=None)
+    apikey: SecretStr | None = Field(
+        alias="apikey",
+        default_factory=secret_from_env("WATSONX_APIKEY", default=None),
     )
     """API key to the Watson Machine Learning or CPD instance."""
 
-    token: Optional[SecretStr] = Field(
-        alias="token", default_factory=secret_from_env("WATSONX_TOKEN", default=None)
+    token: SecretStr | None = Field(
+        alias="token",
+        default_factory=secret_from_env("WATSONX_TOKEN", default=None),
     )
     """Token to the CPD instance."""
 
-    password: Optional[SecretStr] = Field(
+    password: SecretStr | None = Field(
         alias="password",
         default_factory=secret_from_env("WATSONX_PASSWORD", default=None),
     )
     """Password to the CPD instance."""
 
-    username: Optional[SecretStr] = Field(
+    username: SecretStr | None = Field(
         alias="username",
         default_factory=secret_from_env("WATSONX_USERNAME", default=None),
     )
     """Username to the CPD instance."""
 
-    instance_id: Optional[SecretStr] = Field(
+    instance_id: SecretStr | None = Field(
         alias="instance_id",
         default_factory=secret_from_env("WATSONX_INSTANCE_ID", default=None),
     )
     """Instance_id of the CPD instance."""
 
-    version: Optional[SecretStr] = None
+    version: SecretStr | None = None
     """Version of the CPD instance."""
 
-    params: Optional[Union[dict, TextChatParameters]] = None
+    params: dict | TextChatParameters | None = None
     """Model parameters to use during request generation.
 
     !!! note
@@ -903,75 +900,75 @@ class ChatWatsonx(BaseChatModel):
         within the params attribute and as keyword argument.
     """
 
-    frequency_penalty: Optional[float] = None
-    """Positive values penalize new tokens based on their existing frequency in the 
+    frequency_penalty: float | None = None
+    """Positive values penalize new tokens based on their existing frequency in the
     text so far, decreasing the model's likelihood to repeat the same line verbatim."""
 
-    logprobs: Optional[bool] = None
-    """Whether to return log probabilities of the output tokens or not. 
-    If true, returns the log probabilities of each output token returned 
+    logprobs: bool | None = None
+    """Whether to return log probabilities of the output tokens or not.
+    If true, returns the log probabilities of each output token returned
     in the content of message."""
 
-    top_logprobs: Optional[int] = None
-    """An integer specifying the number of most likely tokens to return at each 
-    token position, each with an associated log probability. The option logprobs 
+    top_logprobs: int | None = None
+    """An integer specifying the number of most likely tokens to return at each
+    token position, each with an associated log probability. The option logprobs
     must be set to true if this parameter is used."""
 
-    max_tokens: Optional[int] = None
-    """The maximum number of tokens that can be generated in the chat completion. 
-    The total length of input tokens and generated tokens is limited by the 
-    model's context length. 
+    max_tokens: int | None = None
+    """The maximum number of tokens that can be generated in the chat completion.
+    The total length of input tokens and generated tokens is limited by the
+    model's context length.
     This value is now deprecated in favor of 'max_completion_tokens' parameter."""
 
-    max_completion_tokens: Optional[int] = None
-    """The maximum number of tokens that can be generated in the chat completion. 
-    The total length of input tokens and generated tokens is limited by the 
+    max_completion_tokens: int | None = None
+    """The maximum number of tokens that can be generated in the chat completion.
+    The total length of input tokens and generated tokens is limited by the
     model's context length."""
 
-    n: Optional[int] = None
-    """How many chat completion choices to generate for each input message. 
-    Note that you will be charged based on the number of generated tokens across 
+    n: int | None = None
+    """How many chat completion choices to generate for each input message.
+    Note that you will be charged based on the number of generated tokens across
     all of the choices. Keep n as 1 to minimize costs."""
 
-    presence_penalty: Optional[float] = None
-    """Positive values penalize new tokens based on whether they appear in the 
+    presence_penalty: float | None = None
+    """Positive values penalize new tokens based on whether they appear in the
     text so far, increasing the model's likelihood to talk about new topics."""
 
-    temperature: Optional[float] = None
-    """What sampling temperature to use. Higher values like 0.8 will make the 
-    output more random, while lower values like 0.2 will make it more focused 
+    temperature: float | None = None
+    """What sampling temperature to use. Higher values like 0.8 will make the
+    output more random, while lower values like 0.2 will make it more focused
     and deterministic.
-    
+
     We generally recommend altering this or top_p but not both."""
 
-    response_format: Optional[dict] = None
+    response_format: dict | None = None
     """The chat response format parameters."""
 
-    top_p: Optional[float] = None
-    """An alternative to sampling with temperature, called nucleus sampling, 
-    where the model considers the results of the tokens with top_p probability 
-    mass. So 0.1 means only the tokens comprising the top 10% probability mass 
+    top_p: float | None = None
+    """An alternative to sampling with temperature, called nucleus sampling,
+    where the model considers the results of the tokens with top_p probability
+    mass. So 0.1 means only the tokens comprising the top 10% probability mass
     are considered.
 
     We generally recommend altering this or temperature but not both."""
 
-    time_limit: Optional[int] = None
-    """Time limit in milliseconds - if not completed within this time, 
+    time_limit: int | None = None
+    """Time limit in milliseconds - if not completed within this time,
     generation will stop."""
 
-    logit_bias: Optional[dict] = None
-    """Increasing or decreasing probability of tokens being selected 
+    logit_bias: dict | None = None
+    """Increasing or decreasing probability of tokens being selected
     during generation."""
 
-    seed: Optional[int] = None
-    """Random number generator seed to use in sampling mode 
+    seed: int | None = None
+    """Random number generator seed to use in sampling mode
     for experimental repeatability."""
 
-    stop: Optional[list[str]] = None
-    """Stop sequences are one or more strings which will cause the text generation 
+    stop: list[str] | None = None
+    """Stop sequences are one or more strings which will cause the text generation
     to stop if/when they are produced as part of the output."""
 
-    verify: Union[str, bool, None] = None
+    verify: str | bool | None = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
         * the path of directory with certificates of trusted CAs
@@ -987,15 +984,17 @@ class ChatWatsonx(BaseChatModel):
     watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
 
     watsonx_model_gateway: Gateway = Field(
-        default=None, exclude=True
+        default=None,
+        exclude=True,
     )  #: :meta private:
 
-    watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
+    watsonx_client: APIClient | None = Field(default=None, exclude=True)
 
     model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
     def is_lc_serializable(cls) -> bool:
+        """Is lc serializable."""
         return False
 
     @property
@@ -1004,7 +1003,9 @@ class ChatWatsonx(BaseChatModel):
         return "watsonx-chat"
 
     def _get_ls_params(
-        self, stop: Optional[List[str]] = None, **kwargs: Any
+        self,
+        stop: list[str] | None = None,
+        **kwargs: Any,
     ) -> LangSmithParams:
         """Get standard params for tracing."""
         params = super()._get_ls_params(stop=stop, **kwargs)
@@ -1014,7 +1015,7 @@ class ChatWatsonx(BaseChatModel):
         return params
 
     @property
-    def lc_secrets(self) -> Dict[str, str]:
+    def lc_secrets(self) -> dict[str, str]:
         """Mapping of secret environment variables."""
         return {
             "url": "WATSONX_URL",
@@ -1043,34 +1044,31 @@ class ChatWatsonx(BaseChatModel):
                     for param in ChatWatsonx._get_supported_chat_params()
                 }.items()
                 if v is not None
-            }
+            },
         )
         if self.watsonx_model_gateway is not None:
-            raise NotImplementedError(
+            error_msg = (
                 "Passing the 'watsonx_model_gateway' parameter to the ChatWatsonx "
-                "constructor is not supported yet."
+                "constructor is not supported yet.",
             )
+            raise NotImplementedError(error_msg)
 
         if isinstance(self.watsonx_model, ModelInference):
-            self.model_id = getattr(self.watsonx_model, "model_id")
+            self.model_id = self.watsonx_model.model_id
             self.deployment_id = getattr(self.watsonx_model, "deployment_id", "")
-            self.project_id = getattr(
-                getattr(self.watsonx_model, "_client"),
-                "default_project_id",
-            )
-            self.space_id = getattr(
-                getattr(self.watsonx_model, "_client"), "default_space_id"
-            )
-            self.params = getattr(self.watsonx_model, "params")
-            self.watsonx_client = getattr(self.watsonx_model, "_client")
+            self.project_id = self.watsonx_model._client.default_project_id  # noqa: SLF001
+            self.space_id = self.watsonx_model._client.default_space_id  # noqa: SLF001
+            self.params = self.watsonx_model.params
+            self.watsonx_client = self.watsonx_model._client  # noqa: SLF001
 
         elif isinstance(self.watsonx_client, APIClient):
             if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
-                raise ValueError(
+                error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx."
+                    "parameters when initializing ChatWatsonx.",
                 )
+                raise ValueError(error_msg)
             if self.model is not None:
                 watsonx_model_gateway = Gateway(
                     api_client=self.watsonx_client,
@@ -1091,11 +1089,12 @@ class ChatWatsonx(BaseChatModel):
                 self.watsonx_model = watsonx_model
         else:
             if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
-                raise ValueError(
+                error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx."
+                    "parameters when initializing ChatWatsonx.",
                 )
+                raise ValueError(error_msg)
 
             credentials = resolve_watsonx_credentials(
                 url=self.url,
@@ -1131,27 +1130,38 @@ class ChatWatsonx(BaseChatModel):
     @gateway_error_handler
     def _call_model_gateway(self, *, model: str, messages: list, **params: Any) -> Any:
         return self.watsonx_model_gateway.chat.completions.create(
-            model=model, messages=messages, **params
+            model=model,
+            messages=messages,
+            **params,
         )
 
     @async_gateway_error_handler
     async def _acall_model_gateway(
-        self, *, model: str, messages: list, **params: Any
+        self,
+        *,
+        model: str,
+        messages: list,
+        **params: Any,
     ) -> Any:
         return await self.watsonx_model_gateway.chat.completions.acreate(
-            model=model, messages=messages, **params
+            model=model,
+            messages=messages,
+            **params,
         )
 
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         if self.streaming:
             stream_iter = self._stream(
-                messages, stop=stop, run_manager=run_manager, **kwargs
+                messages,
+                stop=stop,
+                run_manager=run_manager,
+                **kwargs,
             )
             return generate_from_stream(stream_iter)
 
@@ -1160,24 +1170,30 @@ class ChatWatsonx(BaseChatModel):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params}
             response = self._call_model_gateway(
-                model=self.model, messages=message_dicts, **call_kwargs
+                model=self.model,
+                messages=message_dicts,
+                **call_kwargs,
             )
         else:
             response = self.watsonx_model.chat(
-                messages=message_dicts, **(kwargs | {"params": updated_params})
+                messages=message_dicts,
+                **(kwargs | {"params": updated_params}),
             )
         return self._create_chat_result(response)
 
     async def _agenerate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         if self.streaming:
             stream_iter = self._astream(
-                messages, stop=stop, run_manager=run_manager, **kwargs
+                messages,
+                stop=stop,
+                run_manager=run_manager,
+                **kwargs,
             )
             return await agenerate_from_stream(stream_iter)
 
@@ -1186,19 +1202,22 @@ class ChatWatsonx(BaseChatModel):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params}
             response = await self._acall_model_gateway(
-                model=self.model, messages=message_dicts, **call_kwargs
+                model=self.model,
+                messages=message_dicts,
+                **call_kwargs,
             )
         else:
             response = await self.watsonx_model.achat(
-                messages=message_dicts, **(kwargs | {"params": updated_params})
+                messages=message_dicts,
+                **(kwargs | {"params": updated_params}),
             )
         return self._create_chat_result(response)
 
     def _stream(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
@@ -1207,22 +1226,28 @@ class ChatWatsonx(BaseChatModel):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params, "stream": True}
             chunk_iter = self._call_model_gateway(
-                model=self.model, messages=message_dicts, **call_kwargs
+                model=self.model,
+                messages=message_dicts,
+                **call_kwargs,
             )
         else:
             call_kwargs = {**kwargs, "params": updated_params}
             chunk_iter = self.watsonx_model.chat_stream(
-                messages=message_dicts, **call_kwargs
+                messages=message_dicts,
+                **call_kwargs,
             )
 
-        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
+        default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
 
         for chunk in chunk_iter:
             chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk, default_chunk_class, is_first_tool_chunk, _prompt_tokens_included
+                chunk,
+                default_chunk_class,
+                is_first_tool_chunk,
+                _prompt_tokens_included,
             )
             if generation_chunk is None:
                 continue
@@ -1236,10 +1261,13 @@ class ChatWatsonx(BaseChatModel):
             logprobs = (generation_chunk.generation_info or {}).get("logprobs")
             if run_manager:
                 run_manager.on_llm_new_token(
-                    generation_chunk.text, chunk=generation_chunk, logprobs=logprobs
+                    generation_chunk.text,
+                    chunk=generation_chunk,
+                    logprobs=logprobs,
                 )
             if hasattr(generation_chunk.message, "tool_calls") and isinstance(
-                generation_chunk.message.tool_calls, list
+                generation_chunk.message.tool_calls,
+                list,
             ):
                 first_tool_call = (
                     generation_chunk.message.tool_calls[0]
@@ -1253,9 +1281,9 @@ class ChatWatsonx(BaseChatModel):
 
     async def _astream(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
@@ -1264,15 +1292,18 @@ class ChatWatsonx(BaseChatModel):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params, "stream": True}
             chunk_iter = await self._acall_model_gateway(
-                model=self.model, messages=message_dicts, **call_kwargs
+                model=self.model,
+                messages=message_dicts,
+                **call_kwargs,
             )
         else:
             call_kwargs = {**kwargs, "params": updated_params}
             chunk_iter = await self.watsonx_model.achat_stream(
-                messages=message_dicts, **call_kwargs
+                messages=message_dicts,
+                **call_kwargs,
             )
 
-        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
+        default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
 
@@ -1301,7 +1332,8 @@ class ChatWatsonx(BaseChatModel):
                     logprobs=logprobs,
                 )
             if hasattr(generation_chunk.message, "tool_calls") and isinstance(
-                generation_chunk.message.tool_calls, list
+                generation_chunk.message.tool_calls,
+                list,
             ):
                 first_tool_call = (
                     generation_chunk.message.tool_calls[0]
@@ -1328,21 +1360,27 @@ class ChatWatsonx(BaseChatModel):
         return merged_params
 
     def _create_message_dicts(
-        self, messages: List[BaseMessage], stop: Optional[List[str]], **kwargs: Any
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None,
+        **kwargs: Any,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         params = extract_chat_params(kwargs, self.params)
 
         if stop is not None:
             if params and "stop_sequences" in params:
-                raise ValueError(
+                error_msg = (
                     "`stop_sequences` found in both the input and default params."
                 )
+                raise ValueError(error_msg)
             params = (params or {}) | {"stop_sequences": stop}
         message_dicts = [_convert_message_to_dict(m, self.model_id) for m in messages]
         return message_dicts, params or {}
 
     def _create_chat_result(
-        self, response: dict, generation_info: Optional[Dict] = None
+        self,
+        response: dict,
+        generation_info: dict | None = None,
     ) -> ChatResult:
         generations = []
 
@@ -1396,10 +1434,8 @@ class ChatWatsonx(BaseChatModel):
 
     def bind_functions(
         self,
-        functions: Sequence[Union[Dict[str, Any], Type[BaseModel], Callable, BaseTool]],
-        function_call: Optional[
-            Union[_FunctionCall, str, Literal["auto", "none"]]
-        ] = None,
+        functions: Sequence[dict[str, Any] | type[BaseModel] | Callable | BaseTool],
+        function_call: _FunctionCall | str | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, BaseMessage]:
         """Bind functions (and other objects) to this chat model.
@@ -1417,7 +1453,6 @@ class ChatWatsonx(BaseChatModel):
                 (if any).
             **kwargs: Any additional parameters to pass to the Runnable constructor.
         """
-
         formatted_functions = [convert_to_openai_function(fn) for fn in functions]
         if function_call is not None:
             function_call = (
@@ -1427,18 +1462,20 @@ class ChatWatsonx(BaseChatModel):
                 else function_call
             )
             if isinstance(function_call, dict) and len(formatted_functions) != 1:
-                raise ValueError(
+                error_msg = (
                     "When specifying `function_call`, you must provide exactly one "
-                    "function."
+                    "function.",
                 )
+                raise ValueError(error_msg)
             if (
                 isinstance(function_call, dict)
                 and formatted_functions[0]["name"] != function_call["name"]
             ):
-                raise ValueError(
+                error_msg = (
                     f"Function call {function_call} was specified, but the only "
-                    f"provided function was {formatted_functions[0]['name']}."
+                    f"provided function was {formatted_functions[0]['name']}.",
                 )
+                raise ValueError(error_msg)
             kwargs = {**kwargs, "function_call": function_call}
         return super().bind(
             functions=formatted_functions,
@@ -1447,11 +1484,9 @@ class ChatWatsonx(BaseChatModel):
 
     def bind_tools(
         self,
-        tools: Sequence[Union[Dict[str, Any], Type, Callable, BaseTool]],
+        tools: Sequence[dict[str, Any] | type | Callable | BaseTool],
         *,
-        tool_choice: Optional[
-            Union[dict, str, Literal["auto", "none", "required", "any"], bool]
-        ] = None,
+        tool_choice: dict | str | bool | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, BaseMessage]:
         """Bind tool-like objects to this chat model.
@@ -1495,15 +1530,17 @@ class ChatWatsonx(BaseChatModel):
                     tool_name == tool_choice["function"]["name"]
                     for tool_name in tool_names
                 ):
-                    raise ValueError(
+                    error_msg = (
                         f"Tool choice {tool_choice} was specified, but the only "
-                        f"provided tools were {tool_names}."
+                        f"provided tools were {tool_names}.",
                     )
+                    raise ValueError(error_msg)
             else:
-                raise ValueError(
+                error_msg = (  # type: ignore[unreachable]
                     f"Unrecognized tool_choice type. Expected str, bool or dict. "
-                    f"Received: {tool_choice}"
+                    f"Received: {tool_choice}",
                 )
+                raise ValueError(error_msg)
 
             if isinstance(tool_choice, str):
                 kwargs["tool_choice_option"] = tool_choice
@@ -1516,14 +1553,16 @@ class ChatWatsonx(BaseChatModel):
 
     def with_structured_output(
         self,
-        schema: Optional[Union[Dict, Type]] = None,
+        schema: dict | type | None = None,
         *,
         method: Literal[
-            "function_calling", "json_mode", "json_schema"
+            "function_calling",
+            "json_mode",
+            "json_schema",
         ] = "function_calling",
         include_raw: bool = False,
         **kwargs: Any,
-    ) -> Runnable[LanguageModelInput, Union[Dict, BaseModel]]:
+    ) -> Runnable[LanguageModelInput, dict | BaseModel]:
         """Model wrapper that returns outputs formatted to match the given schema.
 
         Args:
@@ -1551,6 +1590,9 @@ class ChatWatsonx(BaseChatModel):
                 response will be returned. If an error occurs during output parsing it
                 will be caught and returned as well. The final output is always a dict
                 with keys `'raw'`, `'parsed'`, and `'parsing_error'`.
+
+            kwargs: Additional keyword args
+
 
         Returns:
             A Runnable that takes same inputs as a `langchain_core.language_models.chat.BaseChatModel`.
@@ -1825,14 +1867,16 @@ class ChatWatsonx(BaseChatModel):
 
         """  # noqa: E501
         if kwargs:
-            raise ValueError(f"Received unsupported arguments {kwargs}")
+            error_msg = f"Received unsupported arguments {kwargs}"
+            raise ValueError(error_msg)
         is_pydantic_schema = _is_pydantic_class(schema)
         if method == "function_calling":
             if schema is None:
-                raise ValueError(
+                error_msg = (
                     "schema must be specified when method is not 'json_mode'. "
                     "Received None."
                 )
+                raise ValueError(error_msg)
             formatted_tool = convert_to_openai_tool(schema)
             tool_name = formatted_tool["function"]["name"]
             model = self.bind_tools(
@@ -1845,12 +1889,13 @@ class ChatWatsonx(BaseChatModel):
             )
             if is_pydantic_schema:
                 output_parser: Runnable = PydanticToolsParser(
-                    tools=[schema],  # type: ignore[list-item]
-                    first_tool_only=True,  # type: ignore[list-item]
+                    tools=[schema],
+                    first_tool_only=True,
                 )
             else:
                 output_parser = JsonOutputKeyToolsParser(
-                    key_name=tool_name, first_tool_only=True
+                    key_name=tool_name,
+                    first_tool_only=True,
                 )
         elif method == "json_mode":
             model = self.bind(
@@ -1861,16 +1906,17 @@ class ChatWatsonx(BaseChatModel):
                 },
             )
             output_parser = (
-                PydanticOutputParser(pydantic_object=schema)  # type: ignore[arg-type]
+                PydanticOutputParser(pydantic_object=schema)  # type: ignore[unused-ignore]
                 if is_pydantic_schema
                 else JsonOutputParser()
             )
         elif method == "json_schema":
             if schema is None:
-                raise ValueError(
+                error_msg = (
                     "schema must be specified when method is not 'json_mode'. "
                     "Received None."
                 )
+                raise ValueError(error_msg)
             response_format = _convert_to_openai_response_format(schema)
             if is_pydantic_schema:
                 response_format = {
@@ -1882,37 +1928,37 @@ class ChatWatsonx(BaseChatModel):
                     },
                 }
             bind_kwargs = {
-                **dict(
-                    response_format=response_format,
-                    ls_structured_output_format={
-                        "kwargs": {"method": method},
-                        "schema": convert_to_openai_tool(schema),
-                    },
-                )
+                "response_format": response_format,
+                "ls_structured_output_format": {
+                    "kwargs": {"method": method},
+                    "schema": convert_to_openai_tool(schema),
+                },
             }
             model = self.bind(**bind_kwargs)
             output_parser = (
-                PydanticOutputParser(pydantic_object=schema)  # type: ignore[arg-type]
+                PydanticOutputParser(pydantic_object=schema)  # type: ignore[unused-ignore]
                 if is_pydantic_schema
                 else JsonOutputParser()
             )
         else:
-            raise ValueError(
-                f"Unrecognized method argument. Expected one of 'function_calling', "
-                f"'json_mode' or 'json_schema'. Received: '{method}'"
+            error_msg = (  # type: ignore[unreachable]
+                f"Unrecognized method argument. Expected one of 'function_calling' or "
+                f"'json_mode'. Received: '{method}'"
             )
+            raise ValueError(error_msg)
 
         if include_raw:
             parser_assign = RunnablePassthrough.assign(
-                parsed=itemgetter("raw") | output_parser, parsing_error=lambda _: None
+                parsed=itemgetter("raw") | output_parser,
+                parsing_error=lambda _: None,
             )
             parser_none = RunnablePassthrough.assign(parsed=lambda _: None)
             parser_with_fallback = parser_assign.with_fallbacks(
-                [parser_none], exception_key="parsing_error"
+                [parser_none],
+                exception_key="parsing_error",
             )
             return RunnableMap(raw=model) | parser_with_fallback
-        else:
-            return model | output_parser
+        return model | output_parser
 
 
 def _is_pydantic_class(obj: Any) -> bool:
@@ -1960,8 +2006,8 @@ def _create_usage_metadata(
 
 
 def _convert_to_openai_response_format(
-    schema: Union[dict[str, Any], type],
-) -> Union[dict, TypeBaseModel]:
+    schema: dict[str, Any] | type,
+) -> dict | TypeBaseModel:
     if isinstance(schema, type) and is_basemodel_subclass(schema):
         return schema
 
