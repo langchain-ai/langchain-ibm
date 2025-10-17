@@ -19,8 +19,8 @@ class TestLLMGateway:
     def test_llm_model_gateway_init_credentials(self) -> None:
         chat = WatsonxLLM(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         assert isinstance(chat, WatsonxLLM)
@@ -45,8 +45,8 @@ class TestLLMGateway:
     def test_llm_model_gateway_invoke(self) -> None:
         chat = WatsonxLLM(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         response = chat.invoke(self.prompt)
@@ -56,8 +56,8 @@ class TestLLMGateway:
     async def test_llm_model_gateway_ainvoke(self) -> None:
         chat = WatsonxLLM(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         response = await chat.ainvoke(self.prompt)
@@ -67,8 +67,8 @@ class TestLLMGateway:
     def test_llm_model_gateway_generate(self) -> None:
         chat = WatsonxLLM(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         response = chat.generate(["What color sunflower is?"])
@@ -79,8 +79,8 @@ class TestLLMGateway:
     async def test_llm_model_gateway_agenerate(self) -> None:
         chat = WatsonxLLM(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         response = await chat.agenerate(["What color sunflower is?"])
@@ -91,8 +91,8 @@ class TestLLMGateway:
     def test_chat_model_gateway_stream(self) -> None:
         chat = WatsonxLLM(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         response = chat.stream(self.prompt)
@@ -102,8 +102,8 @@ class TestLLMGateway:
     async def test_chat_model_gateway_astream(self) -> None:
         chat = WatsonxLLM(
             model=MODEL,
-            url=URL,  # type: ignore[arg-type]
-            apikey=WX_APIKEY,  # type: ignore[arg-type]
+            url=URL,
+            apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
         response = chat.astream(self.prompt)

@@ -1,13 +1,17 @@
+"""Utilities for watsonx SQL integration."""
+
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Union
+from collections.abc import Iterable
+from typing import Any
 
 try:
-    import pyarrow.flight as flight  # type: ignore[import-untyped]
+    from pyarrow import flight  # type: ignore[import-untyped]
 except ModuleNotFoundError as e:
-    raise ModuleNotFoundError(
+    error_msg = (
         "To use WatsonxSQLDatabase one need to install langchain-ibm with extras "
-        "`sql_toolkit`: `pip install langchain-ibm[sql_toolkit]`"
-    ) from e
+        "`sql_toolkit`: `pip install langchain-ibm[sql_toolkit]`",
+    )
+    raise ModuleNotFoundError(error_msg) from e
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
 from ibm_watsonx_ai.helpers.connections.flight_sql_service import (  # type: ignore[import-untyped]
@@ -16,14 +20,11 @@ from ibm_watsonx_ai.helpers.connections.flight_sql_service import (  # type: ign
 from langchain_core.utils.utils import from_env
 
 
-def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str:
-    """
-    Truncate a string to a certain number of characters, based on the max string
-    length.
+def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str | Any:
+    """Truncate a string to a maximum length.
 
-    Based on the analogous function from langchain_common.utilities.sql_database.py
+    Based on the analogous function from langchain_common.utilities.sql_database.py.
     """
-
     if not isinstance(content, str) or length <= 0:
         return content
 
@@ -33,22 +34,24 @@ def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str:
     return content[: length - len(suffix)].rsplit(" ", 1)[0] + suffix
 
 
-def _validate_param(value: Optional[str], key: str, env_key: str) -> None:
+def _validate_param(value: str | None, key: str, env_key: str) -> None:
     if value is None:
-        raise ValueError(
+        error_msg = (
             f"Did not find {key}, please add an environment variable"
             f" `{env_key}` which contains it, or pass"
             f" `{key}` as a named parameter."
         )
-    return None
+        raise ValueError(error_msg)
 
 
-def _from_env(env_var_name: str) -> Optional[str]:
+def _from_env(env_var_name: str) -> str | None:
     """Read env variable. If it is not set, return None."""
     return from_env(env_var_name, default=None)()
 
 
 def pretty_print_table_info(schema: str, table_name: str, table_info: dict) -> str:
+    """Pretty print table info."""
+
     def convert_column_data(field_metadata: dict) -> str:
         name = field_metadata.get("name")
 
@@ -114,7 +117,7 @@ CREATE TABLE "{schema}"."{table_name}" (
                 if index < len(table_info["fields"])
                 else convert_column_data(field_metadata=field_metadata)
                 for index, field_metadata in enumerate(table_info["fields"], start=1)
-            ]
+            ],
         ),
         primary_key=primary_key_text,
         foreign_key=foreign_keys_text,
@@ -122,8 +125,9 @@ CREATE TABLE "{schema}"."{table_name}" (
 
 
 class WatsonxSQLDatabase:
-    """Watsonx SQL Database class for IBM watsonx.ai databases
-    connection assets. Uses Arrow Flight to interact with databases via watsonx.
+    """Watsonx SQL Database class for IBM watsonx.ai databases connection assets.
+
+    Uses Arrow Flight to interact with databases via watsonx.
 
     Args:
         connection_id: ID of db connection asset
@@ -187,24 +191,26 @@ class WatsonxSQLDatabase:
         *,
         connection_id: str,
         schema: str,
-        project_id: Optional[str] = None,
-        space_id: Optional[str] = None,
-        url: Optional[str] = None,
-        apikey: Optional[str] = None,
-        token: Optional[str] = None,
-        password: Optional[str] = None,
-        username: Optional[str] = None,
-        instance_id: Optional[str] = None,
-        version: Optional[str] = None,
-        verify: Union[str, bool, None] = None,
-        watsonx_client: Optional[APIClient] = None,  #: :meta private:
-        ignore_tables: Optional[List[str]] = None,
-        include_tables: Optional[List[str]] = None,
+        project_id: str | None = None,
+        space_id: str | None = None,
+        url: str | None = None,
+        apikey: str | None = None,
+        token: str | None = None,
+        password: str | None = None,
+        username: str | None = None,
+        instance_id: str | None = None,
+        version: str | None = None,
+        verify: str | bool | None = None,
+        watsonx_client: APIClient | None = None,  #: :meta private:
+        ignore_tables: list[str] | None = None,
+        include_tables: list[str] | None = None,
         sample_rows_in_table_info: int = 3,
         max_string_length: int = 300,
     ) -> None:
+        """WatsonxSQLDatabase class."""
         if include_tables and ignore_tables:
-            raise ValueError("Cannot specify both include_tables and ignore_tables")
+            error_msg = "Cannot specify both include_tables and ignore_tables"
+            raise ValueError(error_msg)
 
         self.schema = schema
         self._ignore_tables = set(ignore_tables) if ignore_tables else set()
@@ -222,7 +228,7 @@ class WatsonxSQLDatabase:
                 token = token or _from_env("WATSONX_TOKEN")
                 apikey = apikey or _from_env("WATSONX_APIKEY")
                 if not token and not apikey:
-                    raise ValueError(
+                    error_msg = (
                         "Did not find 'apikey' or 'token',"
                         " please add an environment variable"
                         " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
@@ -230,12 +236,13 @@ class WatsonxSQLDatabase:
                         " or pass 'apikey' or 'token'"
                         " as a named parameter."
                     )
+                    raise ValueError(error_msg)
             else:
                 token = token or _from_env("WATSONX_TOKEN")
                 apikey = apikey or _from_env("WATSONX_APIKEY")
                 password = password or _from_env("WATSONX_PASSWORD")
                 if not token and not password and not apikey:
-                    raise ValueError(
+                    error_msg = (
                         "Did not find 'token', 'password' or 'apikey',"
                         " please add an environment variable"
                         " `WATSONX_TOKEN`, 'WATSONX_PASSWORD' or 'WATSONX_APIKEY' "
@@ -243,6 +250,7 @@ class WatsonxSQLDatabase:
                         " or pass 'token', 'password' or 'apikey'"
                         " as a named parameter."
                     )
+                    raise ValueError(error_msg)
 
                 try:
                     _validate_param(token, "token", "WATSONX_TOKEN")
@@ -250,11 +258,15 @@ class WatsonxSQLDatabase:
                     pass
 
                 def _check_with_username(
-                    auth_name: str, auth_object: Any, username: Optional[str] = username
+                    auth_name: str,
+                    auth_object: Any,
+                    username: str | None = username,
                 ) -> None:
                     try:
                         _validate_param(
-                            auth_object, auth_name, "WATSONX_" + auth_name.upper()
+                            auth_object,
+                            auth_name,
+                            "WATSONX_" + auth_name.upper(),
                         )
                     except ValueError:
                         pass
@@ -282,7 +294,9 @@ class WatsonxSQLDatabase:
                 verify=verify,
             )
             self.watsonx_client = APIClient(
-                credentials=credentials, project_id=project_id, space_id=space_id
+                credentials=credentials,
+                project_id=project_id,
+                space_id=space_id,
             )
             project_id = project_id or _from_env("WATSONX_PROJECT_ID")
             space_id = space_id or _from_env("WATSONX_SPACE_ID")
@@ -294,7 +308,7 @@ class WatsonxSQLDatabase:
         else:
             self.watsonx_client = watsonx_client
 
-        context_id: dict[str, Optional[str]] = {"project_id": None, "space_id": None}
+        context_id: dict[str, str | None] = {"project_id": None, "space_id": None}
         if project_id is not None:
             context_id["project_id"] = project_id
         elif space_id is not None:
@@ -304,10 +318,13 @@ class WatsonxSQLDatabase:
         elif self.watsonx_client.default_space_id is not None:
             context_id["space_id"] = self.watsonx_client.default_space_id
         else:
-            raise ValueError("Either project_id or space_id is required.")
+            error_msg = "Either project_id or space_id is required."
+            raise ValueError(error_msg)
 
         self._flight_sql_client = FlightSQLClient(
-            connection_id=connection_id, api_client=self.watsonx_client, **context_id
+            connection_id=connection_id,
+            api_client=self.watsonx_client,
+            **context_id,
         )
 
         with self._flight_sql_client as flight_sql_client:
@@ -317,20 +334,19 @@ class WatsonxSQLDatabase:
                     table.get("name") for table in _tables if table.get("name")
                 }
             else:
-                raise RuntimeError(f"No tables found in the schema: {schema}")
+                error_msg = f"No tables found in the schema: {schema}"
+                raise RuntimeError(error_msg)
 
             if self._include_tables:
                 missing_tables = self._include_tables - self._all_tables
                 if missing_tables:
-                    raise ValueError(
-                        f"include_tables {missing_tables} not found in database"
-                    )
+                    error_msg = f"include_tables {missing_tables} not found in database"
+                    raise ValueError(error_msg)
             if self._ignore_tables:
                 missing_tables = self._ignore_tables - self._all_tables
                 if missing_tables:
-                    raise ValueError(
-                        f"ignore_tables {missing_tables} not found in database"
-                    )
+                    error_msg = f"ignore_tables {missing_tables} not found in database"
+                    raise ValueError(error_msg)
 
             self._meta_all_tables = {
                 table_name: flight_sql_client.get_table_info(
@@ -353,19 +369,18 @@ class WatsonxSQLDatabase:
     def _execute(
         self,
         command: str,
-    ) -> dict:
+    ) -> Any:
         """Execute a command."""
-
         with self._flight_sql_client as flight_sql_client:
             results = flight_sql_client.execute(query=command)
 
         return results.to_dict("records")
 
-    def run(self, command: str, include_columns: bool = False) -> str:
+    def run(self, command: str, *, include_columns: bool = False) -> str:
         """Execute a SQL command and return a string representing the results."""
         result = self._execute(command)
 
-        res: List[Dict] = [
+        res: list[dict] = [
             {
                 column: truncate_word(value, length=self._max_string_length)
                 for column, value in r.items()
@@ -381,6 +396,7 @@ class WatsonxSQLDatabase:
     def run_no_throw(
         self,
         command: str,
+        *,
         include_columns: bool = False,
     ) -> str:
         """Execute a SQL command and return a string representing the results.
@@ -396,14 +412,14 @@ class WatsonxSQLDatabase:
             """Format the error message"""
             return f"Error: {e}"
 
-    def get_table_info(self, table_names: Optional[Iterable[str]] = None) -> str:
+    def get_table_info(self, table_names: Iterable[str] | None = None) -> str:
         """Get information about specified tables."""
-
         all_table_names = self.get_usable_table_names()
         if table_names is not None:
             missing_tables = set(table_names).difference(all_table_names)
             if missing_tables:
-                raise ValueError(f"table_names {missing_tables} not found in database")
+                error_msg = f"table_names {missing_tables} not found in database"
+                raise ValueError(error_msg)
 
         with self._flight_sql_client as flight_sql_client:
             if table_names is None:
@@ -424,12 +440,10 @@ class WatsonxSQLDatabase:
                         n=self._sample_rows_in_table_info,
                     ).to_string(index=False)
                     for table_name in table_names
-                ]
+                ],
             )
 
-    def get_table_info_no_throw(
-        self, table_names: Optional[Iterable[str]] = None
-    ) -> str:
+    def get_table_info_no_throw(self, table_names: Iterable[str] | None = None) -> str:
         """Get information about specified tables."""
         try:
             return self.get_table_info(table_names=table_names)
@@ -437,7 +451,7 @@ class WatsonxSQLDatabase:
             """Format the error message"""
             return f"Error: {e}"
 
-    def get_context(self) -> Dict[str, Any]:
+    def get_context(self) -> dict[str, Any]:
         """Return db context that you may want in agent prompt."""
         table_names = list(self.get_usable_table_names())
         table_info = self.get_table_info_no_throw()

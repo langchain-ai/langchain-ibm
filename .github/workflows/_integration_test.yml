@@ -1,20 +1,34 @@
-name: Integration tests
+name: "🧪 Integration Testing"
 
 on:
   workflow_dispatch:
     inputs:
       working-directory:
         required: true
-        type: string
-        default: 'libs/ibm'
-      python-version:
+        type: choice
+        options:
+          - libs/ibm
+          - libs/langchain-db2
+      fork:
         required: true
         type: string
-        default: '3.11'
-        description: "Python version to use"
+        default: 'langchain-ai'
+        description: "Which fork to run this test against"
+      branch:
+        required: true
+        type: string
+        default: 'main'
+        description: "Which branch to run this test against"
+      test-file:
+        required: true
+        type: string
+        default: "tests/integration_tests/**/test*.py"
+        description: "Which test file to run"
 
 env:
-  POETRY_VERSION: "1.7.1"
+  PYTHON_VERSION: "3.11"
+  UV_FROZEN: "true"
+  UV_NO_SYNC: "true"
 
 jobs:
   build:
@@ -22,21 +36,21 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     runs-on: ubuntu-latest
-    name: Python ${{ inputs.python-version }}
+    name: "make integration_test"
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ inputs.python-version }} + Poetry ${{ env.POETRY_VERSION }}
-        uses: "./.github/actions/poetry_setup"
+      - uses: actions/checkout@v5
         with:
-          python-version: ${{ inputs.python-version }}
-          poetry-version: ${{ env.POETRY_VERSION }}
-          working-directory: ${{ inputs.working-directory }}
-          cache-key: core
+          repository: "${{ inputs.fork }}/langchain-ibm"
+          ref: "${{ inputs.branch }}"
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }} + uv
+        uses: "./.github/actions/uv_setup"
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         shell: bash
-        run: poetry install --with test,test_integration
+        run: uv sync --group test --group test_integration
 
       - name: Run integration tests
         shell: bash

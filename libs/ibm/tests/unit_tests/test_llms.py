@@ -46,7 +46,7 @@ def test_initialize_watsonxllm_bad_path_without_url() -> None:
 
 def test_initialize_watsonxllm_cloud_bad_path() -> None:
     try:
-        WatsonxLLM(model_id="google/flan-ul2", url="https://us-south.ml.cloud.ibm.com")  # type: ignore[arg-type]
+        WatsonxLLM(model_id="google/flan-ul2", url="https://us-south.ml.cloud.ibm.com")
     except ValueError as e:
         assert "apikey" in e.__str__() and "token" in e.__str__()
         assert "WATSONX_APIKEY" in e.__str__() and "WATSONX_TOKEN" in e.__str__()
@@ -56,7 +56,7 @@ def test_initialize_watsonxllm_cpd_bad_path_without_all() -> None:
     try:
         WatsonxLLM(
             model_id="google/flan-ul2",
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
         )
     except ValueError as e:
         assert (
@@ -75,8 +75,8 @@ def test_initialize_watsonxllm_cpd_bad_path_password_without_username() -> None:
     try:
         WatsonxLLM(
             model_id="google/flan-ul2",
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            password="test_password",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            password="test_password",
         )
     except ValueError as e:
         assert "username" in e.__str__()
@@ -87,8 +87,8 @@ def test_initialize_watsonxllm_cpd_bad_path_apikey_without_username() -> None:
     try:
         WatsonxLLM(
             model_id="google/flan-ul2",
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            apikey="test_apikey",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            apikey="test_apikey",
         )
     except ValueError as e:
         assert "username" in e.__str__()
@@ -96,17 +96,19 @@ def test_initialize_watsonxllm_cpd_bad_path_apikey_without_username() -> None:
 
 
 def test_initialize_watsonxllm_cpd_deprecation_warning_with_instance_id() -> None:
-    with pytest.warns(
-        DeprecationWarning, match="The `instance_id` parameter is deprecated"
+    with (
+        pytest.warns(
+            DeprecationWarning, match="The `instance_id` parameter is deprecated"
+        ),
+        pytest.raises(WMLClientError),
     ):
-        with pytest.raises(WMLClientError):
-            WatsonxLLM(
-                model_id="google/flan-ul2",
-                url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-                apikey="test_apikey",  # type: ignore[arg-type]
-                username="test_user",  # type: ignore[arg-type]
-                instance_id="openshift",  # type: ignore[arg-type]
-            )
+        WatsonxLLM(
+            model_id="google/flan-ul2",
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            apikey="test_apikey",
+            username="test_user",
+            instance_id="openshift",
+        )
 
 
 def test_initialize_watsonxllm_with_two_exclusive_parameters() -> None:
@@ -114,8 +116,8 @@ def test_initialize_watsonxllm_with_two_exclusive_parameters() -> None:
         WatsonxLLM(
             model_id=MODEL_ID,
             model=MODEL_ID,
-            url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
-            apikey="test_apikey",  # type: ignore[arg-type]
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="test_apikey",
         )
 
     assert (
@@ -131,8 +133,8 @@ def test_initialize_watsonxllm_with_three_exclusive_parameters() -> None:
             model_id=MODEL_ID,
             model=MODEL_ID,
             deployment_id="test_deployment_id",
-            url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
-            apikey="test_apikey",  # type: ignore[arg-type]
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="test_apikey",
         )
 
     assert (
