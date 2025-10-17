@@ -934,6 +934,33 @@ def create_index(
     vector_store: DB2VS,
     params: Optional[dict[str, Any]] = None,
 ) -> None:
+    """
+    Create an index for a Db2 Vector Store.
+
+    This is a thin convenience wrapper that validates the connection and
+    delegates to _create_diskann_index, using the table name and
+    distance strategy provided by `vector_store`.
+
+    Args:
+        connection:
+            Open ibm_db_dbi.Connection to the target Db2 database.
+        vector_store:
+            A DB2VS instance providing table_name (qualified or
+            unqualified) and distance_strategy (e.g., EUCLIDEAN or
+            EUCLIDEAN_SQUARED).
+        params:
+            Optional dictionary of index-creation parameters forwarded to
+            _create_diskann_index. Expected keys include:
+              - "vector_column" (str, required): Name of the vector column.
+              - "index_name" (str, required): Name for the new index.
+              - "schema" (str, optional): Schema containing the table if
+                not specified in table_name.
+              - "if_exists" (str, optional): One of "error", "skip",
+                or "replace" (default: "error").
+
+    Returns:
+        None
+    """
     if connection is None:
         raise ValueError("Expected an open ibm_db_dbi connection object")
 
@@ -953,29 +980,100 @@ def _create_diskann_index(
     params: Optional[dict[str, Any]] = None,
 ) -> None:
     """
-    Create a DiskANN index on a given table/column.
+    Create a DiskANN vector index on a specified table and vector column.
 
-    Required:
-      - params["vector_column"]: str
-      - params["index_name"]: str
+    The function safely quotes identifiers, resolves schema (from the qualified
+    table name, explicit "schema" param, or CURRENT SCHEMA), checks for
+    existing indexes with the same name, and conditionally skips, replaces,
+    or errors based on "if_exists". After index creation, it runs
+    RUNSTATS ... FOR INDEXES ALL to help the optimizer use the new index.
 
-    Optional:
-      - params["schema"]: str                 # If not included in table_name
-      - params["if_exists"]: str              # "error" | "skip" | "replace" (default: "error")
+    Args:
+        connection:
+            Open ibm_db_dbi.Connection to the target Db2 database.
+        table_name:
+            Target table name. May be qualified (e.g., "SCHEMA.TABLE") or
+            unqualified (schema resolved via params or CURRENT SCHEMA).
+        distance_strategy:
+            Distance function for the index. Supported values map to:
+            "EUCLIDEAN" or "EUCLIDEAN_SQUARED".
+        params:
+            Optional dictionary with index-creation options:
+              - "vector_column" (str, required): Name of the vector column
+                to index.
+              - "index_name" (str, required): Name for the index.
+              - "schema" (str, optional): Schema containing the table if
+                not included in table_name.
+              - "if_exists" (str, optional): Behavior when the index already
+                exists. One of:
+                  * "error" (default) - raise an error.
+                  * "skip" - do nothing if the index exists.
+                  * "replace" - drop the existing index and recreate it.
 
-    Notes:
-      - Supported distances: EUCLIDEAN/L2 and EUCLIDEAN_SQUARED.
-      - Identifiers are quoted safely (") with internal " escaped as "".
+    Returns:
+        None
     """
     params = params or {}
 
     def _quote_ident_and_capitalize(ident: str) -> str:
+        """
+        Return a safely quoted, uppercase identifier.
+
+        Converts the input identifier to uppercase, escapes internal double quotes
+        by doubling them, and wraps the result in double quotes. This ensures the
+        identifier is safe for use in Db2 DDL/DML statements.
+
+        Args:
+            ident:
+                Non-empty identifier string to be normalized and quoted.
+
+        Returns:
+            A double-quoted, uppercase, and escape-safe identifier string.
+
+        Raises:
+            ValueError:
+                If `ident` is None or an empty/whitespace-only string.
+
+        Notes:
+            - This does not validate identifier length or reserved words.
+            - Case normalization to uppercase matches default semantics for
+            unquoted identifiers.
+        """
         if ident is None or ident.strip() == "":
             raise ValueError("Identifier must be a non-empty string")
         # Capitalize and escape internal quotes
         return '"' + ident.upper().replace('"', '""') + '"'
 
     def _parse_qualified_name(name: str, explicit_schema: Optional[str]) -> tuple[str, str]:
+        """
+        Return (schema, table) from a possibly qualified table name.
+
+        If name is qualified as "SCHEMA.TABLE", it is split at the first "."
+        and any surrounding double quotes are stripped. Otherwise, the schema is
+        resolved from `explicit_schema` if provided, or via VALUES CURRENT SCHEMA
+        as a fallback.
+
+        Args:
+            name:
+                Table name, optionally qualified (e.g., 'MYSCHEMA.MYTABLE').
+                Double quotes around parts are allowed and will be stripped.
+            explicit_schema:
+                Optional schema to use when name is unqualified.
+
+        Returns:
+            A tuple `(schema, table)` with quotes removed but original letter case
+            preserved as provided. Final quoting/casing is applied by callers.
+
+        Raises:
+            ValueError:
+                If the schema cannot be determined (e.g., name is unqualified and
+                CURRENT SCHEMA cannot be retrieved).
+
+        Notes:
+            - Performs a small DB roundtrip when resolving CURRENT SCHEMA.
+            - Only the *first* dot splits schema and table to support table names
+            that may include additional dots when quoted properly.
+        """
         # Returns (schema, table)
         if "." in name:
             schema, tbl = name.split(".", 1)
@@ -994,7 +1092,30 @@ def _create_diskann_index(
 
     def _metric_from_strategy(strategy: DistanceStrategy) -> str:
         """
-        Map the DistanceStrategy to the engine's DISTANCE token.
+        Map a DistanceStrategy to the engine's DISTANCE token.
+
+        Converts the provided strategy (by .name if present, else str(strategy))
+        to an uppercase token compatible with the DiskANN WITH DISTANCE clause.
+
+        Supported mappings (case-insensitive):
+        - 'EUCLIDEAN', 'L2', 'EUCLIDEAN_DISTANCE'           -> 'EUCLIDEAN'
+        - 'EUCLIDEAN_SQUARED', 'EUCLIDEAN_SQUARED_DISTANCE',
+          'SQUARED_EUCLIDEAN', 'L2_SQUARED', 'L2SQUARED',
+          'SQEUCLIDEAN'                                     -> 'EUCLIDEAN_SQUARED'
+
+        Args:
+            strategy:
+                Distance strategy enum or object whose name identifies the metric.
+
+        Returns:
+            One of: 'EUCLIDEAN' or 'EUCLIDEAN_SQUARED'.
+
+        Raises:
+            ValueError:
+                If the strategy is not one of the supported values/aliases.
+
+        Notes:
+            - Aliases are provided for convenience and are normalized internally.
         """
         name = getattr(strategy, "name", str(strategy)).upper()
 
@@ -1025,6 +1146,25 @@ def _create_diskann_index(
         )
 
     def _exists_index(schema: str, index_name: str) -> bool:
+        """
+        Return whether an index already exists in the target schema.
+
+        Looks up SYSCAT.INDEXES using a parameterized query and returns True if
+        an index with the given (schema, index_name) is found.
+
+        Args:
+            schema:
+                Schema name to search (case-insensitive; compared uppercase).
+            index_name:
+                Index name to search (case-insensitive; compared uppercase).
+
+        Returns:
+            True if the index exists; False otherwise.
+
+        Notes:
+            - Performs a single-row lookup via FETCH FIRST 1 ROW ONLY.
+            - Uses uppercase comparison to match Db2's catalog conventions.
+        """
         sql = """
             SELECT 1
               FROM SYSCAT.INDEXES
@@ -1037,6 +1177,30 @@ def _create_diskann_index(
             return cur.fetchone() is not None
 
     def _drop_index(schema: str, index_name: str) -> None:
+        """
+        Drop an existing index using fully qualified and safely quoted names.
+
+        Constructs and executes DROP INDEX "SCHEMA"."INDEX" using the same
+        quoting rules as other DDL, ensuring safety against special characters
+        and case sensitivity.
+
+        Args:
+            schema:
+                Schema containing the index to drop.
+            index_name:
+                Name of the index to drop.
+
+        Returns:
+            None
+
+        Raises:
+            Exception:
+                Any database error raised by the underlying cursor execution.
+
+        Notes:
+            - This function does not check existence; callers are expected to ensure
+            the index exists or handle errors appropriately.
+        """
         ddl = f'DROP INDEX {_quote_ident_and_capitalize(schema)}.{_quote_ident_and_capitalize(index_name)}'
         with connection.cursor() as cur:
             cur.execute(ddl)
