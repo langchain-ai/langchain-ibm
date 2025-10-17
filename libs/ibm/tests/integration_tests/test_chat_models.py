@@ -32,7 +32,8 @@ MODEL_ID_REASONING_CONTENT = "openai/gpt-oss-120b"
 PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
 
 
-def test_chat_invoke_base() -> None:
+@pytest.mark.token_check
+def test_chat_invoke() -> None:
     chat = ChatWatsonx(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)
     messages = [
         ("user", "You are a helpful assistant that translates English to French."),

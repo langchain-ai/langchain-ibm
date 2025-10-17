@@ -19,7 +19,7 @@ integration_test integration_tests:
 	uv run --group test --group test_integration pytest $(TEST_FILE)
 
 token tokens:
-	uv run --group test --group test_integration pytest tests/integration_tests/test_chat_models.py -k "test_chat_invoke_base"
+	uv run --group test --group test_integration pytest tests/integration_tests/test_chat_models.py -m token_check
 
 coverage:
 	uv run pytest --cov \
