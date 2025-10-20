@@ -90,6 +90,7 @@ from langchain_ibm.utils import (
 logger = logging.getLogger(__name__)
 
 
+
 def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMessage:
     """Convert a dictionary to a LangChain message.
 
