@@ -4,7 +4,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "langchain-ibm"
-version = "0.3.19"
+version = "0.3.19.dev1"
 description = "An integration package connecting IBM watsonx.ai and LangChain"
 authors = [{ name = "IBM" }]
 license = { text = "MIT" }
