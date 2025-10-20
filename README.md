@@ -162,7 +162,7 @@ make integration_tests
 - Copy `tests/integration_tests/.env.example` to `tests/integration_tests/.env`
 - Set variables in `tests/integration_tests/.env` file, e.g `WATSONX_APIKEY`
 
-Additionally, it's important to note that some integration tests may require certain environment variables to be set, such as `PROJECT_ID`. Be sure to set any required environment variables before running the tests to ensure they run correctly.
+Additionally, it's important to note that some integration tests may require certain environment variables to be set, such as `WATSONX_PROJECT_ID`. Be sure to set any required environment variables before running the tests to ensure they run correctly.
 
 ### Coverage
 
