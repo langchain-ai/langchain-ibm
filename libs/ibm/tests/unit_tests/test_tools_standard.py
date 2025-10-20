@@ -1,5 +1,3 @@
-from typing import Type, Union
-
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.service_instance import ServiceInstance  # type: ignore
 from langchain_core.tools import BaseTool
@@ -17,7 +15,7 @@ client.service_instance = ServiceInstance.__new__(ServiceInstance)
 
 class TestWatsonxToolsStandard(ToolsUnitTests):
     @property
-    def tool_constructor(self) -> Union[Type[BaseTool], BaseTool]:
+    def tool_constructor(self) -> type[BaseTool] | BaseTool:
         return WatsonxTool
 
     @property
