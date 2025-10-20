@@ -70,16 +70,24 @@ jobs:
 
       - name: Check Version
         id: check-version
-        shell: bash
+        shell: python
         working-directory: ${{ inputs.working-directory }}
         run: |
-          echo pkg-name="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])")" >> $GITHUB_OUTPUT
-          echo version="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")" >> $GITHUB_OUTPUT
+          import os
+          import tomllib
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          pkg_name = data["project"]["name"]
+          version = data["project"]["version"]
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"pkg-name={pkg_name}\n")
+              f.write(f"version={version}\n")
 
   test-pypi-publish:
     needs:
       - build
-    uses: ./.github/workflows/_test_release.yml
+    uses:
+      ./.github/workflows/_test_release.yml
     permissions: write-all
     with:
       working-directory: ${{ inputs.working-directory }}
@@ -112,8 +120,14 @@ jobs:
 
       - name: Set up Python + uv
         uses: "./.github/actions/uv_setup"
+        id: setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: dist
+          path: ${{ inputs.working-directory }}/dist/
 
       - name: Import published package
         shell: bash
@@ -121,27 +135,9 @@ jobs:
         env:
           PKG_NAME: ${{ needs.build.outputs.pkg-name }}
           VERSION: ${{ needs.build.outputs.version }}
-        # Here we use:
-        # - The default regular PyPI index as the *primary* index, meaning
-        #   that it takes priority (https://pypi.org/simple)
-        # - The test PyPI index as an extra index, so that any dependencies that
-        #   are not found on test PyPI can be resolved and installed anyway.
-        #   (https://test.pypi.org/simple). This will include the PKG_NAME==VERSION
-        #   package because VERSION will not have been uploaded to regular PyPI yet.
-        # - attempt install again after 5 seconds if it fails because there is
-        #   sometimes a delay in availability on test pypi
         run: |
-          uv pip install \
-            --index-strategy unsafe-best-match \
-            --extra-index-url https://test.pypi.org/simple/ \
-            "$PKG_NAME==$VERSION" || \
-          ( \
-            sleep 5 && \
-            uv pip install \
-              --index-strategy unsafe-best-match \
-              --extra-index-url https://test.pypi.org/simple/ \
-              "$PKG_NAME==$VERSION" \
-          )
+          uv venv
+          VIRTUAL_ENV=.venv uv pip install dist/*.whl
 
           # Replace all dashes in the package name with underscores,
           # since that's how Python imports packages with dashes in the name.
@@ -153,7 +149,7 @@ jobs:
         run: uv sync --group test --group test_integration
         working-directory: ${{ inputs.working-directory }}
 
-      # Overwrite the local version of the package with the test PyPI version.
+      # Overwrite the local version of the package with the built version
       - name: Import published package (again)
         working-directory: ${{ inputs.working-directory }}
         shell: bash
@@ -161,10 +157,7 @@ jobs:
           PKG_NAME: ${{ needs.build.outputs.pkg-name }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          uv pip install \
-            --index-strategy unsafe-best-match \
-            --extra-index-url https://test.pypi.org/simple/ \
-            "$PKG_NAME==$VERSION"
+          VIRTUAL_ENV=.venv uv pip install dist/*.whl
 
       - name: Run unit tests
         run: make tests
@@ -181,8 +174,9 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
         id: min-version
         run: |
-          uv pip install packaging
-          min_versions="$(uv run python $GITHUB_WORKSPACE/.github/scripts/get_min_versions.py pyproject.toml release)"
+          VIRTUAL_ENV=.venv uv pip install packaging requests
+          python_version="$(uv run python --version | awk '{print $2}')"
+          min_versions="$(uv run python $GITHUB_WORKSPACE/.github/scripts/get_min_versions.py pyproject.toml release $python_version)"
           echo "min-versions=$min_versions" >> "$GITHUB_OUTPUT"
           echo "min-versions=$min_versions"
 
@@ -191,7 +185,7 @@ jobs:
         env:
           MIN_VERSIONS: ${{ steps.min-version.outputs.min-versions }}
         run: |
-          uv pip install $MIN_VERSIONS
+          VIRTUAL_ENV=.venv uv pip install $MIN_VERSIONS
           make tests
         working-directory: ${{ inputs.working-directory }}
 
@@ -234,6 +228,7 @@ jobs:
           packages-dir: ${{ inputs.working-directory }}/dist/
           verbose: true
           print-hash: true
+          # Temp workaround since attestations are on by default as of gh-action-pypi-publish v1\.11\.0
           attestations: false
 
   mark-release:
@@ -269,7 +264,7 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "${{ inputs.working-directory }}/dist/*"
+          artifacts: "dist/*"
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           generateReleaseNotes: true
