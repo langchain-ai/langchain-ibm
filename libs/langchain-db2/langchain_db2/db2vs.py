@@ -72,20 +72,6 @@ def _handle_exceptions(func: T) -> T:
 
     return cast(T, wrapper)
 
-
-def _table_exists(client: Connection, table_name: str) -> bool:
-    cursor = client.cursor()
-    try:
-        cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-    except Exception as ex:
-        if "SQL0204N" in str(ex):
-            return False
-        raise
-    finally:
-        cursor.close()
-    return True
-
-
 def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
     # Dictionary to map distance strategies to their corresponding function
     # names
@@ -102,17 +88,124 @@ def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
     # If it's an unsupported distance strategy, raise an error
     raise ValueError(f"Unsupported distance strategy: {distance_strategy}")
 
+def _object_exists(client: Connection, query: str, params: tuple = ()) -> bool:
+    """Utility to check if a catalog query returns at least one row."""
+    cur = client.cursor()
+    try:
+        cur.execute(query, params)
+        row = cur.fetchone()
+        return row is not None
+    finally:
+        cur.close()
+
+def _bufferpool_exists(client: Connection, bp_name: str) -> bool:
+    # SYSCAT.BUFFERPOOLS: bpname is uppercased in catalog
+    q = "SELECT 1 FROM SYSCAT.BUFFERPOOLS WHERE UPPER(BPNAME)=UPPER(?)"
+    return _object_exists(client, q, (bp_name,))
+
+def _tablespace_exists(client: Connection, ts_name: str) -> bool:
+    # SYSCAT.TABLESPACES: tbspace is uppercased in catalog
+    q = "SELECT 1 FROM SYSCAT.TABLESPACES WHERE UPPER(TBSPACE)=UPPER(?)"
+    return _object_exists(client, q, (ts_name,))
+
+def _table_exists(client: Connection, table_name: str) -> bool:
+    # Handle optional schema qualification; default current schema.
+    # Split into schema and name; else rely on CURRENT SCHEMA in the session.
+    parts = table_name.split(".")
+    if len(parts) == 2:
+        schema, name = parts[0], parts[1]
+        q = """
+            SELECT 1
+            FROM SYSCAT.TABLES
+            WHERE UPPER(TABSCHEMA)=UPPER(?) AND UPPER(TABNAME)=UPPER(?)
+        """
+        return _object_exists(client, q, (schema, name))
+    else:
+        q = """
+            SELECT 1
+            FROM SYSCAT.TABLES
+            WHERE UPPER(TABSCHEMA)=UPPER(CURRENT SCHEMA) AND UPPER(TABNAME)=UPPER(?)
+        """
+        return _object_exists(client, q, (table_name,))
+
+def _ensure_32k_bufferpool(client: Connection, bp_name: str = "BP32K", size_pages: int = 1000):
+    """
+    Ensure a 32K bufferpool exists. `size_pages` is in bufferpool pages, not bytes.
+    """
+    if _bufferpool_exists(client, bp_name):
+        logger.info(f"Bufferpool {bp_name} already exists.")
+        return
+
+    ddl = f"CREATE BUFFERPOOL {bp_name} SIZE {size_pages} PAGESIZE 32K"
+    cur = client.cursor()
+    try:
+        logger.info(f"Creating bufferpool {bp_name} (32K, size {size_pages} pages)...")
+        cur.execute(ddl)
+        cur.execute("COMMIT")
+        logger.info(f"Bufferpool {bp_name} created.")
+    finally:
+        cur.close()
+
+def _ensure_32k_tablespace(
+    client: Connection,
+    ts_name: str = "TS32K",
+    bp_name: str = "BP32K",
+    stogroup: str = "IBMSTOGROUP",
+    extent_kpages: int = 32,
+):
+    """
+    Ensure a 32K tablespace exists on automatic storage bound to the given bufferpool.
+    extent_kpages: EXTENTSIZE in pages (32K pages). 32 is a reasonable default.
+    """
+    if _tablespace_exists(client, ts_name):
+        logger.info(f"Tablespace {ts_name} already exists.")
+        return
+
+    # Ensure bufferpool exists before creating the tablespace
+    _ensure_32k_bufferpool(client, bp_name)
+
+    # Automatic storage + explicit bufferpool binding
+    ddl = (
+        f"CREATE LARGE TABLESPACE {ts_name} "
+        f"PAGESIZE 32K "
+        f"MANAGED BY AUTOMATIC STORAGE "
+        f"USING STOGROUP {stogroup} "
+        f"EXTENTSIZE {extent_kpages} "
+        f"BUFFERPOOL {bp_name}"
+    )
+    cur = client.cursor()
+    try:
+        logger.info(f"Creating tablespace {ts_name} (32K, BP={bp_name}, STG={stogroup})...")
+        cur.execute(ddl)
+        cur.execute("COMMIT")
+        logger.info(f"Tablespace {ts_name} created.")
+    finally:
+        cur.close()
 
 @_handle_exceptions
 def _create_table(
-    client: Connection, table_name: str, embedding_dim: int, text_field: str = "text"
+    client: Connection,
+    table_name: str,
+    embedding_dim: int,
+    text_field:
+    str = "text",
+    ts_name: str = "TS32K",
+    bp_name: str = "BP32K",
+    stogroup: str = "IBMSTOGROUP"
 ) -> None:
+    """
+    Create (if needed) a 32K bufferpool + tablespace, then create the table IN that tablespace.
+    """
+
     cols_dict = {
         "id": "CHAR(16) PRIMARY KEY NOT NULL",
         text_field: "CLOB",
         "metadata": "BLOB",
         "embedding": f"vector({embedding_dim}, FLOAT32)",
     }
+
+    # Ensure infra exists
+    _ensure_32k_tablespace(client, ts_name=ts_name, bp_name=bp_name, stogroup=stogroup)
 
     if not _table_exists(client, table_name):
         cursor = client.cursor()
@@ -1250,17 +1343,3 @@ def _create_diskann_index(
         connection.commit()
     except Exception:
         raise
-
-    # RUNSTATS to allow the optimizer to choose the index in queries
-    runstats_sql = (
-        f"RUNSTATS ON TABLE {fq_table} FOR INDEXES ALL"
-    )
-
-    with connection.cursor() as cur:
-        cur.execute(runstats_sql)
-
-    try:
-        connection.commit()
-    except Exception:
-        raise
-    return
