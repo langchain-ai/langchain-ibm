@@ -33,6 +33,9 @@ jobs:
   build:
     if: github.ref == 'refs/heads/main' || inputs.dangerous-nonmaster-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write # Needed for actions/upload-artifact
 
     outputs:
       pkg-name: ${{ steps.check-version.outputs.pkg-name }}
@@ -72,8 +75,8 @@ jobs:
         shell: bash
         working-directory: ${{ inputs.working-directory }}
         run: |
-          echo pkg-name="$(python -c \"import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])\")" >> $GITHUB_OUTPUT
-          echo version="$(python -c \"import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])\")" >> $GITHUB_OUTPUT
+          echo pkg-name="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])")" >> $GITHUB_OUTPUT
+          echo version="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")" >> $GITHUB_OUTPUT
 
   test-pypi-publish:
     needs:
@@ -91,6 +94,9 @@ jobs:
       - build
       - test-pypi-publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Needed for aws-actions/configure-aws-credentials
     steps:
       - uses: actions/checkout@v5
 
