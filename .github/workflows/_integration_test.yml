@@ -6,6 +6,7 @@ on:
       working-directory:
         required: true
         type: choice
+        default: libs/ibm
         options:
           - libs/ibm
           - libs/langchain-db2
