@@ -79,8 +79,7 @@ jobs:
   test-pypi-publish:
     needs:
       - build
-    uses:
-      ./.github/workflows/_test_release.yml
+    uses: ./.github/workflows/_test_release.yml
     permissions: write-all
     with:
       working-directory: ${{ inputs.working-directory }}
@@ -133,11 +132,13 @@ jobs:
         #   sometimes a delay in availability on test pypi
         run: |
           uv pip install \
+            --index-strategy unsafe-best-match \
             --extra-index-url https://test.pypi.org/simple/ \
             "$PKG_NAME==$VERSION" || \
           ( \
             sleep 5 && \
             uv pip install \
+              --index-strategy unsafe-best-match \
               --extra-index-url https://test.pypi.org/simple/ \
               "$PKG_NAME==$VERSION" \
           )
@@ -161,6 +162,7 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           uv pip install \
+            --index-strategy unsafe-best-match \
             --extra-index-url https://test.pypi.org/simple/ \
             "$PKG_NAME==$VERSION"
 
@@ -179,7 +181,7 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
         id: min-version
         run: |
-          VIRTUAL_ENV=.venv uv pip install packaging
+          uv pip install packaging
           min_versions="$(uv run python $GITHUB_WORKSPACE/.github/scripts/get_min_versions.py pyproject.toml release)"
           echo "min-versions=$min_versions" >> "$GITHUB_OUTPUT"
           echo "min-versions=$min_versions"
@@ -189,7 +191,7 @@ jobs:
         env:
           MIN_VERSIONS: ${{ steps.min-version.outputs.min-versions }}
         run: |
-          VIRTUAL_ENV=.venv uv pip install $MIN_VERSIONS
+          uv pip install $MIN_VERSIONS
           make tests
         working-directory: ${{ inputs.working-directory }}
 
@@ -267,7 +269,7 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "dist/*"
+          artifacts: "${{ inputs.working-directory }}/dist/*"
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           generateReleaseNotes: true
