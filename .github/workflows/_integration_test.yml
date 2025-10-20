@@ -25,9 +25,13 @@ on:
         type: string
         default: "tests/integration_tests/**/test*.py"
         description: "Which test file to run"
+      python-version:
+        required: false
+        type: string
+        default: "3.11"
+        description: "Python version to use"
 
 env:
-  PYTHON_VERSION: "3.11"
   UV_FROZEN: "true"
   UV_NO_SYNC: "true"
 
@@ -37,17 +41,17 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     runs-on: ubuntu-latest
-    name: "make integration_tests #${{ env.PYTHON_VERSION }}"
+    name: "make integration_tests #${{ inputs.python-version }}"
     steps:
       - uses: actions/checkout@v5
         with:
           repository: "${{ inputs.fork }}/langchain-ibm"
           ref: "${{ inputs.branch }}"
 
-      - name: "🐍 Set up Python ${{ env.PYTHON_VERSION }} + UV"
+      - name: "🐍 Set up Python ${{ inputs.python-version }} + UV"
         uses: "./.github/actions/uv_setup"
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ inputs.python-version }}
 
       - name: "📦 Install Dependencies"
         shell: bash
