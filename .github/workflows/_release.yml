@@ -22,7 +22,7 @@ on:
         description: "Release from a non-master branch (danger!)"
 
 env:
-  PYTHON_VERSION: "3.11"
+  PYTHON_VERSION: "3.13"
 
 permissions:
   contents: read
