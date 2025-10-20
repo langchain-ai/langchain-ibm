@@ -41,6 +41,7 @@ def test_initialize_chat_watsonx_bad_path_without_url() -> None:
 
     assert "url" in str(e.value)
     assert "WATSONX_URL" in str(e.value)
+    assert False
 
 
 def test_initialize_chat_watsonx_cloud_bad_path() -> None:
