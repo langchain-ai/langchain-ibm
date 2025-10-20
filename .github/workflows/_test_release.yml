@@ -15,7 +15,6 @@ on:
 
 env:
   PYTHON_VERSION: "3.11"
-  UV_FROZEN: "true"
 
 jobs:
   build:
@@ -60,8 +59,8 @@ jobs:
         shell: bash
         working-directory: ${{ inputs.working-directory }}
         run: |
-          echo pkg-name="$(python -c \"import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])\")" >> $GITHUB_OUTPUT
-          echo version="$(python -c \"import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])\")" >> $GITHUB_OUTPUT
+          echo "pkg-name=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["name"], end="")')" >> "$GITHUB_OUTPUT"
+          echo "version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"], end="")')" >> "$GITHUB_OUTPUT"
 
   publish:
     needs:
