@@ -907,7 +907,7 @@ def test_chat_streaming_multiple_tool_call() -> None:
     )
 
     @tool("search")
-    def search() -> list[str]:
+    def search(query: str) -> list[str]:  # noqa: ARG001
         """Call to search the web for capital of countries"""
         return ["capital of america is washington D.C."]
 
