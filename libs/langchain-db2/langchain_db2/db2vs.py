@@ -88,8 +88,18 @@ def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
     # If it's an unsupported distance strategy, raise an error
     raise ValueError(f"Unsupported distance strategy: {distance_strategy}")
 
-def _object_exists(client: Connection, query: str, params: tuple = ()) -> bool:
-    """Utility to check if a catalog query returns at least one row."""
+def _single_row_fetch(client: Connection, query: str, params: tuple = ()) -> bool:
+    """
+    Check if a catalog query returns at least one row.
+
+    Args:
+        client: Active Db2 connection
+        query: SQL query to execute
+        params: Parameters to bind to the query
+
+    Returns:
+        True if the query returns a row, False otherwise
+    """
     cur = client.cursor()
     try:
         cur.execute(query, params)
@@ -99,16 +109,47 @@ def _object_exists(client: Connection, query: str, params: tuple = ()) -> bool:
         cur.close()
 
 def _bufferpool_exists(client: Connection, bp_name: str) -> bool:
+    """
+    Check if a bufferpool exists in the catalog.
+
+    Args:
+        client: Active Db2 connection
+        bp_name: Name of the bufferpool
+
+    Returns:
+        True if the bufferpool exists, False otherwise
+    """
     # SYSCAT.BUFFERPOOLS: bpname is uppercased in catalog
     q = "SELECT 1 FROM SYSCAT.BUFFERPOOLS WHERE UPPER(BPNAME)=UPPER(?)"
-    return _object_exists(client, q, (bp_name,))
+    return _single_row_fetch(client, q, (bp_name,))
 
 def _tablespace_exists(client: Connection, ts_name: str) -> bool:
+    """
+    Check if a tablespace exists in the catalog.
+
+    Args:
+        client: Active Db2 connection
+        ts_name: Name of the tablespace
+
+    Returns:
+        True if the tablespace exists, False otherwise
+    """
     # SYSCAT.TABLESPACES: tbspace is uppercased in catalog
     q = "SELECT 1 FROM SYSCAT.TABLESPACES WHERE UPPER(TBSPACE)=UPPER(?)"
-    return _object_exists(client, q, (ts_name,))
+    return _single_row_fetch(client, q, (ts_name,))
 
 def _table_exists(client: Connection, table_name: str) -> bool:
+    """
+    Check if a table exists in the catalog.
+
+    Args:
+        client: Active Db2 connection
+        table_name: Name of the table, optionally schema-qualified
+
+    Returns:
+        True if the table exists, False otherwise
+    """
+
     # Handle optional schema qualification; default current schema.
     # Split into schema and name; else rely on CURRENT SCHEMA in the session.
     parts = table_name.split(".")
@@ -119,27 +160,35 @@ def _table_exists(client: Connection, table_name: str) -> bool:
             FROM SYSCAT.TABLES
             WHERE UPPER(TABSCHEMA)=UPPER(?) AND UPPER(TABNAME)=UPPER(?)
         """
-        return _object_exists(client, q, (schema, name))
+        return _single_row_fetch(client, q, (schema, name))
     else:
         q = """
             SELECT 1
             FROM SYSCAT.TABLES
             WHERE UPPER(TABSCHEMA)=UPPER(CURRENT SCHEMA) AND UPPER(TABNAME)=UPPER(?)
         """
-        return _object_exists(client, q, (table_name,))
+        return _single_row_fetch(client, q, (table_name,))
 
-def _ensure_32k_bufferpool(client: Connection, bp_name: str = "BP32K", size_pages: int = 1000):
+def _ensure_32k_bufferpool(client: Connection, bp_name: str = "BP32K"):
     """
-    Ensure a 32K bufferpool exists. `size_pages` is in bufferpool pages, not bytes.
+    Ensure a 32K bufferpool exists.
+
+    Args:
+        client: Active Db2 connection
+        bp_name: Name of the bufferpool to ensure
+
+    Returns:
+        None
     """
+
     if _bufferpool_exists(client, bp_name):
         logger.info(f"Bufferpool {bp_name} already exists.")
         return
 
-    ddl = f"CREATE BUFFERPOOL {bp_name} SIZE {size_pages} PAGESIZE 32K"
+    ddl = f"CREATE BUFFERPOOL {bp_name} PAGESIZE 32K"
     cur = client.cursor()
     try:
-        logger.info(f"Creating bufferpool {bp_name} (32K, size {size_pages} pages)...")
+        logger.info(f"Creating bufferpool {bp_name} (32K)...")
         cur.execute(ddl)
         cur.execute("COMMIT")
         logger.info(f"Bufferpool {bp_name} created.")
@@ -150,13 +199,19 @@ def _ensure_32k_tablespace(
     client: Connection,
     ts_name: str = "TS32K",
     bp_name: str = "BP32K",
-    stogroup: str = "IBMSTOGROUP",
-    extent_kpages: int = 32,
 ):
     """
     Ensure a 32K tablespace exists on automatic storage bound to the given bufferpool.
-    extent_kpages: EXTENTSIZE in pages (32K pages). 32 is a reasonable default.
+
+    Args:
+        client: Active Db2 connection
+        ts_name: Name of the tablespace to ensure
+        bp_name: Name of the bufferpool to bind
+
+    Returns:
+        None
     """
+
     if _tablespace_exists(client, ts_name):
         logger.info(f"Tablespace {ts_name} already exists.")
         return
@@ -169,13 +224,11 @@ def _ensure_32k_tablespace(
         f"CREATE LARGE TABLESPACE {ts_name} "
         f"PAGESIZE 32K "
         f"MANAGED BY AUTOMATIC STORAGE "
-        f"USING STOGROUP {stogroup} "
-        f"EXTENTSIZE {extent_kpages} "
         f"BUFFERPOOL {bp_name}"
     )
     cur = client.cursor()
     try:
-        logger.info(f"Creating tablespace {ts_name} (32K, BP={bp_name}, STG={stogroup})...")
+        logger.info(f"Creating tablespace {ts_name} (32K, BP={bp_name})...")
         cur.execute(ddl)
         cur.execute("COMMIT")
         logger.info(f"Tablespace {ts_name} created.")
@@ -190,11 +243,21 @@ def _create_table(
     text_field:
     str = "text",
     ts_name: str = "TS32K",
-    bp_name: str = "BP32K",
-    stogroup: str = "IBMSTOGROUP"
+    bp_name: str = "BP32K"
 ) -> None:
     """
-    Create (if needed) a 32K bufferpool + tablespace, then create the table IN that tablespace.
+    Create a table with vector, text, and metadata columns in a 32K tablespace.
+
+    Args:
+        client: Active Db2 connection
+        table_name: Name of the table to create
+        embedding_dim: Dimension of the embedding vector
+        text_field: Name of the column to store text data
+        ts_name: Name of the 32K tablespace to use
+        bp_name: Name of the 32K bufferpool to use
+
+    Returns:
+        None
     """
 
     cols_dict = {
@@ -205,7 +268,7 @@ def _create_table(
     }
 
     # Ensure infra exists
-    _ensure_32k_tablespace(client, ts_name=ts_name, bp_name=bp_name, stogroup=stogroup)
+    _ensure_32k_tablespace(client, ts_name=ts_name, bp_name=bp_name)
 
     if not _table_exists(client, table_name):
         cursor = client.cursor()
