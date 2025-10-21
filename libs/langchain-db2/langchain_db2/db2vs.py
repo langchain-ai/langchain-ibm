@@ -1343,3 +1343,16 @@ def _create_diskann_index(
         connection.commit()
     except Exception:
         raise
+
+    # RUNSTATS to allow the optimizer to choose the index
+    runstats_stmt = (
+        f"CALL SYSPROC.ADMIN_CMD('RUNSTATS ON TABLE {fq_table} FOR INDEXES ALL')"
+    )
+
+    with connection.cursor() as cur:
+        cur.execute(runstats_stmt)
+
+    try:
+        connection.commit()
+    except Exception:
+        raise
