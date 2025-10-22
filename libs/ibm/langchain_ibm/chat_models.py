@@ -165,7 +165,7 @@ def _format_message_content(content: Any) -> Any:
             if (
                 isinstance(block, dict)
                 and "type" in block
-                and block["type"] in ("tool_use", "thinking", "reasoning_content")
+                and block["type"] in {"tool_use", "thinking", "reasoning_content"}
             ):
                 continue
 
