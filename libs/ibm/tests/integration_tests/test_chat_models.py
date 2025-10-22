@@ -466,7 +466,6 @@ def test_chat_bind_tools_tool_choice_none() -> None:
     assert "location" in tool_call["args"]
 
 
-@pytest.mark.xfail(reason="Not supported yet")
 def test_chat_bind_tools_tool_choice_required() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
