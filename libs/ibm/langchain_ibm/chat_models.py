@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import warnings
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from operator import itemgetter
 from typing import (
@@ -77,6 +78,7 @@ from langchain_core.utils.pydantic import (
 )
 from langchain_core.utils.utils import secret_from_env
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic.v1 import BaseModel as BaseModelV1
 from typing_extensions import Self
 
 from langchain_ibm.utils import (
@@ -1418,6 +1420,7 @@ class ChatWatsonx(BaseChatModel):
         tools: Sequence[dict[str, Any] | type | Callable | BaseTool],
         *,
         tool_choice: dict | str | bool | None = None,
+        strict: bool | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, AIMessage]:
         """Bind tool-like objects to this chat model.
@@ -1436,9 +1439,17 @@ class ChatWatsonx(BaseChatModel):
                 - `dict` of the form `{"type": "function", "function": {"name": <<tool_name>>}}`: calls `<<tool_name>>` tool.
                 - `False` or `None`: no effect, default OpenAI behavior.
 
+            strict: If `True`, model output is guaranteed to exactly match the JSON Schema
+                provided in the tool definition. The input schema will also be validated according to the
+                supported schemas.
+                If `False`, input schema will not be validated and model output will not
+                be validated. If `None`, `strict` argument will not be passed to the model.
+
             kwargs: Any additional parameters are passed directly to `bind`.
         """  # noqa: E501
-        formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
+        formatted_tools = [
+            convert_to_openai_tool(tool, strict=strict) for tool in tools
+        ]
         if tool_choice:
             if isinstance(tool_choice, str):
                 # tool_choice is a tool/function name
@@ -1492,6 +1503,7 @@ class ChatWatsonx(BaseChatModel):
             "json_schema",
         ] = "function_calling",
         include_raw: bool = False,
+        strict: bool | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, dict | BaseModel]:
         """Model wrapper that returns outputs formatted to match the given schema.
@@ -1521,6 +1533,18 @@ class ChatWatsonx(BaseChatModel):
                 response will be returned. If an error occurs during output parsing it
                 will be caught and returned as well. The final output is always a dict
                 with keys `'raw'`, `'parsed'`, and `'parsing_error'`.
+
+            strict:
+
+                - `True`:
+                    Model output is guaranteed to exactly match the schema.
+                    The input schema will also be validated according to the
+                    supported schemas.
+                - `False`:
+                    Input schema will not be validated and model output will not be
+                    validated.
+                - `None`:
+                    `strict` argument will not be passed to the model.
 
             kwargs: Additional keyword args
 
@@ -1797,11 +1821,26 @@ class ChatWatsonx(BaseChatModel):
             ```
 
         """  # noqa: E501
-        _ = kwargs.pop("strict", None)
+        if strict is not None and method == "json_mode":
+            msg = "Argument `strict` is not supported with `method`='json_mode'"
+            raise ValueError(msg)
 
-        if kwargs:
-            error_msg = f"Received unsupported arguments {kwargs}"
-            raise ValueError(error_msg)
+        is_pydantic_schema = _is_pydantic_class(schema)
+
+        if (
+            method == "json_schema"
+            and is_pydantic_schema
+            and issubclass(schema, BaseModelV1)  # type: ignore[arg-type]
+        ):
+            # Check for Pydantic BaseModel V1
+            warnings.warn(
+                "Received a Pydantic BaseModel V1 schema. This is not supported by "
+                'method="json_schema". Please use method="function_calling" '
+                "or specify schema via JSON Schema or Pydantic V2 BaseModel. "
+                'Overriding to method="function_calling".'
+            )
+            method = "function_calling"
+
         is_pydantic_schema = _is_pydantic_class(schema)
         if method == "function_calling":
             if schema is None:
@@ -1814,9 +1853,10 @@ class ChatWatsonx(BaseChatModel):
             tool_name = formatted_tool["function"]["name"]
             model = self.bind_tools(
                 [schema],
+                strict=strict,
                 tool_choice=tool_name,
                 ls_structured_output_format={
-                    "kwargs": {"method": method},
+                    "kwargs": {"method": method, "strict": strict},
                     "schema": formatted_tool,
                 },
             )
@@ -1850,12 +1890,12 @@ class ChatWatsonx(BaseChatModel):
                     "Received None."
                 )
                 raise ValueError(error_msg)
-            response_format = _convert_to_openai_response_format(schema)
+            response_format = _convert_to_openai_response_format(schema, strict=strict)
 
             bind_kwargs = {
                 "response_format": response_format,
                 "ls_structured_output_format": {
-                    "kwargs": {"method": method},
+                    "kwargs": {"method": method, "strict": strict},
                     "schema": convert_to_openai_tool(schema),
                 },
             }
@@ -1931,7 +1971,7 @@ def _create_usage_metadata(
 
 
 def _convert_to_openai_response_format(
-    schema: dict[str, Any] | type,
+    schema: dict[str, Any] | type, *, strict: bool | None = None
 ) -> dict | TypeBaseModel:
     if isinstance(schema, type) and is_basemodel_subclass(schema):
         return schema
@@ -1941,11 +1981,29 @@ def _convert_to_openai_response_format(
         and "json_schema" in schema
         and schema.get("type") == "json_schema"
     ):
-        return schema
+        response_format = schema
+    elif isinstance(schema, dict) and "name" in schema and "schema" in schema:
+        response_format = {"type": "json_schema", "json_schema": schema}
+    else:
+        if strict is None:
+            if isinstance(schema, dict) and isinstance(schema.get("strict"), bool):
+                strict = schema["strict"]
+            else:
+                strict = False
+        function = convert_to_openai_function(schema, strict=strict)
+        function["schema"] = function.pop("parameters")
+        response_format = {"type": "json_schema", "json_schema": function}
 
-    if isinstance(schema, dict) and "name" in schema and "schema" in schema:
-        return {"type": "json_schema", "json_schema": schema}
-
-    function = convert_to_openai_function(schema)
-    function["schema"] = function.pop("parameters")
-    return {"type": "json_schema", "json_schema": function}
+    if (
+        strict is not None
+        and strict is not response_format["json_schema"].get("strict")
+        and isinstance(schema, dict)
+    ):
+        msg = (
+            f"Output schema already has 'strict' value set to "
+            f"{schema['json_schema']['strict']} but 'strict' also passed in to "
+            f"with_structured_output as {strict}. Please make sure that "
+            f"'strict' is only specified in one place."
+        )
+        raise ValueError(msg)
+    return response_format
