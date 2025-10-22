@@ -15,7 +15,7 @@ WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://us-south.ml.cloud.ibm.com"
-MODEL_ID = "ibm/slate-125m-english-rtrvr"
+MODEL_ID = "ibm/granite-embedding-107m-multilingual"
 
 DOCUMENTS = ["What is a generative ai?", "What is a loan and how does it works?"]
 
