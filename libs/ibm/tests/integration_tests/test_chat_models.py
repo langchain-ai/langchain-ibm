@@ -627,21 +627,21 @@ def test_chat_bind_tools_list_tool_choice_auto() -> None:
     query = "What is 3 + 12? "
     resp = chat_with_tools.invoke(query)
     assert resp.content == ""
-    assert len(resp.tool_calls) == 1  # type: ignore
-    tool_call = resp.tool_calls[0]  # type: ignore
+    assert len(resp.tool_calls) == 1
+    tool_call = resp.tool_calls[0]
     assert tool_call["name"] == "add"
 
     query = "What is 3 * 12? "
     resp = chat_with_tools.invoke(query)
     assert resp.content == ""
-    assert len(resp.tool_calls) == 1  # type: ignore
-    tool_call = resp.tool_calls[0]  # type: ignore
+    assert len(resp.tool_calls) == 1
+    tool_call = resp.tool_calls[0]
     assert tool_call["name"] == "multiply"
 
     query = "Who was the famous painter from Italy?"
     resp = chat_with_tools.invoke(query)
     assert resp.content
-    assert len(resp.tool_calls) == 0  # type: ignore
+    assert len(resp.tool_calls) == 0
 
 
 def test_chat_bind_tools_with_watsonx_tools() -> None:
@@ -748,21 +748,21 @@ def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_auto() -> None:
     query = "What is the weather in Boston?"
     resp = chat_with_tools.invoke(query)
     assert resp.content == ""
-    assert len(resp.tool_calls) == 1  # type: ignore
-    tool_call = resp.tool_calls[0]  # type: ignore
+    assert len(resp.tool_calls) == 1
+    tool_call = resp.tool_calls[0]
     assert tool_call["name"] == "Weather"
 
     query = "Search for IBM"
     resp = chat_with_tools.invoke(query)
     assert resp.content == ""
-    assert len(resp.tool_calls) == 1  # type: ignore
-    tool_call = resp.tool_calls[0]  # type: ignore
+    assert len(resp.tool_calls) == 1
+    tool_call = resp.tool_calls[0]
     assert tool_call["name"] == "GoogleSearch"
 
     query = "How are you doing?"
     resp = chat_with_tools.invoke(query)
     assert resp.content
-    assert len(resp.tool_calls) == 0  # type: ignore
+    assert len(resp.tool_calls) == 0
 
 
 def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_dict() -> None:
@@ -794,8 +794,8 @@ def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_dict() -> None:
     query = "What is the weather in Boston?"
     resp = chat_with_tools.invoke(query)
     assert resp.content == ""
-    assert len(resp.tool_calls) == 1  # type: ignore
-    tool_call = resp.tool_calls[0]  # type: ignore
+    assert len(resp.tool_calls) == 1
+    tool_call = resp.tool_calls[0]
     assert tool_call["name"] == "GoogleSearch"
 
 

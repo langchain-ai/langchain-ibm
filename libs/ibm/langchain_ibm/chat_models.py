@@ -1,6 +1,7 @@
 """IBM watsonx.ai chat wrapper."""
 
-import hashlib
+from __future__ import annotations
+
 import json
 import logging
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
@@ -8,7 +9,6 @@ from operator import itemgetter
 from typing import (
     Any,
     Literal,
-    TypedDict,
     cast,
 )
 
@@ -110,12 +110,9 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
         additional_kwargs: dict = {}
         if function_call := _dict.get("function_call"):
             additional_kwargs["function_call"] = dict(function_call)
-        if reasoning_content := _dict.get("reasoning_content"):
-            additional_kwargs["reasoning_content"] = reasoning_content
         tool_calls = []
         invalid_tool_calls = []
         if raw_tool_calls := _dict.get("tool_calls"):
-            additional_kwargs["tool_calls"] = raw_tool_calls
             for raw_tool_call in raw_tool_calls:
                 try:
                     tool_calls.append(parse_tool_call(raw_tool_call, return_id=True))
@@ -123,6 +120,10 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
                     invalid_tool_calls.append(
                         make_invalid_tool_call(raw_tool_call, str(e)),
                     )
+        if audio := _dict.get("audio"):
+            additional_kwargs["audio"] = audio
+        if reasoning_content := _dict.get("reasoning_content"):
+            additional_kwargs["reasoning_content"] = reasoning_content
         return AIMessage(
             content=content,
             additional_kwargs=additional_kwargs,
@@ -136,7 +137,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
     if role == "function":
         return FunctionMessage(
             content=_dict.get("content", ""),
-            name=cast("str", _dict.get("name")),
+            name=cast(str, _dict.get("name")),
             id=id_,
         )
     if role == "tool":
@@ -145,7 +146,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
             additional_kwargs["name"] = _dict["name"]
         return ToolMessage(
             content=_dict.get("content", ""),
-            tool_call_id=cast("str", _dict.get("tool_call_id")),
+            tool_call_id=cast(str, _dict.get("tool_call_id")),
             additional_kwargs=additional_kwargs,
             name=name,
             id=id_,
@@ -156,52 +157,42 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
 def _format_message_content(content: Any) -> Any:
     """Format message content."""
     if content and isinstance(content, list):
-        # Remove unexpected block types
         formatted_content = []
         for block in content:
+            # Remove unexpected block types
             if (
                 isinstance(block, dict)
                 and "type" in block
-                and block["type"] == "tool_use"
+                and block["type"] in ("tool_use", "thinking", "reasoning_content")
             ):
                 continue
-            formatted_content.append(block)
+
+            # Image blocks
+            if isinstance(block, dict) and block.get("type") == "image":
+                if (data := block.get("base64")) and (
+                    mime_type := block.get("mime_type")
+                ):
+                    formatted_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime_type};base64,{data}"},
+                        }
+                    )
+                else:
+                    continue
+            else:
+                formatted_content.append(block)
     else:
         formatted_content = content
 
     return formatted_content
 
 
-def _base62_encode(num: int) -> str:
-    """Encodes a number in base62 and ensures result is of a specified length."""
-    base62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    if num == 0:
-        return base62[0]
-    arr = []
-    base = len(base62)
-    while num:
-        num, rem = divmod(num, base)
-        arr.append(base62[rem])
-    arr.reverse()
-    return "".join(arr)
-
-
-def _convert_tool_call_id_to_mistral_compatible(tool_call_id: str) -> str:
-    """Convert a tool call ID to a Mistral-compatible format."""
-    hash_bytes = hashlib.sha256(tool_call_id.encode()).digest()
-    hash_int = int.from_bytes(hash_bytes, byteorder="big")
-    base62_str = _base62_encode(hash_int)
-    if len(base62_str) >= 9:
-        return base62_str[:9]
-    return base62_str.rjust(9, "0")
-
-
-def _convert_message_to_dict(message: BaseMessage, model_id: str | None) -> dict:
+def _convert_message_to_dict(message: BaseMessage) -> dict:
     """Convert a LangChain message to a dictionary.
 
     Args:
         message: The LangChain message.
-        model_id: Type of model to use.
 
     Returns:
         The dictionary.
@@ -217,8 +208,6 @@ def _convert_message_to_dict(message: BaseMessage, model_id: str | None) -> dict
         message_dict["role"] = "user"
     elif isinstance(message, AIMessage):
         message_dict["role"] = "assistant"
-        if "function_call" in message.additional_kwargs:
-            message_dict["function_call"] = message.additional_kwargs["function_call"]
         if message.tool_calls or message.invalid_tool_calls:
             message_dict["tool_calls"] = [
                 _lc_tool_call_to_watsonx_tool_call(tc) for tc in message.tool_calls
@@ -233,27 +222,31 @@ def _convert_message_to_dict(message: BaseMessage, model_id: str | None) -> dict
                 {k: v for k, v in tool_call.items() if k in tool_call_supported_props}
                 for tool_call in message_dict["tool_calls"]
             ]
+        elif "function_call" in message.additional_kwargs:
+            message_dict["function_call"] = message.additional_kwargs["function_call"]
         else:
             pass
         # If tool calls present, content null value should be None not empty string.
         if "function_call" in message_dict or "tool_calls" in message_dict:
             message_dict["content"] = message_dict["content"] or None
 
-        # Workaround for "mistralai/mistral-large" model when id < 9
-        if model_id and model_id.startswith("mistralai"):
-            tool_calls = message_dict.get("tool_calls", [])
+        audio: dict[str, Any] | None = None
+        for block in message.content:
             if (
-                isinstance(tool_calls, list)
-                and tool_calls
-                and isinstance(tool_calls[0], dict)
+                isinstance(block, dict)
+                and block.get("type") == "audio"
+                and (id_ := block.get("id"))
             ):
-                tool_call_id = tool_calls[0].get("id", "")
-                if len(tool_call_id) < 9:
-                    tool_call_id = _convert_tool_call_id_to_mistral_compatible(
-                        tool_call_id,
-                    )
-
-                message_dict["tool_calls"][0]["id"] = tool_call_id
+                audio = {"id": id_}
+        if not audio and "audio" in message.additional_kwargs:
+            raw_audio = message.additional_kwargs["audio"]
+            audio = (
+                {"id": message.additional_kwargs["audio"]["id"]}
+                if "id" in raw_audio
+                else raw_audio
+            )
+        if audio:
+            message_dict["audio"] = audio
     elif isinstance(message, SystemMessage):
         message_dict["role"] = "system"
     elif isinstance(message, FunctionMessage):
@@ -261,14 +254,6 @@ def _convert_message_to_dict(message: BaseMessage, model_id: str | None) -> dict
     elif isinstance(message, ToolMessage):
         message_dict["role"] = "tool"
         message_dict["tool_call_id"] = message.tool_call_id
-
-        # Workaround for "mistralai/mistral-large" model when tool_call_id < 9
-        if model_id and model_id.startswith("mistralai"):
-            tool_call_id = message_dict.get("tool_call_id", "")
-            if len(tool_call_id) < 9:
-                tool_call_id = _convert_tool_call_id_to_mistral_compatible(tool_call_id)
-
-            message_dict["tool_call_id"] = tool_call_id
 
         supported_props = {"content", "role", "tool_call_id"}
         message_dict = {k: v for k, v in message_dict.items() if k in supported_props}
@@ -285,8 +270,8 @@ def _convert_delta_to_message_chunk(
     is_first_tool_chunk: bool,
 ) -> BaseMessageChunk:
     id_ = call_id
-    role = cast("str", _dict.get("role"))
-    content = cast("str", _dict.get("content") or "")
+    role = cast(str, _dict.get("role"))
+    content = cast(str, _dict.get("content") or "")
     additional_kwargs: dict = {}
     if _dict.get("function_call"):
         function_call = dict(_dict["function_call"])
@@ -391,10 +376,6 @@ def _convert_chunk_to_generation_chunk(
         message=message_chunk,
         generation_info=generation_info or None,
     )
-
-
-class _FunctionCall(TypedDict):
-    name: str
 
 
 class ChatWatsonx(BaseChatModel):
@@ -1374,7 +1355,7 @@ class ChatWatsonx(BaseChatModel):
                 )
                 raise ValueError(error_msg)
             params = (params or {}) | {"stop_sequences": stop}
-        message_dicts = [_convert_message_to_dict(m, self.model_id) for m in messages]
+        message_dicts = [_convert_message_to_dict(m) for m in messages]
         return message_dicts, params or {}
 
     def _create_chat_result(
@@ -1432,63 +1413,13 @@ class ChatWatsonx(BaseChatModel):
             "stop",
         ]
 
-    def bind_functions(
-        self,
-        functions: Sequence[dict[str, Any] | type[BaseModel] | Callable | BaseTool],
-        function_call: _FunctionCall | str | None = None,
-        **kwargs: Any,
-    ) -> Runnable[LanguageModelInput, BaseMessage]:
-        """Bind functions (and other objects) to this chat model.
-
-        Assumes model is compatible with IBM watsonx.ai function-calling API.
-
-        Args:
-            functions: A list of function definitions to bind to this chat model.
-                Can be  a dictionary, pydantic model, or callable. Pydantic
-                models and callables will be automatically converted to
-                their schema dictionary representation.
-            function_call: Which function to require the model to call.
-                Must be the name of the single provided function or
-                "auto" to automatically determine which function to call
-                (if any).
-            **kwargs: Any additional parameters to pass to the Runnable constructor.
-        """
-        formatted_functions = [convert_to_openai_function(fn) for fn in functions]
-        if function_call is not None:
-            function_call = (
-                {"name": function_call}
-                if isinstance(function_call, str)
-                and function_call not in ("auto", "none")
-                else function_call
-            )
-            if isinstance(function_call, dict) and len(formatted_functions) != 1:
-                error_msg = (
-                    "When specifying `function_call`, you must provide exactly one "
-                    "function.",
-                )
-                raise ValueError(error_msg)
-            if (
-                isinstance(function_call, dict)
-                and formatted_functions[0]["name"] != function_call["name"]
-            ):
-                error_msg = (
-                    f"Function call {function_call} was specified, but the only "
-                    f"provided function was {formatted_functions[0]['name']}.",
-                )
-                raise ValueError(error_msg)
-            kwargs = {**kwargs, "function_call": function_call}
-        return super().bind(
-            functions=formatted_functions,
-            **kwargs,
-        )
-
     def bind_tools(
         self,
         tools: Sequence[dict[str, Any] | type | Callable | BaseTool],
         *,
         tool_choice: dict | str | bool | None = None,
         **kwargs: Any,
-    ) -> Runnable[LanguageModelInput, BaseMessage]:
+    ) -> Runnable[LanguageModelInput, AIMessage]:
         """Bind tool-like objects to this chat model.
 
         Args:
@@ -1866,6 +1797,8 @@ class ChatWatsonx(BaseChatModel):
             ```
 
         """  # noqa: E501
+        _ = kwargs.pop("strict", None)
+
         if kwargs:
             error_msg = f"Received unsupported arguments {kwargs}"
             raise ValueError(error_msg)
@@ -1918,15 +1851,7 @@ class ChatWatsonx(BaseChatModel):
                 )
                 raise ValueError(error_msg)
             response_format = _convert_to_openai_response_format(schema)
-            if is_pydantic_schema:
-                response_format = {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": schema.__name__,  # type: ignore[union-attr]
-                        "description": schema.__doc__,
-                        "schema": schema.model_json_schema(),  # type: ignore[union-attr]
-                    },
-                }
+
             bind_kwargs = {
                 "response_format": response_format,
                 "ls_structured_output_format": {
@@ -1962,7 +1887,7 @@ class ChatWatsonx(BaseChatModel):
 
 
 def _is_pydantic_class(obj: Any) -> bool:
-    return isinstance(obj, type) and issubclass(obj, BaseModel)
+    return isinstance(obj, type) and is_basemodel_subclass(obj)
 
 
 def _lc_tool_call_to_watsonx_tool_call(tool_call: ToolCall) -> dict:
@@ -1971,7 +1896,7 @@ def _lc_tool_call_to_watsonx_tool_call(tool_call: ToolCall) -> dict:
         "id": tool_call["id"],
         "function": {
             "name": tool_call["name"],
-            "arguments": json.dumps(tool_call["args"]),
+            "arguments": json.dumps(tool_call["args"], ensure_ascii=False),
         },
     }
 

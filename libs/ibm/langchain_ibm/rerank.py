@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
 from ibm_watsonx_ai.foundation_models import Rerank  # type: ignore[import-untyped]
 from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
-    RerankParameters,  # noqa: TC002
+    RerankParameters,
 )
 from langchain_core.documents import BaseDocumentCompressor, Document
 from langchain_core.utils.utils import secret_from_env
