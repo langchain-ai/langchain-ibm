@@ -25,8 +25,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/granite-3-3-8b-instruct"
-MODEL_ID_TOOL = "ibm/granite-3-3-8b-instruct"
-MODEL_ID_TOOL_2 = "meta-llama/llama-3-3-70b-instruct"
+MODEL_ID_TOOL = "meta-llama/llama-3-3-70b-instruct"
 MODEL_ID_REASONING_CONTENT = "openai/gpt-oss-120b"
 
 PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
@@ -365,7 +364,7 @@ def test_chain_invoke_2() -> None:
 
 def test_chat_bind_tools() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -399,7 +398,7 @@ def test_chat_bind_tools() -> None:
 
 def test_chat_bind_tools_tool_choice_auto() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -434,7 +433,7 @@ def test_chat_bind_tools_tool_choice_auto() -> None:
 @pytest.mark.xfail(reason="Not supported yet")
 def test_chat_bind_tools_tool_choice_none() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -468,7 +467,7 @@ def test_chat_bind_tools_tool_choice_none() -> None:
 
 def test_chat_bind_tools_tool_choice_required() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -503,7 +502,7 @@ def test_chat_bind_tools_tool_choice_required() -> None:
 def test_chat_bind_tools_tool_choice_as_class() -> None:
     """Test that tool choice is respected."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -530,7 +529,7 @@ def test_chat_bind_tools_tool_choice_as_class() -> None:
 def test_chat_bind_tools_tool_choice_as_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -558,7 +557,7 @@ def test_chat_bind_tools_tool_choice_as_dict() -> None:
 def test_chat_bind_tools_list_tool_choice_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL_2,
+        model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -599,7 +598,7 @@ def test_chat_bind_tools_list_tool_choice_dict() -> None:
 def test_chat_bind_tools_list_tool_choice_auto() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL_2,
+        model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -645,7 +644,7 @@ def test_chat_bind_tools_list_tool_choice_auto() -> None:
 
 def test_chat_bind_tools_with_watsonx_tools() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -671,7 +670,7 @@ def test_chat_bind_tools_with_watsonx_tools() -> None:
 
 def test_chat_bind_tools_with_watsonx_tools_tool_choice_auto() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -699,7 +698,7 @@ def test_chat_bind_tools_with_watsonx_tools_tool_choice_auto() -> None:
 def test_chat_bind_tools_with_watsonx_tools_tool_choice_as_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL_2,
+        model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -729,7 +728,7 @@ def test_chat_bind_tools_with_watsonx_tools_tool_choice_as_dict() -> None:
 def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_auto() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -767,7 +766,7 @@ def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_auto() -> None:
 def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -800,7 +799,7 @@ def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_dict() -> None:
 
 def test_chat_with_json_mode() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -825,7 +824,7 @@ def test_chat_with_json_mode() -> None:
 
 async def test_chat_with_json_mode_async() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -851,7 +850,7 @@ async def test_chat_with_json_mode_async() -> None:
 @pytest.mark.xfail(reason="Not implemented")
 def test_chat_streaming_tool_call() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -899,7 +898,7 @@ def test_chat_streaming_tool_call() -> None:
 
 def test_chat_streaming_multiple_tool_call() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         temperature=0,
@@ -940,7 +939,7 @@ def test_chat_streaming_multiple_tool_call() -> None:
 
     ai_message = cast("AIMessageChunk", ai_message)
     assert ai_message.response_metadata.get("finish_reason") == "tool_calls"
-    assert ai_message.response_metadata.get("model_name") == MODEL_ID_TOOL
+    assert ai_message.response_metadata.get("model_name") == MODEL_ID
     assert ai_message.id is not None
 
     # additional_kwargs
@@ -989,7 +988,7 @@ def test_chat_streaming_multiple_tool_call() -> None:
 
 def test_chat_structured_output_function_calling() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         temperature=0,
@@ -1016,7 +1015,7 @@ def test_chat_structured_output_function_calling() -> None:
 
 def test_chat_structured_output_json_schema() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         temperature=0,
@@ -1043,7 +1042,7 @@ def test_chat_structured_output_json_schema() -> None:
 
 def test_chat_streaming_structured_output_function_calling() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL_2,
+        model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -1071,7 +1070,7 @@ prompt_1 = "Say: 'Hello, My name is Erick!'"
 def test_init_with_params_1() -> None:
     params_1 = None
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1,
@@ -1082,7 +1081,7 @@ def test_init_with_params_1() -> None:
 def test_init_with_params_2() -> None:
     params_1 = {"max_tokens": 10}
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1,
@@ -1093,7 +1092,7 @@ def test_init_with_params_2() -> None:
 def test_init_with_params_3() -> None:
     params_1 = {"max_tokens": 10}
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         **params_1,
@@ -1105,7 +1104,7 @@ def test_init_with_params_4() -> None:
     params_1 = {"max_tokens": 10}
     params_2 = {"temperature": 0.5}
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1,
@@ -1120,7 +1119,7 @@ def test_init_with_params_5() -> None:
 
     with pytest.raises(ValueError) as e:
         ChatWatsonx(
-            model_id=MODEL_ID_TOOL,
+            model_id=MODEL_ID,
             url=URL,
             project_id=WX_PROJECT_ID,
             params=params_1,
@@ -1135,7 +1134,7 @@ def test_init_with_params_5() -> None:
 def test_invoke_with_params_1() -> None:
     params_1 = None
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -1151,7 +1150,7 @@ def test_invoke_with_params_1() -> None:
 def test_invoke_with_params_2() -> None:
     params_1 = {"max_tokens": 5}
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -1170,7 +1169,7 @@ def test_invoke_with_params_3() -> None:
     params_2_a = {"logprobs": False}
     params_2_b = {"logprobs": True}
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -1209,7 +1208,7 @@ def test_invoke_with_params_4() -> None:
     params_1 = {"max_tokens": 5}
     params_2 = {"max_tokens": 20}
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -1227,7 +1226,7 @@ def test_invoke_with_params_5() -> None:
     params_2 = {"max_tokens": 10}
     params_3 = {"logprobs": True}
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
@@ -1244,7 +1243,7 @@ def test_invoke_with_params_5() -> None:
 def test_init_and_invoke_with_params_1() -> None:
     params_1 = {"max_tokens": 11}
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1,
@@ -1263,7 +1262,7 @@ def test_init_and_invoke_with_params_2() -> None:
     params_1_c = {"max_tokens": 6}
 
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1_a,
@@ -1296,7 +1295,7 @@ def test_init_and_invoke_with_params_3() -> None:
     params_2_a = {"logprobs": False}
     params_2_b = {"logprobs": True}
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1_a,
@@ -1329,7 +1328,7 @@ def test_init_and_invoke_with_params_4() -> None:
     params_1_c = {"max_tokens": 6}
 
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1_a,
