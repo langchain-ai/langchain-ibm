@@ -26,6 +26,7 @@ URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/granite-3-3-8b-instruct"
 MODEL_ID_TOOL = "meta-llama/llama-3-3-70b-instruct"
+MODEL_ID_TOOL_2 = "mistralai/mistral-small-3-1-24b-instruct-2503"
 MODEL_ID_REASONING_CONTENT = "openai/gpt-oss-120b"
 
 PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
@@ -598,7 +599,7 @@ def test_chat_bind_tools_list_tool_choice_dict() -> None:
 def test_chat_bind_tools_list_tool_choice_auto() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID_TOOL_2,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
