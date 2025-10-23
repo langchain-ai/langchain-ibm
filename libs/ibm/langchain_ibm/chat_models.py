@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import logging
 import warnings
@@ -88,16 +89,13 @@ from langchain_ibm.utils import (
     gateway_error_handler,
     resolve_watsonx_credentials,
 )
-import json
-import ast
-
 
 logger = logging.getLogger(__name__)
 
 
-def normalize_tool_arguments(args_str):
-    """
-    Normalize the 'arguments' field of a tool call so that it is always a proper JSON string.
+def normalize_tool_arguments(args_str: str) -> str:
+    """Ensure arguments is always a proper JSON string.
+
     Handles:
     - JSON string
     - Python dict string
@@ -108,9 +106,12 @@ def normalize_tool_arguments(args_str):
     Returns:
         The LangChain tool call arguments args_str.
     """
-
     # Step 1: Remove outer quotes if it's a string starting and ending with quotes
-    if isinstance(args_str, str) and args_str.startswith('"') and args_str.endswith('"'):
+    if (
+        isinstance(args_str, str)
+        and args_str.startswith('"')
+        and args_str.endswith('"')
+    ):
         args_str = args_str[1:-1].encode().decode("unicode_escape")
 
     # Step 2: Try JSON
@@ -121,8 +122,7 @@ def normalize_tool_arguments(args_str):
         parsed = ast.literal_eval(args_str)
 
     # Step 4: Convert back to JSON string
-    args_str = json.dumps(parsed, indent=2)
-    return args_str
+    return json.dumps(parsed, indent=2)
 
 
 def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMessage:
@@ -152,7 +152,6 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
                 ## Code change to support langgraph with A2A and graph.astream.
                 if "function" in raw_tool_call:
                     func = raw_tool_call.get("function", {})
-                    args_raw = func.get("arguments", "{}")
                     if "arguments" in func:
                         raw_args = raw_tool_call["function"]["arguments"]
                         json_args_str = normalize_tool_arguments(raw_args)
