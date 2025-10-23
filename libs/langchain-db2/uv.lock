@@ -802,7 +802,7 @@ wheels = [
 
 [[package]]
 name = "langchain-community"
-version = "1.0.0a1"
+version = "0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -810,7 +810,6 @@ dependencies = [
     { name = "httpx-sse" },
     { name = "langchain-classic" },
     { name = "langchain-core" },
-    { name = "langchain-text-splitters" },
     { name = "langsmith" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -820,9 +819,9 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "tenacity" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5c/f2/4a58a8c39b3d0ce9605410ea31b3fe9a8e4ec703e3d89ab77ee6fd9bdb1d/langchain_community-1.0.0a1.tar.gz", hash = "sha256:397129bd72afe601ccfae71207c3ee59f5624e231bf03c986c08f73fd98aa209", size = 33241221, upload-time = "2025-10-07T19:50:02.358Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/be/07ad676e0e8c2afa96584ee5624967fa08f64efd04930cbb5d48eba6d693/langchain_community-0.4.tar.gz", hash = "sha256:11ff08c3d923641cecbe17379cfeeb1258eed1b51bbf1784362d69bb5fe38bf2", size = 33242918, upload-time = "2025-10-17T19:05:40.878Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/03/7d/6b2b8f5e02f6fcac08b21531d2fccc9deb0caf450cfbdc056b6d7ddb5467/langchain_community-1.0.0a1-py3-none-any.whl", hash = "sha256:a9061c7f03d354e0b31819e42c7c3a2ae08fac97666e550b22b8f57391dbdbcb", size = 2533110, upload-time = "2025-10-07T19:50:00.773Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/5e/8101e972895ba2732d1a59ba93da47aa394f02455f018d339fb94f45b08c/langchain_community-0.4-py3-none-any.whl", hash = "sha256:79034e7bd4ba3a67ae9d7dd7fcef63ef4ed44673480fea0405ab45295985d56d", size = 2533111, upload-time = "2025-10-17T19:05:38.61Z" },
 ]
 
 [[package]]
@@ -867,7 +866,6 @@ test = [
     { name = "pytest-socket" },
     { name = "pytest-watcher" },
     { name = "sentence-transformers" },
-    { name = "torch" },
 ]
 typing = [
     { name = "mypy" },
@@ -876,7 +874,7 @@ typing = [
 [package.metadata]
 requires-dist = [
     { name = "ibm-db", specifier = ">=3.2.6,<4.0.0" },
-    { name = "langchain-community", specifier = "==1.0.0a1" },
+    { name = "langchain-community", specifier = ">=0.4.0,<0.5.0" },
     { name = "langchain-core", specifier = ">=1.0.0" },
 ]
 
@@ -891,7 +889,6 @@ test = [
     { name = "pytest-socket", specifier = ">=0.7.0,<1.0.0" },
     { name = "pytest-watcher", specifier = ">=0.3.4,<1.0.0" },
     { name = "sentence-transformers", specifier = ">=4.0.1,<5.0.0" },
-    { name = "torch", specifier = "==2.8.0" },
 ]
 test-integration = []
 typing = [{ name = "mypy", specifier = ">=1.17.1,<2.0.0" }]
