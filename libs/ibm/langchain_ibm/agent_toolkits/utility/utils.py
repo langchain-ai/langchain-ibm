@@ -1,5 +1,7 @@
+"""Utility helpers."""
+
 from copy import deepcopy
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from langchain_ibm.agent_toolkits.utility.toolkit import WatsonxTool
@@ -51,7 +53,7 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
         ```
     """
 
-    def parse_parameters(input_schema: Optional[dict]) -> dict:
+    def parse_parameters(input_schema: dict | None) -> dict:
         if input_schema:
             parameters = deepcopy(input_schema)
         else:
@@ -68,7 +70,7 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
 
         return parameters
 
-    watsonx_tool = {
+    return {
         "type": "function",
         "function": {
             "name": tool.name,
@@ -76,4 +78,3 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
             "parameters": parse_parameters(tool.tool_input_schema),
         },
     }
-    return watsonx_tool

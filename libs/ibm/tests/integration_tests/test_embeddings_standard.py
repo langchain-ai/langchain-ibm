@@ -1,5 +1,4 @@
 import os
-from typing import Type
 
 from langchain_tests.integration_tests.embeddings import EmbeddingsIntegrationTests
 
@@ -15,7 +14,7 @@ MODEL_ID = "ibm/granite-embedding-107m-multilingual"
 
 class TestWatsonxEmbeddingsStandard(EmbeddingsIntegrationTests):
     @property
-    def embeddings_class(self) -> Type[WatsonxEmbeddings]:
+    def embeddings_class(self) -> type[WatsonxEmbeddings]:
         return WatsonxEmbeddings
 
     @property

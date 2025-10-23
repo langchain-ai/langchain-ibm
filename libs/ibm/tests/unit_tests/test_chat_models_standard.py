@@ -1,5 +1,3 @@
-from typing import Type
-
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from ibm_watsonx_ai.service_instance import ServiceInstance  # type: ignore
 from langchain_core.language_models import BaseChatModel
@@ -21,7 +19,7 @@ client._async_httpx_client = None
 
 class TestWatsonxStandard(ChatModelUnitTests):
     @property
-    def chat_model_class(self) -> Type[BaseChatModel]:
+    def chat_model_class(self) -> type[BaseChatModel]:
         return ChatWatsonx
 
     @property
