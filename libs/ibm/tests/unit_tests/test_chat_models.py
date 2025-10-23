@@ -20,9 +20,7 @@ from langchain_ibm.chat_models import normalize_tool_arguments
 os.environ.pop("WATSONX_APIKEY", None)
 os.environ.pop("WATSONX_PROJECT_ID", None)
 
-
 MODEL_ID = "mistralai/mixtral-8x7b-instruct-v01"
-
 
 api_client_mock = Mock(spec=APIClient)
 api_client_mock.default_space_id = None
@@ -42,6 +40,7 @@ def test_initialize_chat_watsonx_bad_path_without_url() -> None:
         ChatWatsonx(
             model_id=MODEL_ID,
         )
+
     assert "url" in str(e.value)
     assert "WATSONX_URL" in str(e.value)
 
@@ -105,22 +104,6 @@ def test_initialize_chat_watsonx_cpd_bad_path_only_apikey() -> None:
     assert "WATSONX_USERNAME" in str(e.value)
 
 
-def test_initialize_chat_watsonx_with_two_exclusive_parameters() -> None:
-    with pytest.raises(ValueError) as e:
-        ChatWatsonx(
-            model_id=MODEL_ID,
-            model=MODEL_ID,
-            url="https://us-south.ml.cloud.ibm.com",
-            apikey="test_apikey",
-        )
-
-    assert (
-        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
-        " Please specify exactly one of these parameters when initializing ChatWatsonx."
-        in str(e.value)
-    )
-
-
 def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> None:
     with (
         pytest.warns(
@@ -135,6 +118,22 @@ def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> N
             username="test_user",
             instance_id="openshift",
         )
+
+
+def test_initialize_chat_watsonx_with_two_exclusive_parameters() -> None:
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx(
+            model_id=MODEL_ID,
+            model=MODEL_ID,
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="test_apikey",
+        )
+
+    assert (
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing ChatWatsonx."
+        in str(e.value)
+    )
 
 
 def test_initialize_chat_watsonx_with_three_exclusive_parameters() -> None:
