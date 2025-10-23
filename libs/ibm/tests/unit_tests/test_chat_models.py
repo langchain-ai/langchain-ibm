@@ -91,6 +91,8 @@ def test_initialize_chat_watsonx_cpd_bad_path_only_username() -> None:
         )
     assert "password" in str(e.value)
     assert "WATSONX_PASSWORD" in str(e.value)
+    assert "apikey" in str(e.value)
+    assert "WATSONX_APIKEY" in str(e.value)
 
 
 def test_initialize_chat_watsonx_cpd_bad_path_only_apikey() -> None:
