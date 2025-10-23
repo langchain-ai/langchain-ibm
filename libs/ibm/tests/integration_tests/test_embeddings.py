@@ -15,7 +15,7 @@ WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://us-south.ml.cloud.ibm.com"
-MODEL_ID = "ibm/slate-125m-english-rtrvr"
+MODEL_ID = "ibm/granite-embedding-107m-multilingual"
 
 DOCUMENTS = ["What is a generative ai?", "What is a loan and how does it works?"]
 
@@ -23,8 +23,8 @@ DOCUMENTS = ["What is a generative ai?", "What is a loan and how does it works?"
 def test_init_with_credentials() -> None:
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
-        apikey=WX_APIKEY,  # type: ignore[arg-type]
+        url="https://us-south.ml.cloud.ibm.com",
+        apikey=WX_APIKEY,
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = watsonx_embedding.embed_documents(texts=DOCUMENTS)
@@ -69,7 +69,7 @@ def test_init_with_embeddings() -> None:
 def test_01_generate_embed_documents() -> None:
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = watsonx_embedding.embed_documents(texts=DOCUMENTS)
@@ -80,7 +80,7 @@ def test_01_generate_embed_documents() -> None:
 async def test_01_generate_aembed_documents() -> None:
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = await watsonx_embedding.aembed_documents(texts=DOCUMENTS)
@@ -94,7 +94,7 @@ def test_02_generate_embed_documents_with_param() -> None:
     }
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
         params=embed_params,
     )
@@ -109,7 +109,7 @@ def test_03_generate_embed_documents_with_param_in_method() -> None:
     }
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = watsonx_embedding.embed_documents(
@@ -125,7 +125,7 @@ def test_04_generate_embed_documents_with_param_and_concurrency_limit() -> None:
     }
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
         params=embed_params,
     )
@@ -139,7 +139,7 @@ def test_04_generate_embed_documents_with_param_and_concurrency_limit() -> None:
 def test_10_generate_embed_query() -> None:
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = watsonx_embedding.embed_query(text=DOCUMENTS[0])
@@ -151,7 +151,7 @@ def test_10_generate_embed_query() -> None:
 async def test_10_generate_aembed_query() -> None:
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = await watsonx_embedding.aembed_query(text=DOCUMENTS[0])
@@ -166,7 +166,7 @@ def test_11_generate_embed_query_with_params() -> None:
     }
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = watsonx_embedding.embed_query(
@@ -183,7 +183,7 @@ def test_12_generate_embed_query_with_params_and_concurrency_limit() -> None:
     }
     watsonx_embedding = WatsonxEmbeddings(
         model_id=MODEL_ID,
-        url=URL,  # type: ignore[arg-type]
+        url=URL,
         project_id=WX_PROJECT_ID,
         params=embed_params,
     )

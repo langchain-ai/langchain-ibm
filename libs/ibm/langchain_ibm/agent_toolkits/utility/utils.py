@@ -1,5 +1,7 @@
+"""Utility helpers."""
+
 from copy import deepcopy
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from langchain_ibm.agent_toolkits.utility.toolkit import WatsonxTool
@@ -11,11 +13,9 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
     Args:
         tool: `WatsonxTool` from `WatsonxToolkit`
 
+    ???+ example "Example"
 
-    Example:
-
-    .. code-block:: python
-
+        ```python
         from langchain_ibm.agents_toolkits.utility import WatsonxToolkit
 
         watsonx_toolkit = WatsonxToolkit(
@@ -24,35 +24,36 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
         )
         weather_tool = watsonx_toolkit.get_tool("Weather")
         convert_to_watsonx_tool(weather_tool)
+        ```
 
-        # Return
-        # {
-        #     "type": "function",
-        #     "function": {
-        #         "name": "Weather",
-        #         "description": "Find the weather for a city.",
-        #         "parameters": {
-        #             "type": "object",
-        #             "properties": {
-        #                 "location": {
-        #                     "title": "location",
-        #                     "description": "Name of the location",
-        #                     "type": "string",
-        #                 },
-        #                 "country": {
-        #                     "title": "country",
-        #                     "description": "Name of the state or country",
-        #                     "type": "string",
-        #                 },
-        #             },
-        #             "required": ["location"],
-        #         },
-        #     },
-        # }
-
+        ```json
+        {
+            "type": "function",
+            "function": {
+                "name": "Weather",
+                "description": "Find the weather for a city.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "title": "location",
+                            "description": "Name of the location",
+                            "type": "string",
+                        },
+                        "country": {
+                            "title": "country",
+                            "description": "Name of the state or country",
+                            "type": "string",
+                        },
+                    },
+                    "required": ["location"],
+                },
+            },
+        }
+        ```
     """
 
-    def parse_parameters(input_schema: Optional[dict]) -> dict:
+    def parse_parameters(input_schema: dict | None) -> dict:
         if input_schema:
             parameters = deepcopy(input_schema)
         else:
@@ -69,7 +70,7 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
 
         return parameters
 
-    watsonx_tool = {
+    return {
         "type": "function",
         "function": {
             "name": tool.name,
@@ -77,4 +78,3 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
             "parameters": parse_parameters(tool.tool_input_schema),
         },
     }
-    return watsonx_tool
