@@ -1,3 +1,5 @@
+# noqa: D104
+
 from importlib import metadata
 
 from langchain_db2.db2vs import DB2VS

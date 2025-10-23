@@ -1,4 +1,4 @@
-name: Tokens available check
+name: "📋 Tokens available check"
 
 on:
   workflow_dispatch:
@@ -7,38 +7,50 @@ on:
         required: true
         type: string
         default: 'libs/ibm'
-      python-version:
+      fork:
         required: true
         type: string
-        default: '3.11'
+        default: 'langchain-ai'
+        description: "Which fork to run this test against"
+      branch:
+        required: true
+        type: string
+        default: 'main'
+        description: "Which branch to run this test against"
+      python-version:
+        required: false
+        type: string
+        default: "3.11"
         description: "Python version to use"
 
 env:
-  POETRY_VERSION: "1.7.1"
+  UV_FROZEN: "true"
+  UV_NO_SYNC: "true"
 
 jobs:
   build:
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
-    runs-on: ubuntu-latest
-    name: Python ${{ inputs.python-version }}
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ inputs.python-version }} + Poetry ${{ env.POETRY_VERSION }}
-        uses: "./.github/actions/poetry_setup"
+    runs-on: ubuntu-latest
+    name: "Tokens available - Python ${{ inputs.python-version }}"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: "${{ inputs.fork }}/langchain-ibm"
+          ref: "${{ inputs.branch }}"
+
+      - name: "🐍 Set up Python ${{ inputs.python-version }} + UV"
+        uses: "./.github/actions/uv_setup"
         with:
           python-version: ${{ inputs.python-version }}
-          poetry-version: ${{ env.POETRY_VERSION }}
-          working-directory: ${{ inputs.working-directory }}
-          cache-key: core
 
-      - name: Install dependencies
+      - name: "📦 Install Dependencies"
         shell: bash
-        run: poetry install --with test,test_integration
+        run: uv sync --group test --group test_integration
 
-      - name: Run tokens available check
+      - name: "🔗 Run tokens available check"
         shell: bash
         env:
           WATSONX_APIKEY: ${{ secrets.WATSONX_APIKEY }}
@@ -46,7 +58,7 @@ jobs:
         run: |
           make token
 
-      - name: Ensure the tests did not create any additional files
+      - name: "🧹 Verify Clean Working Directory"
         shell: bash
         run: |
           set -eu

@@ -1,74 +1,136 @@
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
 
-[tool.poetry]
+[project]
 name = "langchain-db2"
 version = "0.1.7"
 description = "An integration package connecting Db2 vector store and LangChain"
-authors = ["IBM"]
+authors = [{ name = "IBM" }]
+license = { text = "MIT" }
+requires-python = ">=3.9,<4.0"
 readme = "README.md"
-repository = "https://github.com/langchain-ai/langchain-ibm"
-license = "MIT"
 
-[tool.mypy]
-disallow_untyped_defs = "True"
+dependencies = [
+    "langchain-core>=0.3.15,<0.4",
+    "langchain-community>=0.3.20,<0.4",
+    "ibm-db>=3.2.6,<4.0.0",
+]
 
-[tool.poetry.urls]
+[project.urls]
 "Source Code" = "https://github.com/langchain-ai/langchain-ibm/tree/main/libs/langchain-db2"
+repository = "https://github.com/langchain-ai/langchain-ibm"
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-langchain-core = "^0.3.15"
-ibm-db = "^3.2.6"
-langchain-community = "^0.3.20"
+[dependency-groups]
+lint = [
+    "ruff>=0.13.1,<0.14.0",
+]
+typing = [
+    "mypy>=1.17.1,<2.0.0",
+]
+test = [
+    "pytest>=8.4.0,<9.0.0",
+    "pytest-asyncio>=0.23.2,<1.0.0",
+    "pytest-socket>=0.7.0,<1.0.0",
+    "pytest-watcher>=0.3.4,<1.0.0",
+    "langchain-tests>=0.3.5,<1.0.0",
+    "sentence-transformers>=4.0.1,<5.0.0",
+]
+
+test_integration = []
+
+codespell = [
+  "codespell>=2.2.6,<3.0.0",
+]
+
+dev = []
+
+[tool.ruff]
+fix = true
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "T201"]
+pydocstyle.convention = "google"
+pep8-naming.classmethod-decorators = [
+    "langchain_core.pydantic_v1.validator",
+]
+flake8-annotations.allow-star-arg-any = true
+flake8-annotations.mypy-init-return = true
+select = ["ALL"]
+ignore = [
+    "COM812", # Messes with the formatter
+    "C901",    # Complex functions
+    "SIM105",  # Rarely useful
+    "PERF203", # Rarely useful
+    "PLR0911", # Too many return statements
+    "PLR0912", # Too many branches
+    "PLR0913", # Too many arguments
+    "PLR0914", # Too many local variables
+    "PLR0915", # Too many statements
+    "PLR2004",
+    #TODO
+    "ARG002",
+    "BLE001",
+    "ANN401",
+    "FBT",
+    "D301",
+    "PLW",
+    "A001",
+    "B028",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "D",       # Docstring checks in tests
+    "S101",    # Tests need assertions
+    "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "SLF001",  # Private member access in tests
+    "T201",
+    "FIX",     # TODOs
+    "TD",      # TODOs
+    # TODO
+    "RUF012",
+    "PGH003",
+    "S",
+    "PT"
+]
+"scripts/*" = [
+    "D",
+    "T201",
+    "INP"
+]
+"docs/*.ipynb" = [
+    "D",
+    "T201",
+    # TODO
+    "INP",
+    "ANN",
+    "ERA",
+    "E",
+    "FIX",
+    "TD"
+]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+strict = true
+warn_unreachable = true
+
+# TODO: activate for 'strict' checking
+disallow_any_generics = false
+warn_return_any = false
 
 [tool.coverage.run]
 omit = ["tests/*"]
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers --strict-config --durations=5"
+addopts = "--snapshot-warn-unused --strict-markers --strict-config --durations=5 -vv"
 markers = [
-    "compile: mark placeholder test used to compile integration tests without running them",
+  "requires: mark tests as requiring a specific library",
+  "asyncio: mark tests as requiring asyncio",
+  "compile: mark placeholder test used to compile integration tests without running them",
 ]
 asyncio_mode = "auto"
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.codespell]
-optional = true
-
-[tool.poetry.group.test_integration]
-optional = true
-
-[tool.poetry.group.lint]
-optional = true
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.4.3"
-pytest-asyncio = "^0.23.2"
-pytest-socket = "^0.7.0"
-pytest-watcher = "^0.3.4"
-langchain-tests = "^0.3.5"
-sentence-transformers = "^4.0.1"
-transformers = "<4.57.0"  # https://github.com/python-poetry/poetry/issues/10577
-
-[tool.poetry.group.codespell.dependencies]
-codespell = "^2.2.6"
-
-[tool.poetry.group.test_integration.dependencies]
-
-[tool.poetry.group.lint.dependencies]
-ruff = "^0.5"
-
-[tool.poetry.group.typing.dependencies]
-mypy = "^1.10"
+filterwarnings = "ignore::pytest.PytestUnraisableExceptionWarning"

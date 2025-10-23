@@ -1,4 +1,3 @@
-from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -34,8 +33,9 @@ def test_query_tool_run_with_valid_query(mock_db: Mock) -> None:
 def test_query_tool_run_with_invalid_query(mock_db: Mock) -> None:
     """Test running an invalid query."""
 
-    def mock_run_no_throw(*args: Any, **kwargs: Any) -> None:
-        raise flight.FlightError("Invalid query")
+    def mock_run_no_throw() -> None:
+        error_msg = "Invalid query"
+        raise flight.FlightError(error_msg)
 
     mock_db.run.side_effect = mock_run_no_throw
     tool = QuerySQLDatabaseTool(db=mock_db)
@@ -63,8 +63,9 @@ def test_info_tool_run_with_valid_query(mock_db: Mock) -> None:
 def test_info_tool_run_with_invalid_query(mock_db: Mock) -> None:
     """Test running an invalid query."""
 
-    def mock_get_table_info(*args: Any, **kwargs: Any) -> None:
-        raise flight.FlightError("Table not Found")
+    def mock_get_table_info() -> None:
+        error_msg = "Table not Found"
+        raise flight.FlightError(error_msg)
 
     mock_db.get_table_info.side_effect = mock_get_table_info
     tool = InfoSQLDatabaseTool(db=mock_db)

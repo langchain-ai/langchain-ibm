@@ -6,6 +6,9 @@ from unittest.mock import Mock
 import pytest
 from ibm_watsonx_ai import APIClient  # type: ignore
 from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
+from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
+    TextChatParameters,
+)
 from ibm_watsonx_ai.gateway import Gateway  # type: ignore
 from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
 
@@ -43,7 +46,8 @@ def test_initialize_chat_watsonx_bad_path_without_url() -> None:
 
 def test_initialize_chat_watsonx_cloud_bad_path() -> None:
     with pytest.raises(ValueError) as e:
-        ChatWatsonx(model_id=MODEL_ID, url="https://us-south.ml.cloud.ibm.com")  # type: ignore[arg-type]
+        ChatWatsonx(model_id=MODEL_ID, url="https://us-south.ml.cloud.ibm.com")
+
     assert "apikey" in str(e.value) and "token" in str(e.value)
     assert "WATSONX_APIKEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
 
@@ -52,7 +56,7 @@ def test_initialize_chat_watsonx_cpd_bad_path_without_all() -> None:
     with pytest.raises(ValueError) as e:
         ChatWatsonx(
             model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
         )
     assert (
         "apikey" in str(e.value)
@@ -70,8 +74,8 @@ def test_initialize_chat_watsonx_cpd_bad_path_only_password() -> None:
     with pytest.raises(ValueError) as e:
         ChatWatsonx(
             model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            password="fake_password",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            password="fake_password",
         )
     assert "username" in str(e.value)
     assert "WATSONX_USERNAME" in str(e.value)
@@ -81,8 +85,8 @@ def test_initialize_chat_watsonx_cpd_bad_path_only_username() -> None:
     with pytest.raises(ValueError) as e:
         ChatWatsonx(
             model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",  # type: ignore[arg-type]
-            username="fake_username",  # type: ignore[arg-type]
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            username="fake_username",
         )
     assert "password" in str(e.value)
     assert "WATSONX_PASSWORD" in str(e.value)
@@ -111,16 +115,19 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
                 k: v
                 for k, v in TextChatParameters.get_sample_params().items()
                 if "guided" not in k
+                if "chat_template_kwargs" not in k
+                if "reasoning_effort" not in k
+                if "include_reasoning" not in k
             }
-            | dict(
-                logit_bias={"1003": -100, "1004": -100},
-                seed=41,
-                stop=["this", "the"],
-            )
-            | dict(top_p=TOP_P)
+            | {
+                "logit_bias": {"1003": -100, "1004": -100},
+                "seed": 41,
+                "stop": ["this", "the"],
+            }
+            | {"top_p": top_p}
         )
-        # logit_bias, seed and stop available in sdk since 1.2.7
-        return {"id": "123", "choices": [{"message": dict(content="Hi", role="ai")}]}
+
+        return {"id": "123", "choices": [{"message": {"content": "Hi", "role": "ai"}}]}
 
     mocker.patch(
         "ibm_watsonx_ai.foundation_models.ModelInference.__init__",
@@ -133,8 +140,8 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
 
     chat = ChatWatsonx(
         model_id="google/flan-ul2",
-        url="https://us-south.ml.cloud.ibm.com",  # type: ignore[arg-type]
-        apikey="test_apikey",  # type: ignore[arg-type]
+        url="https://us-south.ml.cloud.ibm.com",
+        apikey="test_apikey",
         frequency_penalty=0.5,
         logprobs=True,
         top_logprobs=3,
@@ -156,7 +163,6 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
             },
         },
         temperature=0.7,
-        max_tokens=100,
         max_completion_tokens=512,
         time_limit=600000,
         top_p=0.9,
