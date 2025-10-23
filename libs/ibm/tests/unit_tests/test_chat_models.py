@@ -12,6 +12,7 @@ from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-unt
     TextChatParameters,
 )
 from ibm_watsonx_ai.gateway import Gateway  # type: ignore
+from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
 
 from langchain_ibm import ChatWatsonx
 from langchain_ibm.chat_models import normalize_tool_arguments
@@ -120,6 +121,22 @@ def test_initialize_chat_watsonx_with_two_exclusive_parameters() -> None:
     )
 
 
+def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> None:
+    with (
+        pytest.warns(
+            DeprecationWarning, match="The `instance_id` parameter is deprecated"
+        ),
+        pytest.raises(WMLClientError),
+    ):
+        ChatWatsonx(
+            model_id="google/flan-ul2",
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            apikey="test_apikey",
+            username="test_user",
+            instance_id="openshift",
+        )
+
+
 def test_initialize_chat_watsonx_with_three_exclusive_parameters() -> None:
     with pytest.raises(ValueError) as e:
         ChatWatsonx(
@@ -173,7 +190,7 @@ def test_initialize_chat_watsonx_with_model_inference_only() -> None:
 
 
 def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
-    top_p = 0.9
+    top_p = 0.8
 
     def mock_modelinference_chat(**kwargs: Any) -> dict:
         assert kwargs.get("messages") == [{"content": "Hello", "role": "user"}]
