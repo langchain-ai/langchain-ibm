@@ -1,6 +1,7 @@
 """Test Db2 AI Vector Search functionality."""
 
 # import required modules
+import os
 import threading
 import time
 
@@ -17,18 +18,18 @@ from langchain_db2.db2vs import (
     drop_table,
 )
 
-DB_NAME = ""
-DB_HOST = ""
-DB_PORT = ""
-DB_USER = ""
-DB_PASSWORD = ""
+DB2_NAME = os.environ.get("DB2_NAME", "")
+DB2_HOST = os.environ.get("DB2_HOST", "")
+DB2_PORT = os.environ.get("DB2_PORT", "")
+DB2_USER = os.environ.get("DB2_USER", "")
+DB2_PASSWORD = os.environ.get("DB2_PASSWORD", "")
 
 DSN = (
-    f"DATABASE={DB_NAME};hostname={DB_HOST};port={DB_PORT};uid={DB_USER};pwd={DB_PASSWORD};"
+    f"DATABASE={DB2_NAME};hostname={DB2_HOST};port={DB2_PORT};uid={DB2_USER};pwd={DB2_PASSWORD};"
     f"SECURITY=SSL;"
 )
-USER = ""
-PASSWORD = ""
+DB2_CONNECT_USER = os.environ.get("DB2_CONNECT_USER", "")
+DB2_CONNECT_PASSWORD = os.environ.get("DB2_CONNECT_PASSWORD", "")
 
 
 ############################
@@ -36,7 +37,7 @@ PASSWORD = ""
 ############################
 @pytest.mark.xfail
 def test_table_exists_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
+    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
 
     # 1. Create a Table
     _create_table(connection, "TB1", 8148)
@@ -88,7 +89,7 @@ def test_table_exists_test() -> None:
 ############################
 @pytest.mark.xfail
 def test_create_table_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
+    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
 
     # 1. New table - HELLO
     #    Dimension - 100
@@ -202,7 +203,7 @@ def test_create_table_test() -> None:
 
 @pytest.mark.xfail
 def test_add_texts_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
+    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
 
     # 1. Add 2 records to table
     # Expectation: Successful result
@@ -355,7 +356,7 @@ def test_add_texts_test() -> None:
 
 @pytest.mark.xfail
 def test_embed_documents_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
+    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
 
     # 1. Embed String Example-'Sam'
     # Expectation: Successful result
@@ -377,7 +378,7 @@ def test_embed_documents_test() -> None:
 
 @pytest.mark.xfail
 def test_embed_query_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
+    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
 
     # 1. Embed String
     # Expectation: Successful result
@@ -395,7 +396,7 @@ def test_embed_query_test() -> None:
 
 @pytest.mark.xfail
 def test_perform_search_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
+    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
 
     model1 = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-mpnet-base-v2",
@@ -458,7 +459,7 @@ def test_perform_search_test() -> None:
 
 @pytest.mark.xfail
 def test_get_pks() -> None:
-    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
+    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
 
     model = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-mpnet-base-v2",
@@ -487,7 +488,7 @@ def test_get_pks() -> None:
 
 @pytest.mark.xfail
 def test_similarity_search_with_custom_text_field() -> None:
-    connection = ibm_db_dbi.connect(DSN, USER, PASSWORD)
+    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
 
     model = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-mpnet-base-v2",
