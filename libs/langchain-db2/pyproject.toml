@@ -34,7 +34,7 @@ test = [
     "pytest-socket>=0.7.0,<1.0.0",
     "pytest-watcher>=0.3.4,<1.0.0",
     "langchain-tests>=0.3.5,<1.0.0",
-    "sentence-transformers>=4.0.1,<5.0.0",
+    "langchain_huggingface[full]>=1.0.0,<2.0.0"
 ]
 
 test_integration = []

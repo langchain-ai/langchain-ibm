@@ -1,14 +1,12 @@
 """Test Db2 AI Vector Search functionality."""
 
-# import required modules
-import os
 import threading
-import time
+import uuid
 
-import ibm_db_dbi  # type: ignore
 import pytest
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from ibm_db_dbi import Connection  # type: ignore[import-untyped]
 from langchain_community.vectorstores.utils import DistanceStrategy
+from langchain_huggingface import HuggingFaceEmbeddings
 
 from langchain_db2.db2vs import (
     DB2VS,
@@ -18,501 +16,844 @@ from langchain_db2.db2vs import (
     drop_table,
 )
 
-DB2_NAME = os.environ.get("DB2_NAME", "")
-DB2_HOST = os.environ.get("DB2_HOST", "")
-DB2_PORT = os.environ.get("DB2_PORT", "")
-DB2_USER = os.environ.get("DB2_USER", "")
-DB2_PASSWORD = os.environ.get("DB2_PASSWORD", "")
+VECTOR_DIM = 768
 
-DSN = (
-    f"DATABASE={DB2_NAME};hostname={DB2_HOST};port={DB2_PORT};uid={DB2_USER};pwd={DB2_PASSWORD};"
-    f"SECURITY=SSL;"
+SIMILARITY_SEARCH_TEXTS = ["Yash", "Varanasi", "Yashaswi", "Mumbai", "BengaluruYash"]
+SIMILARITY_SEARCH_METADATAS = [
+    {"id": "hello"},
+    {"id": "105"},
+    {"id": "106"},
+    {"id": "yash"},
+    {"id": "108"},
+]
+SIMILARITY_SEARCH_QUERY = "YashB"
+SIMILARITY_SEARCH_FILTER = {"id": ["106", "108", "yash"]}
+
+
+@pytest.mark.xfail
+def test_table_exists_for_existing_and_non_existing(
+    ibm_db_dbi_connection: Connection,
+) -> None:
+    try:
+        _create_table(ibm_db_dbi_connection, "TB1", 8148)
+
+        # Existing table -> True
+        assert _table_exists(ibm_db_dbi_connection, "TB1")
+
+        # Non-existing table -> False
+        assert not _table_exists(ibm_db_dbi_connection, "TableNonExist")
+    finally:
+        try:
+            drop_table(ibm_db_dbi_connection, "TB1")
+        finally:
+            ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_table_exists_is_case_insensitive_for_unquoted_names(
+    ibm_db_dbi_connection: Connection,
+) -> None:
+    try:
+        _create_table(ibm_db_dbi_connection, "TB1", 8148)
+
+        # Mixed case lookup should still succeed for unquoted identifiers
+        assert _table_exists(ibm_db_dbi_connection, "Tb1")
+    finally:
+        try:
+            drop_table(ibm_db_dbi_connection, "TB1")
+        finally:
+            ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_table_exists_with_quoted_unicode_identifier(
+    ibm_db_dbi_connection: Connection,
+) -> None:
+    # Note: quoted identifiers are case-sensitive and allow Unicode
+    name = '"表格"'
+    try:
+        _create_table(ibm_db_dbi_connection, name, 545)
+        assert _table_exists(ibm_db_dbi_connection, name)
+    finally:
+        try:
+            drop_table(ibm_db_dbi_connection, name)
+        finally:
+            ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+@pytest.mark.parametrize(
+    "table_name,expected_regex",
+    [
+        ("123", r"SQL0104N"),  # Invalid token
+        ("", r"SQL0104N"),  # Empty string -> syntax error
+        ("!!4", r"SQL0007N"),  # Invalid character
+        ("x" * 129, r"SQL0107N"),  # Identifier too long (>128)
+    ],
 )
-DB2_CONNECT_USER = os.environ.get("DB2_CONNECT_USER", "")
-DB2_CONNECT_PASSWORD = os.environ.get("DB2_CONNECT_PASSWORD", "")
-
-
-############################
-####### table_exists #######
-############################
-@pytest.mark.xfail
-def test_table_exists_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
-
-    # 1. Create a Table
-    _create_table(connection, "TB1", 8148)
-
-    # 2. Existing Table
-    # Expectation: Successful result
-    assert _table_exists(connection, "TB1")
-
-    # 3. Non-Existing Table
-    # Expectation: Negative result
-    assert not _table_exists(connection, "TableNonExist")
-
-    # 4. Invalid Table Name
-    # Expectation: SQL0104N error
-    with pytest.raises(Exception, match="SQL0104N"):
-        _table_exists(connection, "123")
-
-    # 5. Empty String
-    # Expectation: SQL0104N error
-    with pytest.raises(Exception, match="SQL0104N"):
-        _table_exists(connection, "")
-
-    # 6. Special Character
-    # Expectation: SQL0007N error
-    with pytest.raises(Exception, match="SQL0007N"):
-        _table_exists(connection, "!!4")
-
-    # 7. Table name length > 128
-    # Expectation: SQL0107N The name is too long.  The maximum length is "128".
-    with pytest.raises(Exception, match="SQL0107N"):
-        _table_exists(connection, "x" * 129)
-
-    # 8. Toggle Upper/Lower Case (like TaBlE)
-    # Expectation: Successful result
-    assert _table_exists(connection, "Tb1")
-    drop_table(connection, "TB1")
-
-    # 9. Table_Name→ "表格"
-    # Expectation: Successful result
-    _create_table(connection, '"表格"', 545)
-    assert _table_exists(connection, '"表格"')
-    drop_table(connection, '"表格"')
-
-    connection.commit()
-
-
-############################
-####### create_table #######
-############################
-@pytest.mark.xfail
-def test_create_table_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
-
-    # 1. New table - HELLO
-    #    Dimension - 100
-    # Expectation: Table has been created
-    _create_table(connection, "HELLO", 100)
-
-    # 2. Existing table name - HELLO
-    #    Dimension - 110
-    # Expectation: Log message table already exists
-    _create_table(connection, "HELLO", 110)
-    drop_table(connection, "HELLO")
-
-    # 3. New Table - 123
-    #    Dimension - 100
-    # Expectation: SQL0104N  invalid table name
-    with pytest.raises(Exception, match="SQL0104N"):
-        _create_table(connection, "123", 100)
-        drop_table(connection, "123")
-
-    # 4. New Table - Hello123
-    #    Dimension - 8148
-    # Expectation: Table has been created
-    _create_table(connection, "Hello123", 8148)
-    drop_table(connection, "Hello123")
-
-    # 5. New Table - T1
-    #    Dimension - 65536
-    # Expectation: SQL0604N  VECTOR column exceed the supported
-    # dimension length.
-    with pytest.raises(Exception, match="SQL0604N"):
-        _create_table(connection, "T1", 65536)
-        drop_table(connection, "T1")
-
-    # 6. New Table - T1
-    #    Dimension - 0
-    # Expectation: SQL0604N  VECTOR column unsupported dimension length 0.
-    with pytest.raises(Exception, match="SQL0604N"):
-        _create_table(connection, "T1", 0)
-        drop_table(connection, "T1")
-
-    # 7. New Table - T1
-    #    Dimension - -1
-    # Expectation: SQL0104N  An unexpected token "-" was found
-    with pytest.raises(Exception, match="SQL0104N"):
-        _create_table(connection, "T1", -1)
-        drop_table(connection, "T1")
-
-    # 8. New Table - T2
-    #     Dimension - '1000'
-    # Expectation: Table has been created
-    _create_table(connection, "T2", int("1000"))
-    drop_table(connection, "T2")
-
-    # 9. New Table - T3
-    #     Dimension - 100 passed as a variable
-    # Expectation: Table has been created
-    val = 100
-    _create_table(connection, "T3", val)
-    drop_table(connection, "T3")
-
-    # 10.
-    # Expectation: SQL0104N  An unexpected token
-    val2 = """H
-    ello"""
-    with pytest.raises(Exception, match="SQL0104N"):
-        _create_table(connection, val2, 545)
-        drop_table(connection, val2)
-
-    # 11. New Table - 表格
-    #     Dimension - 545
-    # Expectation: Table has been created
-    _create_table(connection, '"表格"', 545)
-    drop_table(connection, '"表格"')
-
-    # 12. <schema_name.table_name>
-    # Expectation: table with schema is created
-    _create_table(connection, "U1.TB4", 128)
-    drop_table(connection, "U1.TB4")
-
-    # 13.
-    # Expectation: Table has been created
-    _create_table(connection, '"T5"', 128)
-    drop_table(connection, '"T5"')
-
-    # 14. Toggle Case
-    # Expectation: Table has been created
-    _create_table(connection, "TaBlE", 128)
-    drop_table(connection, "TaBlE")
-
-    # 15. table_name as empty_string
-    # Expectation: SQL0104N  An unexpected token
-    with pytest.raises(Exception, match="SQL0104N"):
-        _create_table(connection, "", 128)
-        drop_table(connection, "")
-        _create_table(connection, '""', 128)
-        drop_table(connection, '""')
-
-    # 16. Arithmetic Operations in dimension parameter
-    # Expectation: Table has been created
-    n = 1
-    _create_table(connection, "T10", n + 500)
-    drop_table(connection, "T10")
-
-    # 17. String Operations in table_name parameter
-    # Expectation: Table has been created
-    _create_table(connection, "YaSh".replace("aS", "ok"), 500)
-    drop_table(connection, "YaSh".replace("aS", "ok"))
-
-    connection.commit()
+def test_table_exists_raises_for_invalid_names(
+    ibm_db_dbi_connection: Connection, table_name: str, expected_regex: str
+) -> None:
+    with pytest.raises(Exception, match=expected_regex):
+        _table_exists(ibm_db_dbi_connection, table_name)
 
 
 @pytest.mark.xfail
-def test_add_texts_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
+def test_create_table_basic_and_duplicate(ibm_db_dbi_connection: Connection) -> None:
+    try:
+        _create_table(ibm_db_dbi_connection, "HELLO", 100)
+        _create_table(ibm_db_dbi_connection, "HELLO", 110)
+    finally:
+        try:
+            drop_table(ibm_db_dbi_connection, "HELLO")
+        finally:
+            ibm_db_dbi_connection.commit()
 
-    # 1. Add 2 records to table
-    # Expectation: Successful result
+
+@pytest.mark.xfail
+@pytest.mark.parametrize(
+    "name,dim",
+    [
+        ("Hello123", 8148),  # valid ascii identifier
+        ("T2", int("1000")),  # dimension provided via int conversion
+        ("T3", 100),  # dimension via variable
+        ("T10", 1 + 500),  # dimension via arithmetic
+        ('"T5"', 128),  # quoted identifier
+        ("TaBlE", 128),  # toggle case
+    ],
+)
+def test_create_table_various_valid_inputs(
+    ibm_db_dbi_connection: Connection, name: str, dim: int
+) -> None:
+    """
+    Create new HELLO (dim=100) -> OK
+    Call create again HELLO (dim=110) -> should not error (e.g., logs "already exists")
+    """
+    try:
+        _create_table(ibm_db_dbi_connection, name, dim)
+    finally:
+        try:
+            drop_table(ibm_db_dbi_connection, name)
+        finally:
+            ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_table_with_quoted_unicode(ibm_db_dbi_connection: Connection) -> None:
+    """
+    New table - "表格" (quoted), dim=545 -> OK
+    """
+    name = '"表格"'
+    try:
+        _create_table(ibm_db_dbi_connection, name, 545)
+    finally:
+        try:
+            drop_table(ibm_db_dbi_connection, name)
+        finally:
+            ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_table_with_schema_name(ibm_db_dbi_connection: Connection) -> None:
+    """
+    <schema.table> e.g., U1.TB4, dim=128 -> OK
+    """
+    name = "U1.TB4"
+    try:
+        _create_table(ibm_db_dbi_connection, name, 128)
+    finally:
+        try:
+            drop_table(ibm_db_dbi_connection, name)
+        finally:
+            ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_table_from_string_ops_in_name(
+    ibm_db_dbi_connection: Connection,
+) -> None:
+    """
+    Name via string ops: "YaSh".replace("aS","ok") -> "Yokh"
+    """
+    name = "YaSh".replace("aS", "ok")
+    try:
+        _create_table(ibm_db_dbi_connection, name, 500)
+    finally:
+        try:
+            drop_table(ibm_db_dbi_connection, name)
+        finally:
+            ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+@pytest.mark.parametrize(
+    "name,dim,regex",
+    [
+        ("123", 100, r"SQL0104N"),  # invalid table name (starts with digit)
+        ("", 128, r"SQL0104N"),  # empty string
+        ('""', 128, r"SQL0104N"),  # empty quoted identifier
+        ("H\nello", 545, r"SQL0104N"),  # unexpected token from newline/multiline
+    ],
+)
+def test_create_table_raises_for_invalid_names(
+    ibm_db_dbi_connection: Connection, name: str, dim: int, regex: str
+) -> None:
+    with pytest.raises(Exception, match=regex):
+        _create_table(ibm_db_dbi_connection, name, dim)
+    ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+@pytest.mark.parametrize(
+    "name,dim,regex",
+    [
+        ("T1", 65536, r"SQL0604N"),  # VECTOR column exceeds supported dimension
+        ("T1", 0, r"SQL0604N"),  # unsupported dimension length 0
+        ("T1", -1, r"SQL0104N"),  # unexpected token "-" (negative)
+    ],
+)
+def test_create_table_raises_for_invalid_dimensions(
+    ibm_db_dbi_connection: Connection, name: str, dim: int, regex: str
+) -> None:
+    with pytest.raises(Exception, match=regex):
+        _create_table(ibm_db_dbi_connection, name, dim)
+    ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_add_two_records_with_metadata(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Add 2 records with metadata that includes explicit IDs -> OK
+    """
     texts = ["David", "Vectoria"]
     metadata = [
         {"id": "100", "link": "Document Example Test 1"},
         {"id": "101", "link": "Document Example Test 2"},
     ]
-    model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    vs_obj = DB2VS(model, "TB1", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    vs_obj.add_texts(texts, metadata)
-    drop_table(connection, "TB1")
+    table = "TB1"
+    try:
+        vs_obj = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        vs_obj.add_texts(texts, metadata)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    # 2-1. Add 2 records to table with metadata but no id inside it
-    # Expectation: Successful result, new ID will be generated
+
+@pytest.mark.xfail
+def test_add_two_records_metadata_without_ids_generates_ids(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Metadata present but no 'id' -> IDs should be generated -> OK
+    """
+    texts = ["David", "Vectoria"]
     metadata_no_id = [
         {"link": "Document Example Test 1"},
         {"link": "Document Example Test 2"},
     ]
-    model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    vs_obj = DB2VS(model, "TB2", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    vs_obj.add_texts(texts, metadata_no_id)
-    drop_table(connection, "TB2")
+    table = "TB2"
+    try:
+        vs_obj = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        vs_obj.add_texts(texts, metadata_no_id)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    # 2-2. Add 3 records to table with metadata but partial metadata has id
-    # Expectation: Successful result, new ID will be generated for the missing ones
-    texts1 = ["David", "Vectoria", "John"]
-    metadata_partial_id = [
+
+@pytest.mark.xfail
+def test_add_three_records_partial_metadata_ids(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Some metadata items have 'id', others don't -> missing IDs generated -> OK
+    """
+    texts = ["David", "Vectoria", "John"]
+    metadata_partial = [
         {"id": "100", "link": "Document Example Test 1"},
         {"link": "Document Example Test 2"},
         {"link": "Document Example Test 3"},
     ]
-    vs_obj = DB2VS(model, "TB2", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    vs_obj.add_texts(texts1, metadata_partial_id)
-    drop_table(connection, "TB2")
+    table = "TB2A"
+    try:
+        vs_obj = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        vs_obj.add_texts(texts, metadata_partial)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    # 3. Add record but neither metadata nor ids are there
-    # Expectation: Successful result, new ID will be generated
-    model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    vs_obj = DB2VS(model, "TB3", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    texts2 = ["Sam", "John"]
-    vs_obj.add_texts(texts2)
-    drop_table(connection, "TB3")
 
-    # 4. Add record with ids option
-    #    ids are passed as string
-    #    ids are passed as empty string
-    #    ids are passed as multi-line string
-    #    ids are passed as "<string>"
-    # Expectations:
-    # Successful result
-    # Successful result
-    # Successful result
-    # Successful result
+@pytest.mark.xfail
+def test_add_records_without_metadata_generates_ids(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    No metadata/ids provided -> IDs should be generated -> OK
+    """
+    table = "TB3"
+    texts = ["Sam", "John"]
+    try:
+        vs_obj = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        vs_obj.add_texts(texts)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    vs_obj = DB2VS(model, "TB4", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    ids4 = ["114", "124"]
-    vs_obj.add_texts(texts2, ids=ids4)
-    drop_table(connection, "TB4")
 
-    vs_obj = DB2VS(model, "TB5", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    ids5 = ["", "134"]
-    vs_obj.add_texts(texts2, ids=ids5)
-    drop_table(connection, "TB5")
+@pytest.mark.xfail
+@pytest.mark.parametrize(
+    "table,ids_override",
+    [
+        ("TB4", ["114", "124"]),  # normal strings
+        ("TB5", ["", "134"]),  # one empty string
+        (
+            "TB6",
+            [
+                """Good afternoon
+my friends""",
+                "India",
+            ],
+        ),  # multi-line string
+        ("TB7", ['"Good afternoon"', '"India"']),  # quoted strings as IDs
+    ],
+)
+def test_add_records_with_ids_variations(
+    ibm_db_dbi_connection: Connection,
+    hf_embeddings: HuggingFaceEmbeddings,
+    table: str,
+    ids_override: list,
+) -> None:
+    """
+    Various 'ids' inputs -> OK
+    """
+    texts = ["Sam", "John"]
+    try:
+        vs_obj = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        vs_obj.add_texts(texts, ids=ids_override)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    vs_obj = DB2VS(model, "TB6", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    ids6 = [
-        """Good afternoon
-    my friends""",
-        "India",
-    ]
-    vs_obj.add_texts(texts2, ids=ids6)
-    drop_table(connection, "TB6")
 
-    vs_obj = DB2VS(model, "TB7", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    ids7 = ['"Good afternoon"', '"India"']
-    vs_obj.add_texts(texts2, ids=ids7)
-    drop_table(connection, "TB7")
-
-    # 5. Add record with ids option but the id are duplicated
-    # Expectations: SQL0803N having duplicate values for the index key
-    with pytest.raises(Exception, match="SQL0803N"):
-        vs_obj = DB2VS(model, "TB8", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-        ids8 = ["118", "118"]
-        vs_obj.add_texts(texts2, ids=ids8)
-        drop_table(connection, "TB8")
-
-    # 6. Add records with both ids and metadatas
-    # Expectation: Successful result, the ID will be generated based on ids
-    vs_obj = DB2VS(model, "TB9", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    texts3 = ["Sam 6", "John 6"]
-    ids9 = ["1", "2"]
+@pytest.mark.xfail
+def test_add_records_with_ids_and_metadata_prefers_ids(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Both 'ids' and 'metadata' provided -> IDs from 'ids' are used -> OK
+    """
+    table = "TB9"
+    texts = ["Sam 6", "John 6"]
+    ids = ["1", "2"]
     metadata = [
         {"id": "102", "link": "Document Example", "stream": "Science"},
         {"id": "104", "link": "Document Example 45"},
     ]
-    vs_obj.add_texts(texts3, metadata, ids=ids9)
-    drop_table(connection, "TB9")
+    try:
+        vs_obj = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        vs_obj.add_texts(texts, metadata, ids=ids)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    # This one may run slow before using executemany()
-    # 7. Add 10000 records
-    # Expectation: Successful result
-    vs_obj = DB2VS(model, "TB10", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    texts4 = [f"Sam{i}" for i in range(1, 10000)]
-    ids10 = [f"Hello{i}" for i in range(1, 10000)]
-    vs_obj.add_texts(texts4, ids=ids10)
-    drop_table(connection, "TB10")
 
-    # 8. Add 2 different record concurrently
-    # Expectation: Successful result
+@pytest.mark.xfail
+def test_add_many_records_bulk(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Add ~10k records -> OK
+    """
+    table = "TB10"
+    texts = [f"Sam{i}" for i in range(1, 10000)]
+    ids = [f"Hello{i}" for i in range(1, 10000)]
+    try:
+        vs_obj = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        vs_obj.add_texts(texts, ids=ids)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_add_records_duplicate_ids_raises(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Duplicate IDs -> expect SQL0803N (unique/PK violation)
+    """
+    table = "TB8"
+    texts = ["Sam", "John"]
+    ids = ["118", "118"]
+    try:
+        vs_obj = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        with pytest.raises(Exception, match=r"SQL0803N"):
+            vs_obj.add_texts(texts, ids=ids)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_add_two_different_records_concurrently(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Two different inserts concurrently -> both succeed
+    """
+    table = f"TB11_{uuid.uuid4().hex[:8]}"
+    errors = []
+
+    # Pre-create the table to avoid DDL races (if your suite has a helper)
+    _create_table(ibm_db_dbi_connection, table, VECTOR_DIM)
+
     def add(val: str) -> None:
-        model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-mpnet-base-v2",
+        try:
+            vs = DB2VS(
+                hf_embeddings,
+                table,
+                ibm_db_dbi_connection,
+                DistanceStrategy.EUCLIDEAN_DISTANCE,
+            )
+            vs.add_texts([val], ids=[val])
+            ibm_db_dbi_connection.commit()
+        except Exception as e:
+            errors.append(e)
+
+    try:
+        t1 = threading.Thread(target=add, args=("Sam",))
+        t2 = threading.Thread(target=add, args=("John",))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+    finally:
+        # TODO
+        # assert not errors, f"Unexpected errors in concurrent add: {errors}"  # noqa: ERA001, E501
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_add_two_same_records_concurrently_conflict(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Two identical inserts concurrently -> one should fail with PK violation
+    """
+    table = f"TB12_{uuid.uuid4().hex[:8]}"
+    errors = []
+
+    # Pre-create the table to avoid DDL races (if your suite has a helper)
+    _create_table(ibm_db_dbi_connection, table, VECTOR_DIM)
+
+    def add(val: str) -> None:
+        try:
+            vs = DB2VS(
+                hf_embeddings,
+                table,
+                ibm_db_dbi_connection,
+                DistanceStrategy.EUCLIDEAN_DISTANCE,
+            )
+            vs.add_texts([val], ids=[val])
+            ibm_db_dbi_connection.commit()
+        except Exception as e:
+            errors.append(e)
+
+    try:
+        t1 = threading.Thread(target=add, args=("Sam",))
+        t2 = threading.Thread(target=add, args=("Sam",))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        # TODO
+        # Expect at least one PK/unique-key violation
+        # assert any("SQL0803N" in str(e) for e in errors)"
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_embed_single_document(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Embed a single string -> returns one vector with expected dimension
+    """
+    table = f"TB7_{uuid.uuid4().hex[:8]}"
+    try:
+        vs = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
         )
-        vs_obj = DB2VS(model, "TB11", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-        texts5 = [val]
-        ids11 = texts5
-        vs_obj.add_texts(texts5, ids=ids11)
+        out = vs._embed_documents(["Sam"])
+        assert isinstance(out, list)
+        assert len(out) == 1
+        assert isinstance(out[0], (list, tuple))
+        assert len(out[0]) == VECTOR_DIM
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    thread_1 = threading.Thread(target=add, args=("Sam",))
-    thread_2 = threading.Thread(target=add, args=("John",))
-    thread_1.start()
-    thread_2.start()
-    thread_1.join()
-    thread_2.join()
-    drop_table(connection, "TB11")
 
-    # 9. Add 2 same record concurrently
-    # Expectation: Successful, For one of the insert, get primary key violation error
-    def add1(val: str) -> None:
-        model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-mpnet-base-v2",
+@pytest.mark.xfail
+def test_embed_multiple_documents(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Embed a list of strings -> returns N vectors with expected dimension
+    """
+    table = f"TB7_{uuid.uuid4().hex[:8]}"
+    docs = ["hello", "yash"]
+    try:
+        vs = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
         )
-        vs_obj = DB2VS(model, "TB12", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-        texts = [val]
-        ids12 = texts
-        vs_obj.add_texts(texts, ids=ids12)
-
-    thread_1 = threading.Thread(target=add1, args=("Sam",))
-    thread_2 = threading.Thread(target=add1, args=("Sam",))
-    thread_1.start()
-    thread_2.start()
-    thread_1.join()
-    thread_2.join()
-
-    drop_table(connection, "TB12")
-
-    connection.commit()
+        out = vs._embed_documents(docs)
+        assert isinstance(out, list)
+        assert len(out) == len(docs)
+        for vec in out:
+            assert isinstance(vec, (list, tuple))
+            assert len(vec) == VECTOR_DIM
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
 
 @pytest.mark.xfail
-def test_embed_documents_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
-
-    # 1. Embed String Example-'Sam'
-    # Expectation: Successful result
-    model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    vs_obj = DB2VS(model, "TB7", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    vs_obj._embed_documents(
-        [
-            "Sam",
-        ],
-    )
-
-    # 2. Embed List of string
-    # Expectation: Successful result
-    vs_obj._embed_documents(["hello", "yash"])
-    drop_table(connection, "TB7")
-
-    connection.commit()
-
-
-@pytest.mark.xfail
-def test_embed_query_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
-
-    # 1. Embed String
-    # Expectation: Successful result
-    model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-    vs_obj = DB2VS(model, "TB8", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    vs_obj._embed_query("Sam")
-
-    # 2. Embed Empty string
-    # Expectation: Successful result
-    vs_obj._embed_query("")
-    drop_table(connection, "TB8")
-
-    connection.commit()
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Sam",
+        pytest.param("", id="empty"),
+    ],
+)
+def test_embed_query(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings, query: str
+) -> None:
+    table = f"TB8_{uuid.uuid4().hex[:8]}"
+    try:
+        vs = DB2VS(
+            hf_embeddings,
+            table,
+            ibm_db_dbi_connection,
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        vec = vs._embed_query(query)
+        assert isinstance(vec, (list, tuple))
+        assert len(vec) == VECTOR_DIM
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
 
 @pytest.mark.xfail
-def test_perform_search_test() -> None:
-    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
+@pytest.mark.parametrize(
+    "strategy",
+    [
+        DistanceStrategy.EUCLIDEAN_DISTANCE,
+        DistanceStrategy.DOT_PRODUCT,
+        DistanceStrategy.COSINE,
+    ],
+)
+def test_similarity_search_basic_and_filtered(
+    ibm_db_dbi_connection: Connection,
+    hf_embeddings: HuggingFaceEmbeddings,
+    strategy: DistanceStrategy,
+) -> None:
+    table = f"TB10_{uuid.uuid4().hex[:8]}"
+    try:
+        vs = DB2VS(hf_embeddings, table, ibm_db_dbi_connection, strategy)
 
-    model1 = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/paraphrase-mpnet-base-v2",
-    )
-    vs_1 = DB2VS(model1, "TB10", connection, DistanceStrategy.EUCLIDEAN_DISTANCE)
-    vs_2 = DB2VS(model1, "TB11", connection, DistanceStrategy.DOT_PRODUCT)
-    vs_3 = DB2VS(model1, "TB12", connection, DistanceStrategy.COSINE)
+        vs.add_texts(SIMILARITY_SEARCH_TEXTS, SIMILARITY_SEARCH_METADATAS)
 
-    # vector store lists:
-    vs_list = [vs_1, vs_2, vs_3]
+        res = vs.similarity_search(SIMILARITY_SEARCH_QUERY, k=2)
+        assert isinstance(res, list) and len(res) <= 2
+        assert all(hasattr(d, "page_content") for d in res)
 
-    for _, vs in enumerate(vs_list, start=1):
-        # insert data
-        texts = ["Yash", "Varanasi", "Yashaswi", "Mumbai", "BengaluruYash"]
-        metadatas = [
-            {"id": "hello"},
-            {"id": "105"},
-            {"id": "106"},
-            {"id": "yash"},
-            {"id": "108"},
-        ]
+        res_f = vs.similarity_search(
+            SIMILARITY_SEARCH_QUERY, k=2, filter=SIMILARITY_SEARCH_FILTER
+        )
+        assert isinstance(res_f, list) and len(res_f) <= 2
 
-        vs.add_texts(texts, metadatas)
+        allowed = set(SIMILARITY_SEARCH_FILTER["id"])
+        for d in res_f:
+            mid = (d.metadata or {}).get("id")
+            assert mid in allowed
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-        # perform search
-        query = "YashB"
 
-        filter = {"id": ["106", "108", "yash"]}
+@pytest.mark.xfail
+@pytest.mark.parametrize(
+    "strategy",
+    [
+        DistanceStrategy.EUCLIDEAN_DISTANCE,
+        DistanceStrategy.DOT_PRODUCT,
+        DistanceStrategy.COSINE,
+    ],
+)
+def test_similarity_search_with_score_basic_and_filtered(
+    ibm_db_dbi_connection: Connection,
+    hf_embeddings: HuggingFaceEmbeddings,
+    strategy: DistanceStrategy,
+) -> None:
+    table = f"TB11_{uuid.uuid4().hex[:8]}"
+    try:
+        vs = DB2VS(hf_embeddings, table, ibm_db_dbi_connection, strategy)
 
-        # similarity_search without filter
-        vs.similarity_search(query, 2)
+        vs.add_texts(SIMILARITY_SEARCH_TEXTS, SIMILARITY_SEARCH_METADATAS)
 
-        # similarity_search with filter
-        vs.similarity_search(query, 2, filter=filter)
+        res = vs.similarity_search_with_score(SIMILARITY_SEARCH_QUERY, k=2)
+        assert isinstance(res, list) and len(res) <= 2
+        for doc, score in res:
+            assert hasattr(doc, "page_content")
+            assert isinstance(score, (int, float))
 
-        # Similarity search with relevance score
-        vs.similarity_search_with_score(query, 2)
+        res_f = vs.similarity_search_with_score(
+            SIMILARITY_SEARCH_QUERY, k=2, filter=SIMILARITY_SEARCH_FILTER
+        )
+        assert isinstance(res_f, list) and len(res_f) <= 2
+        allowed = set(SIMILARITY_SEARCH_FILTER["id"])
+        for doc, score in res_f:
+            assert isinstance(score, (int, float))
+            mid = (doc.metadata or {}).get("id")
+            assert mid in allowed
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-        # Similarity search with relevance score with filter
-        vs.similarity_search_with_score(query, 2, filter=filter)
 
-        # Max marginal relevance search
-        vs.max_marginal_relevance_search(query, 2, fetch_k=20, lambda_mult=0.5)
+@pytest.mark.xfail
+@pytest.mark.parametrize(
+    "strategy",
+    [
+        DistanceStrategy.EUCLIDEAN_DISTANCE,
+        DistanceStrategy.DOT_PRODUCT,
+        DistanceStrategy.COSINE,
+    ],
+)
+def test_mmr_search_basic_and_filtered(
+    ibm_db_dbi_connection: Connection,
+    hf_embeddings: HuggingFaceEmbeddings,
+    strategy: DistanceStrategy,
+) -> None:
+    table = f"TB12_{uuid.uuid4().hex[:8]}"
+    try:
+        vs = DB2VS(hf_embeddings, table, ibm_db_dbi_connection, strategy)
 
-        # Max marginal relevance search with filter
-        vs.max_marginal_relevance_search(
-            query,
-            2,
+        vs.add_texts(SIMILARITY_SEARCH_TEXTS, SIMILARITY_SEARCH_METADATAS)
+
+        res = vs.max_marginal_relevance_search(
+            SIMILARITY_SEARCH_QUERY, k=2, fetch_k=20, lambda_mult=0.5
+        )
+        assert isinstance(res, list) and len(res) <= 2
+
+        ids = [(d.metadata or {}).get("id") for d in res]
+        assert len(ids) == len(set(ids))
+
+        res_f = vs.max_marginal_relevance_search(
+            SIMILARITY_SEARCH_QUERY,
+            k=2,
             fetch_k=20,
             lambda_mult=0.5,
-            filter=filter,
+            filter=SIMILARITY_SEARCH_FILTER,
         )
-
-    drop_table(connection, "TB10")
-    drop_table(connection, "TB11")
-    drop_table(connection, "TB12")
-
-    connection.commit()
-
-
-@pytest.mark.xfail
-def test_get_pks() -> None:
-    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
-
-    model = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/paraphrase-mpnet-base-v2",
-    )
-
-    table_name = f"Unique_table_{int(time.time())}"
-
-    db2vs = DB2VS(embedding_function=model, table_name=table_name, client=connection)
-    pks = db2vs.get_pks()
-
-    assert isinstance(pks, list)
-    assert len(pks) == 0
-
-    db2vs.add_texts(texts=["Josh", "Mary"])
-
-    pks = db2vs.get_pks()
-    assert len(pks) > 0
-
-    clear_table(client=connection, table_name=table_name)
-    pks = db2vs.get_pks()
-    assert len(pks) == 0
-
-    drop_table(connection, table_name)
-    connection.commit()
+        assert isinstance(res_f, list) and len(res_f) <= 2
+        allowed = set(SIMILARITY_SEARCH_FILTER["id"])
+        for d in res_f:
+            mid = (d.metadata or {}).get("id")
+            assert mid in allowed
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
 
 @pytest.mark.xfail
-def test_similarity_search_with_custom_text_field() -> None:
-    connection = ibm_db_dbi.connect(DSN, DB2_CONNECT_USER, DB2_CONNECT_PASSWORD)
+def test_get_pks_empty_on_new_table(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    table = f"GET_PKS_{uuid.uuid4().hex[:8]}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+        )
+        pks = db2vs.get_pks()
+        assert isinstance(pks, list)
+        assert len(pks) == 0
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    model = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/paraphrase-mpnet-base-v2",
-    )
 
-    table_name = f"Unique_table_{int(time.time())}"
+@pytest.mark.xfail
+def test_get_pks_after_add_texts(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    table = f"GET_PKS_{uuid.uuid4().hex[:8]}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+        )
+        db2vs.add_texts(texts=["Josh", "Mary"])
+        pks = db2vs.get_pks()
+        assert isinstance(pks, list)
+        assert len(pks) >= 2
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    db2vs_unique_text_field = DB2VS(
-        embedding_function=model,
-        table_name=table_name,
-        client=connection,
-        text_field="text_v2",
-    )
 
-    assert db2vs_unique_text_field._text_field == "text_v2"
+@pytest.mark.xfail
+def test_get_pks_after_clear_is_empty(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    table = f"GET_PKS_{uuid.uuid4().hex[:8]}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+        )
+        db2vs.add_texts(texts=["Josh", "Mary"])
+        pks_before = db2vs.get_pks()
+        assert len(pks_before) >= 2
 
-    db2vs_unique_text_field.add_texts(texts=["Josh", "Mary"])
+        clear_table(client=ibm_db_dbi_connection, table_name=table)
 
-    db2vs_unique_text_field.similarity_search(query="Mary")
+        pks_after = db2vs.get_pks()
+        assert isinstance(pks_after, list)
+        assert len(pks_after) == 0
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    db2vs = DB2VS(embedding_function=model, table_name=table_name, client=connection)
 
-    with pytest.raises(Exception, match="SQL0206N"):
-        db2vs.similarity_search(query="Mary")
+@pytest.mark.xfail
+def test_custom_text_field_is_set(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Instance respects a non-default text_field.
+    """
+    table = f"unique_{uuid.uuid4().hex[:8]}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            text_field="text_v2",
+        )
+        assert db2vs._text_field == "text_v2"
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
 
-    drop_table(connection, table_name)
-    connection.commit()
+
+@pytest.mark.xfail
+def test_similarity_search_works_with_custom_text_field(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    Adding & searching works when using a custom text_field.
+    """
+    table = f"unique_{uuid.uuid4().hex[:8]}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            text_field="text_v2",
+        )
+        db2vs.add_texts(texts=["Josh", "Mary"])
+        res = db2vs.similarity_search(query="Mary", k=2)
+        assert isinstance(res, list)
+        assert len(res) >= 1
+        assert any("Mary" in d.page_content for d in res)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_default_instance_fails_when_table_uses_custom_text_field(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """
+    If the table was created with a custom text_field, a default-instance
+    (using default text column) should fail with SQL0206N (column not found).
+    """
+    table = f"unique_{uuid.uuid4().hex[:8]}"
+    try:
+        db2vs_custom = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            text_field="text_v2",
+        )
+        db2vs_custom.add_texts(texts=["Josh", "Mary"])
+
+        db2vs_default = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+        )
+        with pytest.raises(Exception, match="SQL0206N"):
+            db2vs_default.similarity_search(query="Mary", k=2)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
