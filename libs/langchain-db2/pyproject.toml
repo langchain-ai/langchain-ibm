@@ -4,16 +4,16 @@ build-backend = "pdm.backend"
 
 [project]
 name = "langchain-db2"
-version = "0.1.7"
+version = "1.0.0a1"
 description = "An integration package connecting Db2 vector store and LangChain"
 authors = [{ name = "IBM" }]
 license = { text = "MIT" }
-requires-python = ">=3.9,<4.0"
+requires-python = ">=3.10,<4.0"
 readme = "README.md"
 
 dependencies = [
-    "langchain-core>=0.3.15,<0.4",
-    "langchain-community>=0.3.20,<0.4",
+    "langchain-core>=1.0.0,<2.0.0",
+    "langchain-community>=0.4.0,<2.0.0",
     "ibm-db>=3.2.6,<4.0.0",
 ]
 
@@ -34,7 +34,7 @@ test = [
     "pytest-socket>=0.7.0,<1.0.0",
     "pytest-watcher>=0.3.4,<1.0.0",
     "langchain-tests>=0.3.5,<1.0.0",
-    "sentence-transformers>=4.0.1,<5.0.0",
+    "langchain_huggingface[full]>=1.0.0,<2.0.0"
 ]
 
 test_integration = []
