@@ -11,6 +11,7 @@ from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.tools.base import BaseTool, BaseToolkit
 from langchain_core.utils.utils import secret_from_env
 from pydantic import (
+    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -18,7 +19,6 @@ from pydantic import (
     SecretStr,
     create_model,
     model_validator,
-    AliasChoices
 )
 from typing_extensions import Self
 
