@@ -12,10 +12,14 @@ from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-unt
 )
 from langchain_core.documents import BaseDocumentCompressor, Document
 from langchain_core.utils.utils import secret_from_env
-from pydantic import ConfigDict, Field, SecretStr, model_validator
+from pydantic import AliasChoices, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
-from langchain_ibm.utils import extract_params, resolve_watsonx_credentials
+from langchain_ibm.utils import (
+    extract_params,
+    resolve_watsonx_credentials,
+    secret_from_env_multi,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -29,8 +33,8 @@ class WatsonxRerank(BaseDocumentCompressor):
     ???+ info "Setup"
 
         To use, you should have `langchain_ibm` python package installed,
-        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
-        it as a named parameter `apikey` to the constructor.
+        and the environment variable `WATSONX_API_KEY` set with your API key, or pass
+        it as a named parameter `api_key` to the constructor.
 
         ```bash
         pip install -U langchain-ibm
@@ -40,7 +44,7 @@ class WatsonxRerank(BaseDocumentCompressor):
         ```
 
         ```bash
-        export WATSONX_APIKEY="your-api-key"
+        export WATSONX_API_KEY="your-api-key"
         ```
 
     ??? info "Instantiate"
@@ -56,7 +60,7 @@ class WatsonxRerank(BaseDocumentCompressor):
             url="https://us-south.ml.cloud.ibm.com",
             project_id="*****",
             params=parameters,
-            # apikey="*****"
+            # api_key="*****"
         )
         ```
 
@@ -100,9 +104,15 @@ class WatsonxRerank(BaseDocumentCompressor):
     )
     """URL to the Watson Machine Learning or CPD instance."""
 
-    apikey: SecretStr | None = Field(
-        alias="apikey",
-        default_factory=secret_from_env("WATSONX_APIKEY", default=None),
+    apikey: SecretStr | None = None
+    api_key: SecretStr | None = Field(
+        default_factory=secret_from_env_multi(
+            names_priority=["WATSONX_API_KEY", "WATSONX_APIKEY"],
+            deprecated={"WATSONX_APIKEY"},
+        ),
+        serialization_alias="api_key",
+        validation_alias=AliasChoices("api_key", "apikey"),  # accept both on input
+        description="API key to the Watson Machine Learning or CPD instance.",
     )
     """API key to the Watson Machine Learning or CPD instance."""
 
@@ -164,6 +174,7 @@ class WatsonxRerank(BaseDocumentCompressor):
         """Mapping of secret environment variables."""
         return {
             "url": "WATSONX_URL",
+            "api_key": "WATSONX_API_KEY",  # preferred
             "apikey": "WATSONX_APIKEY",
             "token": "WATSONX_TOKEN",
             "password": "WATSONX_PASSWORD",
@@ -188,7 +199,7 @@ class WatsonxRerank(BaseDocumentCompressor):
         else:
             credentials = resolve_watsonx_credentials(
                 url=self.url,
-                apikey=self.apikey,
+                apikey=self.api_key,
                 token=self.token,
                 password=self.password,
                 username=self.username,

@@ -2,9 +2,11 @@
 
 import functools
 import logging
+import os
+import warnings
 from collections.abc import Callable
 from copy import deepcopy
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
@@ -186,3 +188,40 @@ def resolve_watsonx_credentials(
         version=version.get_secret_value() if version else None,
         verify=verify,
     )
+
+
+def secret_from_env_multi(
+    names_priority: list[str], deprecated: set[str] | None = None
+) -> Callable[[], SecretStr | None]:
+    """Return default factory that yields a SecretStr from the first non-empty env var.
+
+    The factory:
+    - Warns if multiple env var are set (uses the first in `names_priority`).
+    - Warns if the chosen environment variable is listed in `deprecated`.
+    """
+    deprecated = deprecated or set()
+
+    def _factory() -> SecretStr | None:
+        present = [(n, os.getenv(n)) for n in names_priority]
+        present = [(n, v) for n, v in present if v not in (None, "")]
+        if not present:
+            return None
+
+        chosen_name, value = present[0]
+        if len(present) > 1:
+            warnings.warn(
+                f"Multiple API key env vars are set {[n for n, _ in present]}; "
+                f"using '{chosen_name}'.",
+                UserWarning,
+                stacklevel=2,
+            )
+        if chosen_name in deprecated:
+            warnings.warn(
+                f"Environment variable '{chosen_name}' is deprecated; "
+                f"use '{names_priority[0]}' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return SecretStr(cast(str, value))
+
+    return _factory
