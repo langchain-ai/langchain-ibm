@@ -63,6 +63,10 @@ class WatsonxLLM(BaseLLM):
         export WATSONX_API_KEY="your-api-key"
         ```
 
+        !!! deprecated
+            `apikey` and `WATSONX_APIKEY` are deprecated and will be removed in
+            version `2.0.0`. Use `api_key` and `WATSONX_API_KEY` instead.
+
     ??? info "Instantiate"
 
         ```python
