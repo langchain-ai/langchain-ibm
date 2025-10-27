@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import json
 import logging
+import os
 import warnings
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from operator import itemgetter
@@ -78,7 +79,14 @@ from langchain_core.utils.pydantic import (
     is_basemodel_subclass,
 )
 from langchain_core.utils.utils import secret_from_env
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    model_validator,
+)
 from pydantic.v1 import BaseModel as BaseModelV1
 from typing_extensions import Self
 
@@ -416,6 +424,43 @@ def _convert_chunk_to_generation_chunk(
         message=message_chunk,
         generation_info=generation_info or None,
     )
+
+
+def secret_from_env_multi(
+    names_priority: list[str], deprecated: set[str] | None = None
+) -> Callable[[], SecretStr | None]:
+    """Return default factory that yields a SecretStr from the first non-empty env var.
+
+    The factory:
+    - Warns if multiple env var are set (uses the first in `names_priority`).
+    - Warns if the chosen environment variable is listed in `deprecated`.
+    """
+    deprecated = deprecated or set()
+
+    def _factory() -> SecretStr | None:
+        present = [(n, os.getenv(n)) for n in names_priority]
+        present = [(n, v) for n, v in present if v not in (None, "")]
+        if not present:
+            return None
+
+        chosen_name, value = present[0]
+        if len(present) > 1:
+            warnings.warn(
+                f"Multiple API key env vars are set {[n for n, _ in present]}; "
+                f"using '{chosen_name}'.",
+                UserWarning,
+                stacklevel=2,
+            )
+        if chosen_name in deprecated:
+            warnings.warn(
+                f"Environment variable '{chosen_name}' is deprecated; "
+                f"use '{names_priority[0]}' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return SecretStr(cast(str, value))
+
+    return _factory
 
 
 class ChatWatsonx(BaseChatModel):
@@ -880,9 +925,16 @@ class ChatWatsonx(BaseChatModel):
     )
     """URL to the Watson Machine Learning or CPD instance."""
 
-    apikey: SecretStr | None = Field(
-        alias="apikey",
-        default_factory=secret_from_env("WATSONX_APIKEY", default=None),
+    apikey: SecretStr | None = None
+
+    api_key: SecretStr | None = Field(
+        default_factory=secret_from_env_multi(
+            names_priority=["WATSONX_API_KEY", "WATSONX_APIKEY"],
+            deprecated={"WATSONX_APIKEY"},
+        ),
+        serialization_alias="api_key",
+        validation_alias=AliasChoices("api_key", "apikey"),  # accept both on input
+        description="API key to the Watson Machine Learning or CPD instance.",
     )
     """API key to the Watson Machine Learning or CPD instance."""
 
@@ -1040,12 +1092,39 @@ class ChatWatsonx(BaseChatModel):
         """Mapping of secret environment variables."""
         return {
             "url": "WATSONX_URL",
+            "api_key": "WATSONX_API_KEY",  # preferred
             "apikey": "WATSONX_APIKEY",
             "token": "WATSONX_TOKEN",
             "password": "WATSONX_PASSWORD",
             "username": "WATSONX_USERNAME",
             "instance_id": "WATSONX_INSTANCE_ID",
         }
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_and_warn_deprecated_input(cls, data: Any) -> Any:
+        # Handle deprecated input kwarg name `apikey` vs new `api_key`.
+        if isinstance(data, dict):
+            has_new = "api_key" in data
+            has_old = "apikey" in data
+
+            if has_old and not has_new:
+                warnings.warn(
+                    "'apikey' parameter is deprecated; use 'api_key' instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                data = {**data, "api_key": data.pop("apikey")}
+            elif has_old and has_new:
+                warnings.warn(
+                    "Both 'api_key' and deprecated 'apikey' were provided; "
+                    "'api_key' takes precedence.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                data = {**data}
+                data.pop("apikey", None)
+        return data
 
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
@@ -1119,7 +1198,7 @@ class ChatWatsonx(BaseChatModel):
 
             credentials = resolve_watsonx_credentials(
                 url=self.url,
-                apikey=self.apikey,
+                apikey=self.api_key,
                 token=self.token,
                 password=self.password,
                 username=self.username,
