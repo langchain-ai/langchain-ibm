@@ -20,7 +20,7 @@ def convert_to_watsonx_tool(tool: "WatsonxTool") -> dict:
 
         watsonx_toolkit = WatsonxToolkit(
             url="https://us-south.ml.cloud.ibm.com",
-            apikey="*****",
+            api_key="*****",
         )
         weather_tool = watsonx_toolkit.get_tool("Weather")
         convert_to_watsonx_tool(weather_tool)
