@@ -196,7 +196,8 @@ def secret_from_env_multi(
     """Return default factory that yields a SecretStr from the first non-empty env var.
 
     The factory:
-    - Warns if multiple environment variables are set (uses the first in `names_priority`).
+    - Warns if multiple environment variables are set
+        (uses the first in `names_priority`).
     - Warns if the chosen environment variable is listed in `deprecated`.
     """
     deprecated = deprecated or set()
