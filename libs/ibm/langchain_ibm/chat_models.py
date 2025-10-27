@@ -469,8 +469,8 @@ class ChatWatsonx(BaseChatModel):
     ???+ info "Setup"
 
         To use, you should have `langchain_ibm` python package installed,
-        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
-        it as a named parameter `apikey` to the constructor.
+        and the environment variable `WATSONX_API_KEY` set with your API key, or pass
+        it as a named parameter `api_key` to the constructor.
 
         ```bash
         pip install -U langchain-ibm
@@ -480,7 +480,7 @@ class ChatWatsonx(BaseChatModel):
         ```
 
         ```bash
-        export WATSONX_APIKEY="your-api-key"
+        export WATSONX_API_KEY="your-api-key"
         ```
 
     ??? info "Instantiate"
@@ -500,7 +500,7 @@ class ChatWatsonx(BaseChatModel):
             url="https://us-south.ml.cloud.ibm.com",
             project_id="*****",
             params=parameters,
-            # apikey="*****"
+            # api_key="*****"
         )
         ```
 
@@ -714,7 +714,7 @@ class ChatWatsonx(BaseChatModel):
             url="https://us-south.ml.cloud.ibm.com",
             project_id="*****",
             params=parameters,
-            # apikey="*****"
+            # api_key="*****"
         )
 
         response = model.invoke("What is 3^3?")
