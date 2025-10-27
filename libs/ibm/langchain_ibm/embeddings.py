@@ -24,6 +24,7 @@ from langchain_ibm.utils import (
     async_gateway_error_handler,
     extract_params,
     gateway_error_handler,
+    normalize_api_key,
     resolve_watsonx_credentials,
     secret_from_env_multi,
 )
@@ -198,6 +199,14 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         protected_namespaces=(),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_and_warn_deprecated_input(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Handle deprecated input kwarg name `apikey` vs new `api_key`.
+            data = normalize_api_key(data=data)
+        return data
+
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
@@ -250,7 +259,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 raise ValueError(error_msg)
             credentials = resolve_watsonx_credentials(
                 url=self.url,
-                apikey=self.api_key,
+                api_key=self.api_key,
                 token=self.token,
                 password=self.password,
                 username=self.username,

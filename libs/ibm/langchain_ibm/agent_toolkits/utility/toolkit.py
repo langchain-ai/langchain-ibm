@@ -23,7 +23,11 @@ from pydantic import (
 from typing_extensions import Self
 
 from langchain_ibm.agent_toolkits.utility.utils import convert_to_watsonx_tool
-from langchain_ibm.utils import resolve_watsonx_credentials, secret_from_env_multi
+from langchain_ibm.utils import (
+    normalize_api_key,
+    resolve_watsonx_credentials,
+    secret_from_env_multi,
+)
 
 
 class WatsonxTool(BaseTool):
@@ -257,6 +261,14 @@ class WatsonxToolkit(BaseToolkit):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_and_warn_deprecated_input(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Handle deprecated input kwarg name `apikey` vs new `api_key`.
+            data = normalize_api_key(data=data)
+        return data
+
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
@@ -265,7 +277,7 @@ class WatsonxToolkit(BaseToolkit):
         else:
             credentials = resolve_watsonx_credentials(
                 url=self.url,
-                apikey=self.api_key,
+                api_key=self.api_key,
                 token=self.token,
                 password=self.password,
                 username=self.username,

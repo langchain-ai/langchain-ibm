@@ -49,61 +49,8 @@ def test_initialize_chat_watsonx_cloud_bad_path() -> None:
     with pytest.raises(ValueError) as e:
         ChatWatsonx(model_id=MODEL_ID, url="https://us-south.ml.cloud.ibm.com")
 
-    assert "apikey" in str(e.value) and "token" in str(e.value)
-    assert "WATSONX_APIKEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
-
-
-def test_initialize_chat_watsonx_cpd_bad_path_without_all() -> None:
-    with pytest.raises(ValueError) as e:
-        ChatWatsonx(
-            model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-        )
-    assert (
-        "apikey" in str(e.value)
-        and "password" in str(e.value)
-        and "token" in str(e.value)
-    )
-    assert (
-        "WATSONX_APIKEY" in str(e.value)
-        and "WATSONX_PASSWORD" in str(e.value)
-        and "WATSONX_TOKEN" in str(e.value)
-    )
-
-
-def test_initialize_chat_watsonx_cpd_bad_path_only_password() -> None:
-    with pytest.raises(ValueError) as e:
-        ChatWatsonx(
-            model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="fake_password",
-        )
-    assert "username" in str(e.value)
-    assert "WATSONX_USERNAME" in str(e.value)
-
-
-def test_initialize_chat_watsonx_cpd_bad_path_only_username() -> None:
-    with pytest.raises(ValueError) as e:
-        ChatWatsonx(
-            model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            username="fake_username",
-        )
-    assert "password" in str(e.value)
-    assert "WATSONX_PASSWORD" in str(e.value)
-    assert "apikey" in str(e.value)
-    assert "WATSONX_APIKEY" in str(e.value)
-
-
-def test_initialize_chat_watsonx_cpd_bad_path_only_apikey() -> None:
-    with pytest.raises(ValueError) as e:
-        ChatWatsonx(
-            model_id=MODEL_ID,
-            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            apikey="fake_apikey",
-        )
-    assert "username" in str(e.value)
-    assert "WATSONX_USERNAME" in str(e.value)
+    assert "api_key" in str(e.value) and "token" in str(e.value)
+    assert "WATSONX_API_KEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
 
 
 def test_initialize_chat_watsonx_with_deprecated_apikey() -> None:
@@ -136,6 +83,59 @@ def test_initialize_chat_watsonx_with_api_key_and_apikey() -> None:
             apikey="fake_apikey",
             api_key="fake_api_key",
         )
+
+
+def test_initialize_chat_watsonx_cpd_bad_path_without_all() -> None:
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx(
+            model_id=MODEL_ID,
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+        )
+    assert (
+        "api_key" in str(e.value)
+        and "password" in str(e.value)
+        and "token" in str(e.value)
+    )
+    assert (
+        "WATSONX_API_KEY" in str(e.value)
+        and "WATSONX_PASSWORD" in str(e.value)
+        and "WATSONX_TOKEN" in str(e.value)
+    )
+
+
+def test_initialize_chat_watsonx_cpd_bad_path_only_password() -> None:
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx(
+            model_id=MODEL_ID,
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            password="fake_password",
+        )
+    assert "username" in str(e.value)
+    assert "WATSONX_USERNAME" in str(e.value)
+
+
+def test_initialize_chat_watsonx_cpd_bad_path_only_username() -> None:
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx(
+            model_id=MODEL_ID,
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            username="fake_username",
+        )
+    assert "password" in str(e.value)
+    assert "WATSONX_PASSWORD" in str(e.value)
+    assert "api_key" in str(e.value)
+    assert "WATSONX_API_KEY" in str(e.value)
+
+
+def test_initialize_chat_watsonx_cpd_bad_path_only_apikey() -> None:
+    with pytest.raises(ValueError) as e:
+        ChatWatsonx(
+            model_id=MODEL_ID,
+            url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
+            apikey="fake_apikey",
+        )
+    assert "username" in str(e.value)
+    assert "WATSONX_USERNAME" in str(e.value)
 
 
 def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> None:

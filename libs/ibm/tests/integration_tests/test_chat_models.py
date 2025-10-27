@@ -64,8 +64,19 @@ CREATE_CHAT_WATSONX_INIT_PARAMETERS = [
 
 
 @pytest.mark.parametrize("init_data", CREATE_CHAT_WATSONX_INIT_PARAMETERS)
-def test_chat_init(init_data: dict) -> None:
-    ChatWatsonx(**init_data)
+def test_chat_watsonx_init(init_data: dict) -> None:
+    chat = ChatWatsonx(**init_data)
+
+    messages = [
+        ("user", "You are a helpful assistant that translates English to French."),
+        (
+            "human",
+            "Translate this sentence from English to French. I love programming.",
+        ),
+    ]
+    response = chat.invoke(messages)
+    assert response
+    assert response.content
 
 
 @pytest.mark.token_check

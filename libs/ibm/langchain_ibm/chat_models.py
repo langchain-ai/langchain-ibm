@@ -94,6 +94,7 @@ from langchain_ibm.utils import (
     check_duplicate_chat_params,
     extract_chat_params,
     gateway_error_handler,
+    normalize_api_key,
     resolve_watsonx_credentials,
     secret_from_env_multi,
 )
@@ -1065,27 +1066,9 @@ class ChatWatsonx(BaseChatModel):
     @model_validator(mode="before")
     @classmethod
     def _normalize_and_warn_deprecated_input(cls, data: Any) -> Any:
-        # Handle deprecated input kwarg name `apikey` vs new `api_key`.
         if isinstance(data, dict):
-            has_new = "api_key" in data
-            has_old = "apikey" in data
-
-            if has_old and not has_new:
-                warnings.warn(
-                    "'apikey' parameter is deprecated; use 'api_key' instead.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                data = {**data, "api_key": data.pop("apikey")}
-            elif has_old and has_new:
-                warnings.warn(
-                    "Both 'api_key' and deprecated 'apikey' were provided; "
-                    "'api_key' takes precedence.",
-                    UserWarning,
-                    stacklevel=2,
-                )
-                data = {**data}
-                data.pop("apikey", None)
+            # Handle deprecated input kwarg name `apikey` vs new `api_key`.
+            data = normalize_api_key(data=data)
         return data
 
     @model_validator(mode="after")
@@ -1160,7 +1143,7 @@ class ChatWatsonx(BaseChatModel):
 
             credentials = resolve_watsonx_credentials(
                 url=self.url,
-                apikey=self.api_key,
+                api_key=self.api_key,
                 token=self.token,
                 password=self.password,
                 username=self.username,

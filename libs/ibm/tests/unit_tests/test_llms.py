@@ -48,8 +48,40 @@ def test_initialize_watsonxllm_cloud_bad_path() -> None:
     try:
         WatsonxLLM(model_id="google/flan-ul2", url="https://us-south.ml.cloud.ibm.com")
     except ValueError as e:
-        assert "apikey" in e.__str__() and "token" in e.__str__()
-        assert "WATSONX_APIKEY" in e.__str__() and "WATSONX_TOKEN" in e.__str__()
+        assert "api_key" in e.__str__() and "token" in e.__str__()
+        assert "WATSONX_API_KEY" in e.__str__() and "WATSONX_TOKEN" in e.__str__()
+
+
+def test_initialize_watsonxllm_with_deprecated_apikey() -> None:
+    with (
+        pytest.warns(
+            DeprecationWarning,
+            match="'apikey' parameter is deprecated; use 'api_key' instead.",
+        ),
+        pytest.raises(WMLClientError),
+    ):
+        WatsonxLLM(
+            model_id=MODEL_ID,
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="test_apikey",
+        )
+
+
+def test_initialize_watsonxllm_with_api_key_and_apikey() -> None:
+    with (
+        pytest.warns(
+            UserWarning,
+            match="Both 'api_key' and deprecated 'apikey' were provided; "
+            "'api_key' takes precedence.",
+        ),
+        pytest.raises(WMLClientError),
+    ):
+        WatsonxLLM(
+            model_id=MODEL_ID,
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="fake_apikey",
+            api_key="fake_api_key",
+        )
 
 
 def test_initialize_watsonxllm_cpd_bad_path_without_all() -> None:
@@ -60,12 +92,12 @@ def test_initialize_watsonxllm_cpd_bad_path_without_all() -> None:
         )
     except ValueError as e:
         assert (
-            "apikey" in e.__str__()
+            "api_key" in e.__str__()
             and "password" in e.__str__()
             and "token" in e.__str__()
         )
         assert (
-            "WATSONX_APIKEY" in e.__str__()
+            "WATSONX_API_KEY" in e.__str__()
             and "WATSONX_PASSWORD" in e.__str__()
             and "WATSONX_TOKEN" in e.__str__()
         )
