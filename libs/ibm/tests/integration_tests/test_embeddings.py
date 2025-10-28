@@ -5,6 +5,7 @@ You'll need to set WATSONX_APIKEY and WATSONX_PROJECT_ID environment variables.
 
 import os
 
+import pytest
 from ibm_watsonx_ai import APIClient  # type: ignore
 from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
 from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames  # type: ignore
@@ -19,14 +20,42 @@ MODEL_ID = "ibm/granite-embedding-107m-multilingual"
 
 DOCUMENTS = ["What is a generative ai?", "What is a loan and how does it works?"]
 
+CREATE_WATSONX_EMBEDDINGS_INIT_PARAMETERS = [
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only api_key",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only apikey",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="api_key and apikey",
+    ),
+]
 
-def test_init_with_credentials() -> None:
-    watsonx_embedding = WatsonxEmbeddings(
-        model_id=MODEL_ID,
-        url="https://us-south.ml.cloud.ibm.com",
-        apikey=WX_APIKEY,
-        project_id=WX_PROJECT_ID,
-    )
+
+@pytest.mark.parametrize("init_data", CREATE_WATSONX_EMBEDDINGS_INIT_PARAMETERS)
+def test_watsonx_embeddings_init(init_data: dict) -> None:
+    watsonx_embedding = WatsonxEmbeddings(**init_data)
+
     generate_embedding = watsonx_embedding.embed_documents(texts=DOCUMENTS)
     assert len(generate_embedding) == len(DOCUMENTS)
     assert all(isinstance(el, float) for el in generate_embedding[0])

@@ -10,14 +10,23 @@ from ibm_watsonx_ai.foundation_models.embeddings import (  # type: ignore[import
 from ibm_watsonx_ai.gateway import Gateway  # type: ignore[import-untyped]
 from langchain_core.embeddings import Embeddings as LangChainEmbeddings
 from langchain_core.utils.utils import secret_from_env
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    model_validator,
+)
 from typing_extensions import Self
 
 from langchain_ibm.utils import (
     async_gateway_error_handler,
     extract_params,
     gateway_error_handler,
+    normalize_api_key,
     resolve_watsonx_credentials,
+    secret_from_env_multi,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,8 +38,8 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     ???+ info "Setup"
 
         To use, you should have `langchain_ibm` python package installed,
-        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
-        it as a named parameter `apikey` to the constructor.
+        and the environment variable `WATSONX_API_KEY` set with your API key, or pass
+        it as a named parameter `api_key` to the constructor.
 
         ```bash
         pip install -U langchain-ibm
@@ -40,8 +49,12 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         ```
 
         ```bash
-        export WATSONX_APIKEY="your-api-key"
+        export WATSONX_API_KEY="your-api-key"
         ```
+
+        !!! deprecated
+            `apikey` and `WATSONX_APIKEY` are deprecated and will be removed in
+            version `2.0.0`. Use `api_key` and `WATSONX_API_KEY` instead.
 
     ??? info "Instantiate"
 
@@ -52,7 +65,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
             model_id="ibm/granite-embedding-278m-multilingual",
             url="https://us-south.ml.cloud.ibm.com",
             project_id="*****",
-            # apikey="*****"
+            # api_key="*****"
         )
         ```
 
@@ -125,9 +138,15 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     )
     """URL to the Watson Machine Learning or CPD instance."""
 
-    apikey: SecretStr | None = Field(
-        alias="apikey",
-        default_factory=secret_from_env("WATSONX_APIKEY", default=None),
+    apikey: SecretStr | None = None
+    api_key: SecretStr | None = Field(
+        default_factory=secret_from_env_multi(
+            names_priority=["WATSONX_API_KEY", "WATSONX_APIKEY"],
+            deprecated={"WATSONX_APIKEY"},
+        ),
+        serialization_alias="api_key",
+        validation_alias=AliasChoices("api_key", "apikey"),  # accept both on input
+        description="API key to the Watson Machine Learning or CPD instance.",
     )
     """API key to the Watson Machine Learning or CPD instance."""
 
@@ -184,6 +203,14 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         protected_namespaces=(),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_and_warn_deprecated_input(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Handle deprecated input kwarg name `apikey` vs new `api_key`.
+            data = normalize_api_key(data=data)
+        return data
+
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         """Validate that credentials and python package exists in environment."""
@@ -236,7 +263,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 raise ValueError(error_msg)
             credentials = resolve_watsonx_credentials(
                 url=self.url,
-                apikey=self.apikey,
+                api_key=self.api_key,
                 token=self.token,
                 password=self.password,
                 username=self.username,

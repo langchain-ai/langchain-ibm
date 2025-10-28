@@ -219,8 +219,8 @@ def test_initialize_watsonx_sql_database_cloud_bad_path(schema: str) -> None:
             url="https://us-south.ml.cloud.ibm.com",
         )
 
-    assert "apikey" in str(e.value) and "token" in str(e.value)
-    assert "WATSONX_APIKEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
+    assert "api_key" in str(e.value) and "token" in str(e.value)
+    assert "WATSONX_API_KEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
 
 
 def test_initialize_watsonx_sql_database_cpd_bad_path_without_all(schema: str) -> None:
@@ -231,12 +231,12 @@ def test_initialize_watsonx_sql_database_cpd_bad_path_without_all(schema: str) -
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
         )
     assert (
-        "apikey" in str(e.value)
+        "api_key" in str(e.value)
         and "password" in str(e.value)
         and "token" in str(e.value)
     )
     assert (
-        "WATSONX_APIKEY" in str(e.value)
+        "WATSONX_API_KEY" in str(e.value)
         and "WATSONX_PASSWORD" in str(e.value)
         and "WATSONX_TOKEN" in str(e.value)
     )

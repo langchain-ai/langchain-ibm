@@ -31,6 +31,53 @@ MODEL_ID_REASONING_CONTENT = "openai/gpt-oss-120b"
 
 PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
 
+CREATE_CHAT_WATSONX_INIT_PARAMETERS = [
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only api_key",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only apikey",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="api_key and apikey",
+    ),
+]
+
+
+@pytest.mark.parametrize("init_data", CREATE_CHAT_WATSONX_INIT_PARAMETERS)
+def test_chat_watsonx_init(init_data: dict) -> None:
+    chat = ChatWatsonx(**init_data)
+
+    messages = [
+        ("user", "You are a helpful assistant that translates English to French."),
+        (
+            "human",
+            "Translate this sentence from English to French. I love programming.",
+        ),
+    ]
+    response = chat.invoke(messages)
+    assert response
+    assert response.content
+
 
 @pytest.mark.token_check
 def test_chat_invoke() -> None:

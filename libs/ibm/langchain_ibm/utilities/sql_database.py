@@ -135,7 +135,8 @@ class WatsonxSQLDatabase:
         project_id: ID of project
         space_id: ID of space
         url: URL to the Watson Machine Learning or CPD instance
-        apikey: API key to the Watson Machine Learning or CPD instance
+        api_key: API key to the Watson Machine Learning or CPD instance
+        apikey: API key to the Watson Machine Learning or CPD instance (deprecated)
         token: service token, used in token authentication
         password: password to the CPD instance
         username: username to the CPD instance
@@ -152,8 +153,8 @@ class WatsonxSQLDatabase:
     ???+ info "Setup"
 
         To use, you should have `langchain_ibm` python package installed,
-        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
-        it as a named parameter `apikey` to the constructor.
+        and the environment variable `WATSONX_API_KEY` set with your API key, or pass
+        it as a named parameter `api_key` to the constructor.
 
         ```bash
         pip install -U langchain-ibm
@@ -163,8 +164,12 @@ class WatsonxSQLDatabase:
         ```
 
         ```bash
-        export WATSONX_APIKEY="your-api-key"
+        export WATSONX_API_KEY="your-api-key"
         ```
+
+        !!! deprecated
+            `apikey` and `WATSONX_APIKEY` are deprecated and will be removed in
+            version `2.0.0`. Use `api_key` and `WATSONX_API_KEY` instead.
 
     ??? info "Instantiate"
 
@@ -174,9 +179,9 @@ class WatsonxSQLDatabase:
         wx_sql_database = WatsonxSQLDatabase(
             connection_id="<CONNECTION_ID>",
             schema="<SCHEMA>",
-            url=credentials["url"],
-            project_id=project_id,
-            apikey=credentials["apikey"],
+            url="<URL>",
+            project_id="<PROJECT_ID>",
+            api_key="<API_KEY>",
         )
         ```
 
@@ -194,6 +199,7 @@ class WatsonxSQLDatabase:
         project_id: str | None = None,
         space_id: str | None = None,
         url: str | None = None,
+        api_key: str | None = None,
         apikey: str | None = None,
         token: str | None = None,
         password: str | None = None,
@@ -227,27 +233,31 @@ class WatsonxSQLDatabase:
             if parsed_url.netloc.endswith(".cloud.ibm.com"):  # type: ignore[arg-type]
                 token = token or _from_env("WATSONX_TOKEN")
                 apikey = apikey or _from_env("WATSONX_APIKEY")
-                if not token and not apikey:
+                api_key = api_key or _from_env("WATSONX_API_KEY")
+                key_to_use = api_key or apikey
+                if not token and not key_to_use:
                     error_msg = (
-                        "Did not find 'apikey' or 'token',"
+                        "Did not find 'api_key' or 'token',"
                         " please add an environment variable"
-                        " `WATSONX_APIKEY` or 'WATSONX_TOKEN' "
+                        " `WATSONX_API_KEY` or 'WATSONX_TOKEN' "
                         "which contains it,"
-                        " or pass 'apikey' or 'token'"
+                        " or pass 'api_key' or 'token'"
                         " as a named parameter."
                     )
                     raise ValueError(error_msg)
             else:
                 token = token or _from_env("WATSONX_TOKEN")
                 apikey = apikey or _from_env("WATSONX_APIKEY")
+                api_key = api_key or _from_env("WATSONX_API_KEY")
+                key_to_use = api_key or apikey
                 password = password or _from_env("WATSONX_PASSWORD")
-                if not token and not password and not apikey:
+                if not token and not password and not key_to_use:
                     error_msg = (
-                        "Did not find 'token', 'password' or 'apikey',"
+                        "Did not find 'token', 'password' or 'api_key',"
                         " please add an environment variable"
-                        " `WATSONX_TOKEN`, 'WATSONX_PASSWORD' or 'WATSONX_APIKEY' "
+                        " `WATSONX_TOKEN`, 'WATSONX_PASSWORD' or 'WATSONX_API_KEY' "
                         "which contains it,"
-                        " or pass 'token', 'password' or 'apikey'"
+                        " or pass 'token', 'password' or 'api_key'"
                         " as a named parameter."
                     )
                     raise ValueError(error_msg)
@@ -277,15 +287,15 @@ class WatsonxSQLDatabase:
                 # validate if password is passed then username is also passed
                 _check_with_username(auth_name="password", auth_object=password)
 
-                # validate if apikey is passed then username is also passed
-                _check_with_username(auth_name="apikey", auth_object=apikey)
+                # validate if api_key is passed then username is also passed
+                _check_with_username(auth_name="api_key", auth_object=key_to_use)
 
                 instance_id = instance_id or _from_env("WATSONX_INSTANCE_ID")
                 _validate_param(instance_id, "instance_id", "WATSONX_INSTANCE_ID")
 
             credentials = Credentials(
                 url=url,
-                api_key=apikey,
+                api_key=key_to_use,
                 token=token,
                 password=password,
                 username=username,

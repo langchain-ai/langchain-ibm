@@ -42,8 +42,40 @@ def test_initialize_watsonx_embeddings_cloud_bad_path() -> None:
     with pytest.raises(ValueError) as e:
         WatsonxEmbeddings(model_id=MODEL_ID, url="https://us-south.ml.cloud.ibm.com")
 
-    assert "apikey" in str(e.value) and "token" in str(e.value)
-    assert "WATSONX_APIKEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
+    assert "api_key" in str(e.value) and "token" in str(e.value)
+    assert "WATSONX_API_KEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
+
+
+def test_initialize_watsonx_embeddings_with_deprecated_apikey() -> None:
+    with (
+        pytest.warns(
+            DeprecationWarning,
+            match="'apikey' parameter is deprecated; use 'api_key' instead.",
+        ),
+        pytest.raises(WMLClientError),
+    ):
+        WatsonxEmbeddings(
+            model_id=MODEL_ID,
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="test_apikey",
+        )
+
+
+def test_initialize_watsonx_embeddings_with_api_key_and_apikey() -> None:
+    with (
+        pytest.warns(
+            UserWarning,
+            match="Both 'api_key' and deprecated 'apikey' were provided; "
+            "'api_key' takes precedence.",
+        ),
+        pytest.raises(WMLClientError),
+    ):
+        WatsonxEmbeddings(
+            model_id=MODEL_ID,
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="fake_apikey",
+            api_key="fake_api_key",
+        )
 
 
 def test_initialize_watsonx_embeddings_cpd_bad_path_without_all() -> None:
@@ -53,12 +85,12 @@ def test_initialize_watsonx_embeddings_cpd_bad_path_without_all() -> None:
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
         )
     assert (
-        "apikey" in str(e.value)
+        "api_key" in str(e.value)
         and "password" in str(e.value)
         and "token" in str(e.value)
     )
     assert (
-        "WATSONX_APIKEY" in str(e.value)
+        "WATSONX_API_KEY" in str(e.value)
         and "WATSONX_PASSWORD" in str(e.value)
         and "WATSONX_TOKEN" in str(e.value)
     )
