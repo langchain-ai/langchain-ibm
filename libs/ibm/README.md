@@ -97,7 +97,7 @@ model.invoke("Sing a ballad of LangChain.")
 - Depending on the region of your provisioned service instance, use one of the urls described [here](https://ibm.github.io/watsonx-ai-python-sdk/setup_cloud.html#authentication).
 - You need to specify the model you want to use for inferencing through `model_id`. You can find the list of available models [here](https://ibm.github.io/watsonx-ai-python-sdk/fm_model.html#ibm_watsonx_ai.foundation_models.utils.enums.ModelTypes).
 
-Alternatively for all class you can use Cloud Pak for Data credentials. For more details, refer to IBM's [documentation](https://ibm.github.io/watsonx-ai-python-sdk/setup_cpd.html).
+Alternatively for all classes you can use Cloud Pak for Data credentials. For more details, refer to IBM's [documentation](https://ibm.github.io/watsonx-ai-python-sdk/setup_cpd.html).
 
 ```python
 from langchain_ibm import ChatWatsonx
