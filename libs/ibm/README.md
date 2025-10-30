@@ -7,12 +7,10 @@ This package provides the integration between LangChain and IBM watsonx.ai throu
 To use the `langchain-ibm` package, follow these installation steps:
 
 ```bash
-pip install langchain-ibm
+pip install -U langchain-ibm
 ```
 
-## Usage
-
-### Setting up
+## Setting up
 
 To use IBM's models, you must have an IBM Cloud user API key. Here's how to obtain and set up your API key:
 
@@ -24,7 +22,7 @@ import os
 from getpass import getpass
 
 watsonx_api_key = getpass()
-os.environ["WATSONX_APIKEY"] = watsonx_api_key
+os.environ["WATSONX_API_KEY"] = watsonx_api_key
 ```
 
 In alternative, you can set the environment variable in your terminal.
@@ -32,42 +30,65 @@ In alternative, you can set the environment variable in your terminal.
 - **Linux/macOS:** Open your terminal and execute the following command:
 
   ```bash
-  export WATSONX_APIKEY='your_ibm_api_key'
+  export WATSONX_API_KEY='your_ibm_api_key'
   ```
 
   To make this environment variable persistent across terminal sessions, add the above line to your `~/.bashrc`, `~/.bash_profile`, or `~/.zshrc` file.
 
 - **Windows:** For Command Prompt, use:
   ```cmd
-  set WATSONX_APIKEY=your_ibm_api_key
+  set WATSONX_API_KEY=your_ibm_api_key
   ```
 
-### Loading the model
+## Setting parameters
 
-You might need to adjust model parameters for different models or tasks. For more details on the parameters, refer to IBM's [documentation](https://ibm.github.io/watsonx-ai-python-sdk/fm_model.html#metanames.GenTextParamsMetaNames).
+You might need to adjust model parameters for different models or tasks. For more details on the parameters, refer to [Parameter Scheme](https://ibm.github.io/watsonx-ai-python-sdk/fm_schema.html#) IBM's documentation.
+
+**Note:** You must use the correct parameter schema for the class you are initializing:
+
+- `ChatWatsonx` (for chat) uses [TextChatParameters](https://ibm.github.io/watsonx-ai-python-sdk/fm_schema.html#chat-parameters)
+- `WatsonxLLM` (for text generation) uses [TextGenParameters](https://ibm.github.io/watsonx-ai-python-sdk/fm_schema.html#generate-parameters). 
+- `WatsonxRerank` (for reranking) uses [RerankParameters](https://ibm.github.io/watsonx-ai-python-sdk/fm_schema.html#rerank-parameters).
+
+This example uses `ChatWatsonx`, so we import `TextChatParameters`.
+
+```python
+from ibm_watsonx_ai.foundation_models.schema import TextChatParameters
+
+parameters = TextChatParameters(
+    temperature=0.5,
+    max_completion_tokens=1024,
+    top_p=1,
+)
+```
+
+You can also pass it as a dictionary object.
 
 ```python
 parameters = {
-    "decoding_method": "sample",
-    "max_new_tokens": 100,
-    "min_new_tokens": 1,
     "temperature": 0.5,
-    "top_k": 50,
+    "max_completion_tokens": 1024,
     "top_p": 1,
 }
 ```
 
-Initialize the WatsonxLLM class with the previously set parameters.
+## Chat Models
+
+`ChatWatsonx` class exposes chat models from IBM.
+
+Initialization the `ChatWatsonx` class with the previously set parameters.
 
 ```python
-from langchain_ibm import WatsonxLLM
+from langchain_ibm import ChatWatsonx
 
-watsonx_llm = WatsonxLLM(
+model = ChatWatsonx(
     model_id="PASTE THE CHOSEN MODEL_ID HERE",
     url="PASTE YOUR URL HERE",
     project_id="PASTE YOUR PROJECT_ID HERE",
     params=parameters,
 )
+
+model.invoke("Sing a ballad of LangChain.")
 ```
 
 **Note:**
@@ -76,74 +97,91 @@ watsonx_llm = WatsonxLLM(
 - Depending on the region of your provisioned service instance, use one of the urls described [here](https://ibm.github.io/watsonx-ai-python-sdk/setup_cloud.html#authentication).
 - You need to specify the model you want to use for inferencing through `model_id`. You can find the list of available models [here](https://ibm.github.io/watsonx-ai-python-sdk/fm_model.html#ibm_watsonx_ai.foundation_models.utils.enums.ModelTypes).
 
-Alternatively you can use Cloud Pak for Data credentials. For more details, refer to IBM's [documentation](https://ibm.github.io/watsonx-ai-python-sdk/setup_cpd.html).
+Alternatively for all classes you can use Cloud Pak for Data credentials. For more details, refer to IBM's [documentation](https://ibm.github.io/watsonx-ai-python-sdk/setup_cpd.html).
 
 ```python
-watsonx_llm = WatsonxLLM(
-    model_id="ibm/granite-13b-instruct-v2",
+from langchain_ibm import ChatWatsonx
+
+model = ChatWatsonx(
+    model_id="ibm/granite-3-3-8b-instruct",
     url="PASTE YOUR URL HERE",
     username="PASTE YOUR USERNAME HERE",
     password="PASTE YOUR PASSWORD HERE",
-    instance_id="openshift",
-    version="4.8",
     project_id="PASTE YOUR PROJECT_ID HERE",
     params=parameters,
 )
 ```
 
-### Create a Chain
+## Embedding Models
 
-Create `PromptTemplate` objects which will be responsible for creating a random question.
-
-```python
-from langchain_core.prompts import PromptTemplate
-
-template = "Generate a random question about {topic}: Question: "
-prompt = PromptTemplate.from_template(template)
-```
-
-Provide a topic and run the LLMChain.
+`WatsonxEmbeddings` class exposes embeddings from IBM.
 
 ```python
-from langchain_core.output_parsers import StrOutputParser
+from langchain_ibm import WatsonxEmbeddings
+from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames
 
-llm_chain = prompt | watsonx_llm | StrOutputParser()
-topic = "dog"
-llm_chain.invoke(topic)
+embed_params = {
+    EmbedTextParamsMetaNames.TRUNCATE_INPUT_TOKENS: 3,
+    EmbedTextParamsMetaNames.RETURN_OPTIONS: {"input_text": True},
+}
 
-print(response)
-```
-
-### Calling the Model Directly
-
-To obtain completions, you can call the model directly using a string prompt.
-
-```python
-# Calling a single prompt
-
-response = watsonx_llm.invoke("Who is man's best friend?")
-print(response)
-```
-
-```python
-# Calling multiple prompts
-
-response = watsonx_llm.generate(
-    [
-        "The fastest dog in the world?",
-        "Describe your chosen dog breed",
-    ]
+embeddings = WatsonxEmbeddings(
+    model_id="ibm/granite-embedding-107m-multilingual",
+    url="https://us-south.ml.cloud.ibm.com",
+    project_id="PASTE YOUR PROJECT_ID HERE",
+    params=embed_params,
 )
-print(response)
+
+embeddings.embed_query("What is the meaning of life?")
 ```
 
-### Streaming the Model output
+## LLMs
 
-You can stream the model output.
+`WatsonxLLM` class exposes LLMs from IBM.
 
 ```python
-for chunk in watsonx_llm.stream(
-    "Describe your favorite breed of dog and why it is your favorite."
-):
-    print(chunk, end="", flush=True)
+from langchain_ibm import WatsonxLLM
+from ibm_watsonx_ai.foundation_models.schema import TextGenParameters, TextGenDecodingMethod
+
+parameters = TextGenParameters(
+    decoding_method=TextGenDecodingMethod.SAMPLE,
+    temperature=0.5,
+    top_k=50,
+    top_p=1
+)
+
+llm = WatsonxLLM(
+    model_id="ibm/granite-3-3-8b-instruct",
+    url="https://us-south.ml.cloud.ibm.com",
+    project_id="PASTE YOUR PROJECT_ID HERE",
+    params=parameters,
+)
+
+llm.invoke("The meaning of life is")
+```
+
+## Reranker
+
+`WatsonxRerank` class exposes reranker from IBM.
+
+```python
+from langchain_ibm import WatsonxRerank
+
+rerank = WatsonxRerank(
+    model_id="cross-encoder/ms-marco-minilm-l-12-v2",
+    url="https://us-south.ml.cloud.ibm.com",
+    project_id="PASTE YOUR PROJECT_ID HERE",
+)
+```
+
+## Toolkit
+
+`WatsonxToolkit` class exposes Toolkit from IBM.
+
+```python
+from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
+
+watsonx_toolkit = WatsonxToolkit(
+    url="https://us-south.ml.cloud.ibm.com",
+)
 ```
