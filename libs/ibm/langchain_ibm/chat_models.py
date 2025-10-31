@@ -1008,6 +1008,9 @@ class ChatWatsonx(BaseChatModel):
     """Stop sequences are one or more strings which will cause the text generation
     to stop if/when they are produced as part of the output."""
 
+    chat_template_kwargs: dict | None = None
+    """Additional chat template parameters."""
+
     verify: str | bool | None = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
@@ -1479,6 +1482,7 @@ class ChatWatsonx(BaseChatModel):
             "logit_bias",
             "seed",
             "stop",
+            "chat_template_kwargs",
         ]
 
     def bind_tools(
