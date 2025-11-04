@@ -584,6 +584,7 @@ class WatsonxLLM(BaseLLM):
         prompts: list[str],
         stop: list[str] | None = None,
         run_manager: CallbackManagerForLLMRun | None = None,
+        *,
         stream: bool | None = None,
         **kwargs: Any,
     ) -> LLMResult:
