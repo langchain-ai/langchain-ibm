@@ -85,7 +85,7 @@ def test_initialize_watsonx_toolkit_cpd_bad_path_password_without_username() -> 
     with pytest.raises(ValueError) as e:
         WatsonxToolkit(
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="test_password",
+            password="test_password",  # noqa: S106
         )
     assert "username" in str(e.value)
     assert "WATSONX_USERNAME" in str(e.value)

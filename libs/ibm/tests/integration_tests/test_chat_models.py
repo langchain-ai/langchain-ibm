@@ -12,12 +12,14 @@ from langchain_core.messages import (
     BaseMessageChunk,
     HumanMessage,
     SystemMessage,
+    ToolCallChunk,
 )
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
 from pydantic import BaseModel
 
-from langchain_ibm import ChatWatsonx, WatsonxToolkit
+from langchain_ibm import ChatWatsonx
+from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
@@ -1011,12 +1013,16 @@ def test_chat_streaming_multiple_tool_call() -> None:
     # tool_call_chunks
     predicted_tool_call_chunks = []
     for i, el in enumerate(ai_message.tool_calls):
-        el |= {"type": "tool_call_chunk"}  # type: ignore[typeddict-item]
-        el["args"] = json.dumps(el["args"])  # type: ignore[typeddict-item]
-        el |= {"index": i}  # type: ignore[misc]
-        predicted_tool_call_chunks.append(el)
+        tool_call_chunk = ToolCallChunk(
+            name=el["name"],
+            args=json.dumps(el["args"]),
+            id=el["id"],
+            index=i,
+            type="tool_call_chunk",
+        )
+        predicted_tool_call_chunks.append(tool_call_chunk)
 
-    assert ai_message.tool_call_chunks == predicted_tool_call_chunks  # type: ignore[comparison-overlap]
+    assert ai_message.tool_call_chunks == predicted_tool_call_chunks
     assert (
         json.loads(
             ai_message.additional_kwargs["tool_calls"][0]["function"]["arguments"]

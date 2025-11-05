@@ -20,13 +20,13 @@ MODEL = "mistralai/mistral-large"
 class TestChatModelsGateway:
     prompt = "Hello, How are you!"
 
-    messages = [
+    messages = (
         ("user", "You are a helpful assistant that translates English to French."),
         (
             "human",
             "Translate this sentence from English to French. I love programming.",
         ),
-    ]
+    )
 
     system_message = SystemMessage(
         content="You are a helpful assistant which telling "

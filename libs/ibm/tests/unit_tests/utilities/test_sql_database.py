@@ -58,10 +58,10 @@ class MockFlightSQLClient:
     def __exit__(self, *args: object) -> None:
         pass
 
-    def get_tables(self, *args: Any, **kwargs: Any) -> dict:
+    def get_tables(self, *_args: Any, **_kwargs: Any) -> dict:
         return {"assets": [{"name": "table1"}, {"name": "table2"}]}
 
-    def get_table_info(self, table_name: str, *args: Any, **kwargs: Any) -> dict:
+    def get_table_info(self, table_name: str, *_args: Any, **_kwargs: Any) -> dict:
         if table_name == "table1":
             return {
                 "path": "/public/table1",
@@ -95,7 +95,7 @@ class MockFlightSQLClient:
         error_msg = "Table not found"
         raise flight.FlightError(error_msg)
 
-    def execute(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
+    def execute(self, *_args: Any, **kwargs: Any) -> pd.DataFrame:
         if "table1" in kwargs.get("query", ""):
             return pd.DataFrame({"id": [1], "name": ["test"], "age": [35]})
 
@@ -106,9 +106,7 @@ class MockFlightSQLClient:
         error_msg = "syntax error"
         raise ValueError(error_msg)
 
-    def get_n_first_rows(
-        self, schema: str, table_name: str, n: int = 3
-    ) -> pd.DataFrame:
+    def get_n_first_rows(self, *_args: Any, **_kwargs: Any) -> pd.DataFrame:
         return pd.DataFrame({"id": [1], "name": ["test"], "age": [35]})
 
 
@@ -250,7 +248,7 @@ def test_initialize_watsonx_sql_database_cpd_bad_path_password_without_username(
             connection_id=CONNECTION_ID,
             schema=schema,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="test_password",
+            password="test_password",  # noqa: S106
         )
     assert "username" in str(e.value)
     assert "WATSONX_USERNAME" in str(e.value)
@@ -493,7 +491,7 @@ def test_initialize_watsonx_sql_database_run(
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
         assert (
-            wx_sql_database.run(f"SELECT * FROM {schema}.table1", include_columns=True)
+            wx_sql_database.run(f"SELECT * FROM {schema}.table1", include_columns=True)  # noqa: S608
             == "[{'id': 1, 'name': 'test', 'age': 35}]"
         )
 
@@ -527,5 +525,6 @@ def test_initialize_watsonx_sql_database_run_no_throw(
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
         assert "Table not found" in wx_sql_database.run_no_throw(
-            f"SELECT * FROM {schema}.tableX", include_columns=True
+            f"SELECT * FROM {schema}.tableX",  # noqa: S608
+            include_columns=True,
         )

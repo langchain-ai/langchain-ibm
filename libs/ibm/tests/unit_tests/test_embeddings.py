@@ -101,7 +101,7 @@ def test_initialize_watsonx_embeddings_cpd_bad_path_password_without_username() 
         WatsonxEmbeddings(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="test_password",
+            password="test_password",  # noqa: S106
         )
     assert "username" in str(e.value)
     assert "WATSONX_USERNAME" in str(e.value)

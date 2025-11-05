@@ -4,7 +4,7 @@ from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
 from langchain_core.tools import BaseTool
 from langchain_tests.integration_tests.tools import ToolsIntegrationTests
 
-from langchain_ibm import WatsonxTool
+from langchain_ibm.agent_toolkits.utility import WatsonxTool
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")

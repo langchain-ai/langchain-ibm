@@ -20,7 +20,7 @@ from pydantic import (
     create_model,
     model_validator,
 )
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from langchain_ibm.agent_toolkits.utility.utils import convert_to_watsonx_tool
 from langchain_ibm.utils import (
@@ -78,6 +78,7 @@ class WatsonxTool(BaseTool):
 
         return self
 
+    @override
     def _run(
         self,
         *args: Any,
@@ -86,15 +87,15 @@ class WatsonxTool(BaseTool):
     ) -> dict:
         """Run the tool."""
         if self.tool_input_schema is None:
-            input = kwargs.get("input") or args[0]
+            input_ = kwargs.get("input") or args[0]
         else:
-            input = {
+            input_ = {
                 k: v
                 for k, v in kwargs.items()
                 if k in self.tool_input_schema["properties"]
             }
 
-        return cast("dict", self._watsonx_tool.run(input, self.tool_config))  # type: ignore[union-attr]
+        return cast("dict", self._watsonx_tool.run(input_, self.tool_config))  # type: ignore[union-attr]
 
     def set_tool_config(self, tool_config: dict) -> None:
         """Set tool config properties.
