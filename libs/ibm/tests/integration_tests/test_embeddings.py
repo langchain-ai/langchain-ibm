@@ -176,8 +176,12 @@ def test_10_generate_embed_query() -> None:
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = watsonx_embedding.embed_query(text=DOCUMENTS[0])
-    assert isinstance(generate_embedding, list) and isinstance(
-        generate_embedding[0], float
+    assert isinstance(generate_embedding, list), "embed_query should return a list"
+
+    assert len(generate_embedding) > 0, "embed_query returned an empty list"
+
+    assert isinstance(generate_embedding[0], float), (
+        "First element of embed_query should be a float"
     )
 
 
@@ -188,8 +192,12 @@ async def test_10_generate_aembed_query() -> None:
         project_id=WX_PROJECT_ID,
     )
     generate_embedding = await watsonx_embedding.aembed_query(text=DOCUMENTS[0])
-    assert isinstance(generate_embedding, list) and isinstance(
-        generate_embedding[0], float
+    assert isinstance(generate_embedding, list), "embed_query should return a list"
+
+    assert len(generate_embedding) > 0, "embed_query returned an empty list"
+
+    assert isinstance(generate_embedding[0], float), (
+        "First element of embed_query should be a float"
     )
 
 
@@ -205,8 +213,12 @@ def test_11_generate_embed_query_with_params() -> None:
     generate_embedding = watsonx_embedding.embed_query(
         text=DOCUMENTS[0], params=embed_params
     )
-    assert isinstance(generate_embedding, list) and isinstance(
-        generate_embedding[0], float
+    assert isinstance(generate_embedding, list), "embed_query should return a list"
+
+    assert len(generate_embedding) > 0, "embed_query returned an empty list"
+
+    assert isinstance(generate_embedding[0], float), (
+        "First element of embed_query should be a float"
     )
 
 
@@ -223,8 +235,12 @@ def test_12_generate_embed_query_with_params_and_concurrency_limit() -> None:
     generate_embedding = watsonx_embedding.embed_query(
         text=DOCUMENTS[0], concurrency_limit=9
     )
-    assert isinstance(generate_embedding, list) and isinstance(
-        generate_embedding[0], float
+    assert isinstance(generate_embedding, list), "embed_query should return a list"
+
+    assert len(generate_embedding) > 0, "embed_query returned an empty list"
+
+    assert isinstance(generate_embedding[0], float), (
+        "First element of embed_query should be a float"
     )
 
 
@@ -239,6 +255,8 @@ def test_20_generate_embed_query_with_client_initialization() -> None:
         model_id=MODEL_ID, project_id=WX_PROJECT_ID, watsonx_client=watsonx_client
     )
     generate_embedding = watsonx_embedding.embed_query(text=DOCUMENTS[0])
-    assert isinstance(generate_embedding, list) and isinstance(
-        generate_embedding[0], float
-    )
+
+    assert isinstance(generate_embedding, list), "embed_query should return a list"
+
+    assert len(generate_embedding) > 0, "embed_query returned an empty list"
+    assert isinstance(generate_embedding[0], float), "First element should be a float"

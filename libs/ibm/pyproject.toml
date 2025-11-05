@@ -94,7 +94,6 @@ ignore = [
     "T201",
     # TODO
     "S",
-    "PT"
 ]
 "scripts/*" = [
     "D",
