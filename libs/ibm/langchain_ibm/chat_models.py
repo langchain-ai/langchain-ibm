@@ -186,7 +186,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
     if role == "function":
         return FunctionMessage(
             content=_dict.get("content", ""),
-            name=cast(str, _dict.get("name")),
+            name=cast("str", _dict.get("name")),
             id=id_,
         )
     if role == "tool":
@@ -195,7 +195,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
             additional_kwargs["name"] = _dict["name"]
         return ToolMessage(
             content=_dict.get("content", ""),
-            tool_call_id=cast(str, _dict.get("tool_call_id")),
+            tool_call_id=cast("str", _dict.get("tool_call_id")),
             additional_kwargs=additional_kwargs,
             name=name,
             id=id_,
@@ -320,8 +320,8 @@ def _convert_delta_to_message_chunk(
     is_first_tool_chunk: bool,
 ) -> BaseMessageChunk:
     id_ = call_id
-    role = cast(str, _dict.get("role"))
-    content = cast(str, _dict.get("content") or "")
+    role = cast("str", _dict.get("role"))
+    content = cast("str", _dict.get("content") or "")
     additional_kwargs: dict = {}
     if _dict.get("function_call"):
         function_call = dict(_dict["function_call"])
@@ -432,7 +432,7 @@ def _convert_chunk_to_generation_chunk(
 
 
 class ChatWatsonx(BaseChatModel):
-    """`IBM watsonx.ai` chat models integration.
+    r"""`IBM watsonx.ai` chat models integration.
 
     ???+ info "Setup"
 
@@ -747,7 +747,7 @@ class ChatWatsonx(BaseChatModel):
         ```
 
         ```txt
-        '{\\n  "random_ints": [12, 34, 56, 78, 10, 22, 44, 66, 88, 99]\\n}'
+        '{\n  "random_ints": [12, 34, 56, 78, 10, 22, 44, 66, 88, 99]\n}'
         ```
 
     ??? info "Image input"
@@ -1295,9 +1295,9 @@ class ChatWatsonx(BaseChatModel):
         _prompt_tokens_included = False
 
         for chunk in chunk_iter:
-            chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
+            chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk,
+                chunk_data,
                 default_chunk_class,
                 is_first_tool_chunk=is_first_tool_chunk,
                 _prompt_tokens_included=_prompt_tokens_included,
@@ -1361,9 +1361,9 @@ class ChatWatsonx(BaseChatModel):
         _prompt_tokens_included = False
 
         async for chunk in chunk_iter:
-            chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
+            chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk,
+                chunk_data,
                 default_chunk_class,
                 is_first_tool_chunk=is_first_tool_chunk,
                 _prompt_tokens_included=_prompt_tokens_included,
@@ -1578,7 +1578,7 @@ class ChatWatsonx(BaseChatModel):
         strict: bool | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, dict | BaseModel]:
-        """Model wrapper that returns outputs formatted to match the given schema.
+        r"""Model wrapper that returns outputs formatted to match the given schema.
 
         Args:
             schema: The output schema. Can be passed in as:
@@ -1844,7 +1844,7 @@ class ChatWatsonx(BaseChatModel):
 
             structured_model.invoke(
                 "Answer the following question. "
-                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\\n\\n"
+                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\n\n"
                 "What's heavier a pound of bricks or a pound of feathers?"
             )
             ```
@@ -1852,7 +1852,7 @@ class ChatWatsonx(BaseChatModel):
             ```python
             {
                 "raw": AIMessage(
-                    content='{\\n    "answer": "They are both the same weight.",\\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \\n}'
+                    content='{\n    "answer": "They are both the same weight.",\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \n}'
                 ),
                 "parsed": AnswerWithJustification(
                     answer="They are both the same weight.",
@@ -1874,7 +1874,7 @@ class ChatWatsonx(BaseChatModel):
 
             structured_model.invoke(
                 "Answer the following question. "
-                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\\n\\n"
+                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\n\n"
                 "What's heavier a pound of bricks or a pound of feathers?"
             )
             ```
@@ -1882,7 +1882,7 @@ class ChatWatsonx(BaseChatModel):
             ```python
             {
                 "raw": AIMessage(
-                    content='{\\n    "answer": "They are both the same weight.",\\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \\n}'
+                    content='{\n    "answer": "They are both the same weight.",\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \n}'
                 ),
                 "parsed": {
                     "answer": "They are both the same weight.",
@@ -1909,7 +1909,8 @@ class ChatWatsonx(BaseChatModel):
                 "Received a Pydantic BaseModel V1 schema. This is not supported by "
                 'method="json_schema". Please use method="function_calling" '
                 "or specify schema via JSON Schema or Pydantic V2 BaseModel. "
-                'Overriding to method="function_calling".'
+                'Overriding to method="function_calling".',
+                stacklevel=2,
             )
             method = "function_calling"
 

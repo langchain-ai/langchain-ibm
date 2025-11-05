@@ -83,10 +83,6 @@ ignore = [
     "ARG002",
     "BLE001",
     "ANN401",
-    "D301",
-    "PLW",
-    "A001",
-    "B028",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -96,13 +92,8 @@ ignore = [
     "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
     "SLF001",  # Private member access in tests
     "T201",
-    "FIX",     # TODOs
-    "TD",      # TODOs
     # TODO
-    "RUF012",
-    "PGH003",
     "S",
-    "PT"
 ]
 "scripts/*" = [
     "D",

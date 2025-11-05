@@ -32,6 +32,7 @@ def __getattr__(name: str) -> Any:
                 f"Use `from langchain_ibm.agent_toolkits.utility import {name}` instead."  # noqa: E501
             ),
             category=DeprecationWarning,
+            stacklevel=2,
         )
         module = importlib.import_module(_module_lookup[name])
         return getattr(module, name)
