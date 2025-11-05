@@ -1030,8 +1030,7 @@ def test_chat_streaming_multiple_tool_call() -> None:
         == generated_tools_args[1]
     )
 
-    # TODO: these tests should works when usage field will be fixed
-    # assert ai_message.usage_metadata is not None
+    assert ai_message.usage_metadata is not None
 
 
 def test_chat_structured_output_function_calling() -> None:
