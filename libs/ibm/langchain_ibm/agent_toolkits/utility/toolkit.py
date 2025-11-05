@@ -20,7 +20,7 @@ from pydantic import (
     create_model,
     model_validator,
 )
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from langchain_ibm.agent_toolkits.utility.utils import convert_to_watsonx_tool
 from langchain_ibm.utils import (
@@ -78,6 +78,7 @@ class WatsonxTool(BaseTool):
 
         return self
 
+    @override
     def _run(
         self,
         *args: Any,

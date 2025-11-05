@@ -1,5 +1,6 @@
 """Utilities for watsonx SQL integration."""
 
+import contextlib
 import urllib.parse
 from collections.abc import Iterable
 from typing import Any
@@ -262,10 +263,8 @@ class WatsonxSQLDatabase:
                     )
                     raise ValueError(error_msg)
 
-                try:
+                with contextlib.suppress(ValueError):
                     _validate_param(token, "token", "WATSONX_TOKEN")
-                except ValueError:
-                    pass
 
                 def _check_with_username(
                     auth_name: str,

@@ -29,7 +29,8 @@ def __getattr__(name: str) -> Any:
             (
                 f"Import path `from langchain_ibm import {name}` is deprecated "
                 "and may be removed in future. "
-                f"Use `from langchain_ibm.agent_toolkits.utility import {name}` instead."  # noqa: E501
+                f"Use `from langchain_ibm.agent_toolkits.utility import {name}` "
+                "instead."
             ),
             category=DeprecationWarning,
             stacklevel=2,

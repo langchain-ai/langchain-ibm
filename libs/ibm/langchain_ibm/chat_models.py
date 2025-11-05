@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import json
 import logging
 import warnings
@@ -87,7 +88,7 @@ from pydantic import (
     model_validator,
 )
 from pydantic.v1 import BaseModel as BaseModelV1
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from langchain_ibm.utils import (
     async_gateway_error_handler,
@@ -331,7 +332,7 @@ def _convert_delta_to_message_chunk(
     tool_call_chunks = []
     if raw_tool_calls := _dict.get("tool_calls"):
         additional_kwargs["tool_calls"] = raw_tool_calls
-        try:
+        with contextlib.suppress(KeyError):
             tool_call_chunks = [
                 tool_call_chunk(
                     name=rtc["function"].get("name")
@@ -345,8 +346,6 @@ def _convert_delta_to_message_chunk(
                 )
                 for rtc in raw_tool_calls
             ]
-        except KeyError:
-            pass
 
     if reasoning_content := _dict.get("reasoning_content"):
         additional_kwargs["reasoning_content"] = reasoning_content
@@ -1511,18 +1510,23 @@ class ChatWatsonx(BaseChatModel):
                 - `str` of the form `'<<tool_name>>'`: calls `<<tool_name>>` tool.
                 - `'auto'`: automatically selects a tool (including no tool).
                 - `'none'`: does not call a tool.
-                - `'any'` or `'required'` or `True`: force at least one tool to be called.
-                - `dict` of the form `{"type": "function", "function": {"name": <<tool_name>>}}`: calls `<<tool_name>>` tool.
+                - `'any'` or `'required'` or `True`: force at least one tool to be
+                  called.
+                - `dict` of the form
+                  `{"type": "function", "function": {"name": <<tool_name>>}}`:
+                  calls `<<tool_name>>` tool.
                 - `False` or `None`: no effect, default OpenAI behavior.
 
-            strict: If `True`, model output is guaranteed to exactly match the JSON Schema
-                provided in the tool definition. The input schema will also be validated according to the
-                supported schemas.
+            strict: If `True`, model output is guaranteed to exactly match the JSON
+                Schema provided in the tool definition.
+                The input schema will also be validated according to the supported
+                schemas.
                 If `False`, input schema will not be validated and model output will not
-                be validated. If `None`, `strict` argument will not be passed to the model.
+                be validated.
+                If `None`, `strict` argument will not be passed to the model.
 
             kwargs: Any additional parameters are passed directly to `bind`.
-        """  # noqa: E501
+        """
         formatted_tools = [
             convert_to_openai_tool(tool, strict=strict) for tool in tools
         ]
@@ -1569,6 +1573,7 @@ class ChatWatsonx(BaseChatModel):
 
         return super().bind(tools=formatted_tools, **kwargs)
 
+    @override
     def with_structured_output(
         self,
         schema: dict | type | None = None,

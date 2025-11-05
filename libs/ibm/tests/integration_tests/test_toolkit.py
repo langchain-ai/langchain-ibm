@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from langchain_ibm import WatsonxToolkit
+from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 

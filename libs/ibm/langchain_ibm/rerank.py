@@ -13,7 +13,7 @@ from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-unt
 from langchain_core.documents import BaseDocumentCompressor, Document
 from langchain_core.utils.utils import secret_from_env
 from pydantic import AliasChoices, ConfigDict, Field, SecretStr, model_validator
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from langchain_ibm.utils import (
     extract_params,
@@ -257,6 +257,7 @@ class WatsonxRerank(BaseDocumentCompressor):
             for res in results["results"]
         ]
 
+    @override
     def compress_documents(
         self,
         documents: Sequence[Document],

@@ -101,7 +101,7 @@ def test_initialize_watsonx_embeddings_cpd_only_password() -> None:
         WatsonxEmbeddings(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="test_password",
+            password="test_password",  # noqa: S106
         )
 
 

@@ -74,7 +74,7 @@ def test_initialize_watsonx_toolkit_cpd_only_password() -> None:
     with pytest.raises(ValueError, match=pattern):
         WatsonxToolkit(
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="test_password",
+            password="test_password",  # noqa: S106
         )
 
 

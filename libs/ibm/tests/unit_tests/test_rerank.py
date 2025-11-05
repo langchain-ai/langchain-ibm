@@ -82,7 +82,7 @@ def test_initialize_watsonx_rerank_cpd_only_password() -> None:
         WatsonxRerank(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="test_password",
+            password="test_password",  # noqa: S106
         )
 
 

@@ -107,7 +107,7 @@ def test_initialize_watsonxllm_cpd_only_password() -> None:
         WatsonxLLM(
             model_id="google/flan-ul2",
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="test_password",
+            password="test_password",  # noqa: S106
         )
 
 

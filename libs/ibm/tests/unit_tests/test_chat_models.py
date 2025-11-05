@@ -107,7 +107,7 @@ def test_initialize_chat_watsonx_cpd_only_password() -> None:
         ChatWatsonx(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="fake_password",
+            password="fake_password",  # noqa: S106
         )
 
 

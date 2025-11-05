@@ -14,10 +14,7 @@ MODEL = "ibm/granite-embedding-107m-multilingual"
 
 @pytest.mark.skip("Until not released on us-south, should be skipped.")
 class TestEmbeddingsGateway:
-    documents = (
-        "What is a generative ai?",
-        "What is a loan and how does it works?",
-    )
+    documents = ("What is a generative ai?", "What is a loan and how does it works?")
 
     def test_embedding_model_gateway_init_credentials(self) -> None:
         watsonx_embedding = WatsonxEmbeddings(

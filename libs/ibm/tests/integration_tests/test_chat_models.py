@@ -23,7 +23,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
 from pydantic import BaseModel
 
-from langchain_ibm import ChatWatsonx, WatsonxToolkit
+from langchain_ibm import ChatWatsonx
+from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
