@@ -432,7 +432,7 @@ def _convert_chunk_to_generation_chunk(
 
 
 class ChatWatsonx(BaseChatModel):
-    """`IBM watsonx.ai` chat models integration.
+    r"""`IBM watsonx.ai` chat models integration.
 
     ???+ info "Setup"
 
@@ -747,7 +747,7 @@ class ChatWatsonx(BaseChatModel):
         ```
 
         ```txt
-        '{\\n  "random_ints": [12, 34, 56, 78, 10, 22, 44, 66, 88, 99]\\n}'
+        '{\n  "random_ints": [12, 34, 56, 78, 10, 22, 44, 66, 88, 99]\n}'
         ```
 
     ??? info "Image input"
@@ -1578,7 +1578,7 @@ class ChatWatsonx(BaseChatModel):
         strict: bool | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, dict | BaseModel]:
-        """Model wrapper that returns outputs formatted to match the given schema.
+        r"""Model wrapper that returns outputs formatted to match the given schema.
 
         Args:
             schema: The output schema. Can be passed in as:
@@ -1844,7 +1844,7 @@ class ChatWatsonx(BaseChatModel):
 
             structured_model.invoke(
                 "Answer the following question. "
-                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\\n\\n"
+                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\n\n"
                 "What's heavier a pound of bricks or a pound of feathers?"
             )
             ```
@@ -1852,7 +1852,7 @@ class ChatWatsonx(BaseChatModel):
             ```python
             {
                 "raw": AIMessage(
-                    content='{\\n    "answer": "They are both the same weight.",\\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \\n}'
+                    content='{\n    "answer": "They are both the same weight.",\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \n}'
                 ),
                 "parsed": AnswerWithJustification(
                     answer="They are both the same weight.",
@@ -1874,7 +1874,7 @@ class ChatWatsonx(BaseChatModel):
 
             structured_model.invoke(
                 "Answer the following question. "
-                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\\n\\n"
+                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\n\n"
                 "What's heavier a pound of bricks or a pound of feathers?"
             )
             ```
@@ -1882,7 +1882,7 @@ class ChatWatsonx(BaseChatModel):
             ```python
             {
                 "raw": AIMessage(
-                    content='{\\n    "answer": "They are both the same weight.",\\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \\n}'
+                    content='{\n    "answer": "They are both the same weight.",\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \n}'
                 ),
                 "parsed": {
                     "answer": "They are both the same weight.",
