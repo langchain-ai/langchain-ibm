@@ -3,7 +3,9 @@
 import os
 
 import pytest
-from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
+from ibm_watsonx_ai.wml_client_error import (  # type: ignore[import-untyped]
+    WMLClientError,
+)
 
 from langchain_ibm import WatsonxRerank
 

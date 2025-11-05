@@ -4,10 +4,15 @@ import os
 from unittest.mock import Mock
 
 import pytest
-from ibm_watsonx_ai import APIClient  # type: ignore
-from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
-from ibm_watsonx_ai.gateway import Gateway  # type: ignore
-from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
+from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+    Model,
+    ModelInference,
+)
+from ibm_watsonx_ai.gateway import Gateway  # type: ignore[import-untyped]
+from ibm_watsonx_ai.wml_client_error import (  # type: ignore[import-untyped]
+    WMLClientError,
+)
 
 from langchain_ibm import WatsonxLLM
 

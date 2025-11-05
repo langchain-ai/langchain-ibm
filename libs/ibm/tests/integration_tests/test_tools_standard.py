@@ -1,6 +1,6 @@
 import os
 
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
 from langchain_core.tools import BaseTool
 from langchain_tests.integration_tests.tools import ToolsIntegrationTests
 

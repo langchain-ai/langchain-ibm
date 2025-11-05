@@ -3,8 +3,12 @@ import os
 from typing import Any, Literal, cast
 
 import pytest
-from ibm_watsonx_ai.foundation_models.schema import TextChatParameters  # type: ignore
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
+from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
+    TextChatParameters,
+)
+from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+    GenTextParamsMetaNames,
+)
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,

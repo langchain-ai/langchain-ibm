@@ -1,5 +1,7 @@
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
-from ibm_watsonx_ai.service_instance import ServiceInstance  # type: ignore
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
+from ibm_watsonx_ai.service_instance import (  # type: ignore[import-untyped]
+    ServiceInstance,
+)
 from langchain_core.language_models import BaseChatModel
 from langchain_tests.unit_tests.chat_models import ChatModelUnitTests
 

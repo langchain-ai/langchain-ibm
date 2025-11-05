@@ -2,7 +2,7 @@ import os
 from typing import ClassVar
 
 import pytest
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
 from langchain_core.messages import (
     HumanMessage,
     SystemMessage,

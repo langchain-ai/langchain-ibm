@@ -6,9 +6,13 @@ You'll need to set WATSONX_APIKEY and WATSONX_PROJECT_ID environment variables.
 import os
 
 import pytest
-from ibm_watsonx_ai import APIClient  # type: ignore
-from ibm_watsonx_ai.foundation_models.embeddings import Embeddings  # type: ignore
-from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames  # type: ignore
+from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models.embeddings import (  # type: ignore[import-untyped]
+    Embeddings,
+)
+from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+    EmbedTextParamsMetaNames,
+)
 
 from langchain_ibm import WatsonxEmbeddings
 
