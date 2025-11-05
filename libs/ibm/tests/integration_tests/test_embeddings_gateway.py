@@ -1,5 +1,4 @@
 import os
-from typing import ClassVar
 
 import pytest
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
@@ -15,10 +14,10 @@ MODEL = "ibm/granite-embedding-107m-multilingual"
 
 @pytest.mark.skip("Until not released on us-south, should be skipped.")
 class TestEmbeddingsGateway:
-    documents: ClassVar[list[str]] = [
+    documents = (
         "What is a generative ai?",
         "What is a loan and how does it works?",
-    ]
+    )
 
     def test_embedding_model_gateway_init_credentials(self) -> None:
         watsonx_embedding = WatsonxEmbeddings(
@@ -73,7 +72,9 @@ class TestEmbeddingsGateway:
             apikey=WX_APIKEY,
             project_id=WX_PROJECT_ID,
         )
-        generate_embedding = watsonx_embedding.embed_documents(texts=self.documents)
+        generate_embedding = watsonx_embedding.embed_documents(
+            texts=list(self.documents)
+        )
         assert generate_embedding
         assert len(generate_embedding) == len(self.documents)
         assert all(isinstance(embedding, list) for embedding in generate_embedding)
@@ -92,7 +93,7 @@ class TestEmbeddingsGateway:
             project_id=WX_PROJECT_ID,
         )
         generate_embedding = await watsonx_embedding.aembed_documents(
-            texts=self.documents
+            texts=list(self.documents)
         )
         assert generate_embedding
         assert len(generate_embedding) == len(self.documents)
