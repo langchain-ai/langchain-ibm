@@ -1295,9 +1295,9 @@ class ChatWatsonx(BaseChatModel):
         _prompt_tokens_included = False
 
         for chunk in chunk_iter:
-            chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
+            chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk,
+                chunk_data,
                 default_chunk_class,
                 is_first_tool_chunk=is_first_tool_chunk,
                 _prompt_tokens_included=_prompt_tokens_included,
@@ -1361,9 +1361,9 @@ class ChatWatsonx(BaseChatModel):
         _prompt_tokens_included = False
 
         async for chunk in chunk_iter:
-            chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
+            chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk,
+                chunk_data,
                 default_chunk_class,
                 is_first_tool_chunk=is_first_tool_chunk,
                 _prompt_tokens_included=_prompt_tokens_included,
