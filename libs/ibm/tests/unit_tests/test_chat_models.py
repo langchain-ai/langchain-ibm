@@ -2,17 +2,22 @@
 
 import json
 import os
+import re
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
-from ibm_watsonx_ai import APIClient  # type: ignore
-from ibm_watsonx_ai.foundation_models import ModelInference  # type: ignore
+from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+    ModelInference,
+)
 from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
     TextChatParameters,
 )
-from ibm_watsonx_ai.gateway import Gateway  # type: ignore
-from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
+from ibm_watsonx_ai.gateway import Gateway  # type: ignore[import-untyped]
+from ibm_watsonx_ai.wml_client_error import (  # type: ignore[import-untyped]
+    WMLClientError,
+)
 
 from langchain_ibm import ChatWatsonx
 from langchain_ibm.chat_models import normalize_tool_arguments
@@ -35,22 +40,21 @@ model_inference_mock.model_id = "fake_model_id"
 model_inference_mock.params = {"temperature": 1}
 
 
-def test_initialize_chat_watsonx_bad_path_without_url() -> None:
-    with pytest.raises(ValueError) as e:
+def test_initialize_chat_watsonx_without_url() -> None:
+    pattern = r"(?=.*url)(?=.*WATSONX_URL)"
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(
             model_id=MODEL_ID,
         )
 
-    assert "url" in str(e.value)
-    assert "WATSONX_URL" in str(e.value)
 
-
-def test_initialize_chat_watsonx_cloud_bad_path() -> None:
-    with pytest.raises(ValueError) as e:
+def test_initialize_chat_watsonx_cloud_only_url() -> None:
+    pattern = (
+        r"(?=.*api_key)(?=.*token)"
+        r"(?=.*WATSONX_API_KEY)(?=.*WATSONX_TOKEN)"
+    )
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(model_id=MODEL_ID, url="https://us-south.ml.cloud.ibm.com")
-
-    assert "api_key" in str(e.value) and "token" in str(e.value)
-    assert "WATSONX_API_KEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
 
 
 def test_initialize_chat_watsonx_with_deprecated_apikey() -> None:
@@ -85,57 +89,49 @@ def test_initialize_chat_watsonx_with_api_key_and_apikey() -> None:
         )
 
 
-def test_initialize_chat_watsonx_cpd_bad_path_without_all() -> None:
-    with pytest.raises(ValueError) as e:
+def test_initialize_chat_watsonx_cpd_without_all() -> None:
+    pattern = (
+        r"(?=.*api_key)(?=.*password)(?=.*token)"
+        r"(?=.*WATSONX_API_KEY)(?=.*WATSONX_PASSWORD)(?=.*WATSONX_TOKEN)"
+    )
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
         )
-    assert (
-        "api_key" in str(e.value)
-        and "password" in str(e.value)
-        and "token" in str(e.value)
-    )
-    assert (
-        "WATSONX_API_KEY" in str(e.value)
-        and "WATSONX_PASSWORD" in str(e.value)
-        and "WATSONX_TOKEN" in str(e.value)
-    )
 
 
-def test_initialize_chat_watsonx_cpd_bad_path_only_password() -> None:
-    with pytest.raises(ValueError) as e:
+def test_initialize_chat_watsonx_cpd_only_password() -> None:
+    pattern = r"(?=.*username)(?=.*WATSONX_USERNAME)"
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
             password="fake_password",  # noqa: S106
         )
-    assert "username" in str(e.value)
-    assert "WATSONX_USERNAME" in str(e.value)
 
 
-def test_initialize_chat_watsonx_cpd_bad_path_only_username() -> None:
-    with pytest.raises(ValueError) as e:
+def test_initialize_chat_watsonx_cpd_only_username() -> None:
+    pattern = (
+        r"(?=.*api_key)(?=.*password)(?=.*token)"
+        r"(?=.*WATSONX_API_KEY)(?=.*WATSONX_PASSWORD)(?=.*WATSONX_TOKEN)"
+    )
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
             username="fake_username",
         )
-    assert "password" in str(e.value)
-    assert "WATSONX_PASSWORD" in str(e.value)
-    assert "api_key" in str(e.value)
-    assert "WATSONX_API_KEY" in str(e.value)
 
 
-def test_initialize_chat_watsonx_cpd_bad_path_only_apikey() -> None:
-    with pytest.raises(ValueError) as e:
+def test_initialize_chat_watsonx_cpd_only_paikey() -> None:
+    pattern = r"(?=.*username)(?=.*WATSONX_USERNAME)"
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(
             model_id=MODEL_ID,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
             apikey="fake_apikey",
         )
-    assert "username" in str(e.value)
-    assert "WATSONX_USERNAME" in str(e.value)
 
 
 def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> None:
@@ -155,7 +151,11 @@ def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> N
 
 
 def test_initialize_chat_watsonx_with_two_exclusive_parameters() -> None:
-    with pytest.raises(ValueError) as e:
+    pattern = re.escape(
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing ChatWatsonx."
+    )
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(
             model_id=MODEL_ID,
             model=MODEL_ID,
@@ -163,15 +163,13 @@ def test_initialize_chat_watsonx_with_two_exclusive_parameters() -> None:
             apikey="test_apikey",
         )
 
-    assert (
-        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
-        " Please specify exactly one of these parameters when initializing ChatWatsonx."
-        in str(e.value)
-    )
-
 
 def test_initialize_chat_watsonx_with_three_exclusive_parameters() -> None:
-    with pytest.raises(ValueError) as e:
+    pattern = re.escape(
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing ChatWatsonx."
+    )
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(
             model_id=MODEL_ID,
             model=MODEL_ID,
@@ -180,40 +178,32 @@ def test_initialize_chat_watsonx_with_three_exclusive_parameters() -> None:
             apikey="test_apikey",
         )
 
-    assert (
-        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
-        " Please specify exactly one of these parameters when initializing ChatWatsonx."
-        in str(e.value)
-    )
-
 
 def test_initialize_chat_watsonx_with_api_client_only() -> None:
-    with pytest.raises(ValueError) as e:
-        ChatWatsonx(watsonx_client=api_client_mock)
-    assert (
+    pattern = re.escape(
         "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
         " Please specify exactly one of these parameters when initializing ChatWatsonx."
-        in str(e.value)
     )
+    with pytest.raises(ValueError, match=pattern):
+        ChatWatsonx(watsonx_client=api_client_mock)
 
 
 def test_initialize_chat_watsonx_with_watsonx_model_gateway() -> None:
-    with pytest.raises(NotImplementedError) as e:
-        ChatWatsonx(watsonx_model_gateway=gateway_mock)
-    assert (
+    pattern = re.escape(
         "Passing the 'watsonx_model_gateway' parameter to the ChatWatsonx "
-        "constructor is not supported yet." in str(e.value)
+        "constructor is not supported yet."
     )
+    with pytest.raises(NotImplementedError, match=pattern):
+        ChatWatsonx(watsonx_model_gateway=gateway_mock)
 
 
 def test_initialize_chat_watsonx_without_any_params() -> None:
-    with pytest.raises(ValueError) as e:
-        ChatWatsonx()
-    assert (
+    pattern = re.escape(
         "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
         " Please specify exactly one of these parameters when initializing ChatWatsonx."
-        in str(e.value)
     )
+    with pytest.raises(ValueError, match=pattern):
+        ChatWatsonx()
 
 
 def test_initialize_chat_watsonx_with_model_inference_only() -> None:

@@ -87,15 +87,15 @@ class WatsonxTool(BaseTool):
     ) -> dict:
         """Run the tool."""
         if self.tool_input_schema is None:
-            input_ = kwargs.get("input") or args[0]
+            input_data = kwargs.get("input") or args[0]
         else:
-            input_ = {
+            input_data = {
                 k: v
                 for k, v in kwargs.items()
                 if k in self.tool_input_schema["properties"]
             }
 
-        return cast("dict", self._watsonx_tool.run(input_, self.tool_config))  # type: ignore[union-attr]
+        return cast("dict", self._watsonx_tool.run(input_data, self.tool_config))  # type: ignore[union-attr]
 
     def set_tool_config(self, tool_config: dict) -> None:
         """Set tool config properties.

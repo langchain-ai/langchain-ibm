@@ -6,12 +6,17 @@ You'll need to set WATSONX_APIKEY and WATSONX_PROJECT_ID environment variables.
 import os
 
 import pytest
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
-from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
-from ibm_watsonx_ai.foundation_models.utils.enums import (  # type: ignore
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+    Model,
+    ModelInference,
+)
+from ibm_watsonx_ai.foundation_models.utils.enums import (  # type: ignore[import-untyped]
     DecodingMethods,
 )
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
+from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+    GenTextParamsMetaNames,
+)
 from langchain_core.outputs import LLMResult
 
 from langchain_ibm import WatsonxLLM
@@ -525,7 +530,7 @@ async def test_watsonx_agenerate() -> None:
         ["What color sunflower is?", "What color turtle is?"]
     )
     assert len(response.generations) > 0
-    assert response.llm_output["token_usage"]["completion_tokens"] != 0  # type: ignore
+    assert response.llm_output["token_usage"]["completion_tokens"] != 0  # type: ignore[index]
 
 
 async def test_watsonx_agenerate_with_stream() -> None:

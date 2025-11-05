@@ -223,7 +223,7 @@ def secret_from_env_multi(
                 DeprecationWarning,
                 stacklevel=2,
             )
-        return SecretStr(cast(str, value))
+        return SecretStr(cast("str", value))
 
     return _factory
 

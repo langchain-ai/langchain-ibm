@@ -1,13 +1,19 @@
 """Test WatsonxLLM API wrapper."""
 
 import os
+import re
 from unittest.mock import Mock
 
 import pytest
-from ibm_watsonx_ai import APIClient  # type: ignore
-from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
-from ibm_watsonx_ai.gateway import Gateway  # type: ignore
-from ibm_watsonx_ai.wml_client_error import WMLClientError  # type: ignore
+from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+    Model,
+    ModelInference,
+)
+from ibm_watsonx_ai.gateway import Gateway  # type: ignore[import-untyped]
+from ibm_watsonx_ai.wml_client_error import (  # type: ignore[import-untyped]
+    WMLClientError,
+)
 
 from langchain_ibm import WatsonxLLM
 
@@ -34,22 +40,21 @@ model_mock.model_id = "fake_model_id"
 model_mock.params = {"temperature": 1}
 
 
-def test_initialize_watsonxllm_bad_path_without_url() -> None:
-    try:
+def test_initialize_watsonxllm_without_url() -> None:
+    pattern = r"(?=.*url)(?=.*WATSONX_URL)"
+    with pytest.raises(ValueError, match=pattern):
         WatsonxLLM(
             model_id="google/flan-ul2",
         )
-    except ValueError as e:
-        assert "url" in e.__str__()
-        assert "WATSONX_URL" in e.__str__()
 
 
-def test_initialize_watsonxllm_cloud_bad_path() -> None:
-    try:
+def test_initialize_watsonxllm_cloud_only_url() -> None:
+    pattern = (
+        r"(?=.*api_key)(?=.*token)"
+        r"(?=.*WATSONX_API_KEY)(?=.*WATSONX_TOKEN)"
+    )
+    with pytest.raises(ValueError, match=pattern):
         WatsonxLLM(model_id="google/flan-ul2", url="https://us-south.ml.cloud.ibm.com")
-    except ValueError as e:
-        assert "api_key" in e.__str__() and "token" in e.__str__()
-        assert "WATSONX_API_KEY" in e.__str__() and "WATSONX_TOKEN" in e.__str__()
 
 
 def test_initialize_watsonxllm_with_deprecated_apikey() -> None:
@@ -84,47 +89,36 @@ def test_initialize_watsonxllm_with_api_key_and_apikey() -> None:
         )
 
 
-def test_initialize_watsonxllm_cpd_bad_path_without_all() -> None:
-    try:
+def test_initialize_watsonxllm_cpd_without_all() -> None:
+    pattern = (
+        r"(?=.*api_key)(?=.*password)(?=.*token)"
+        r"(?=.*WATSONX_API_KEY)(?=.*WATSONX_PASSWORD)(?=.*WATSONX_TOKEN)"
+    )
+    with pytest.raises(ValueError, match=pattern):
         WatsonxLLM(
             model_id="google/flan-ul2",
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
         )
-    except ValueError as e:
-        assert (
-            "api_key" in e.__str__()
-            and "password" in e.__str__()
-            and "token" in e.__str__()
-        )
-        assert (
-            "WATSONX_API_KEY" in e.__str__()
-            and "WATSONX_PASSWORD" in e.__str__()
-            and "WATSONX_TOKEN" in e.__str__()
-        )
 
 
-def test_initialize_watsonxllm_cpd_bad_path_password_without_username() -> None:
-    try:
+def test_initialize_watsonxllm_cpd_only_password() -> None:
+    pattern = r"(?=.*username)(?=.*WATSONX_USERNAME)"
+    with pytest.raises(ValueError, match=pattern):
         WatsonxLLM(
             model_id="google/flan-ul2",
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
             password="test_password",  # noqa: S106
         )
-    except ValueError as e:
-        assert "username" in e.__str__()
-        assert "WATSONX_USERNAME" in e.__str__()
 
 
-def test_initialize_watsonxllm_cpd_bad_path_apikey_without_username() -> None:
-    try:
+def test_initialize_watsonxllm_cpd_only_apikey() -> None:
+    pattern = r"(?=.*username)(?=.*WATSONX_USERNAME)"
+    with pytest.raises(ValueError, match=pattern):
         WatsonxLLM(
             model_id="google/flan-ul2",
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
             apikey="test_apikey",
         )
-    except ValueError as e:
-        assert "username" in e.__str__()
-        assert "WATSONX_USERNAME" in e.__str__()
 
 
 def test_initialize_watsonxllm_cpd_deprecation_warning_with_instance_id() -> None:
@@ -144,7 +138,11 @@ def test_initialize_watsonxllm_cpd_deprecation_warning_with_instance_id() -> Non
 
 
 def test_initialize_watsonxllm_with_two_exclusive_parameters() -> None:
-    with pytest.raises(ValueError) as e:
+    pattern = re.escape(
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing WatsonxLLM."
+    )
+    with pytest.raises(ValueError, match=pattern):
         WatsonxLLM(
             model_id=MODEL_ID,
             model=MODEL_ID,
@@ -152,15 +150,13 @@ def test_initialize_watsonxllm_with_two_exclusive_parameters() -> None:
             apikey="test_apikey",
         )
 
-    assert (
-        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
-        " Please specify exactly one of these parameters when initializing WatsonxLLM."
-        in str(e.value)
-    )
-
 
 def test_initialize_watsonxllm_with_three_exclusive_parameters() -> None:
-    with pytest.raises(ValueError) as e:
+    pattern = re.escape(
+        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
+        " Please specify exactly one of these parameters when initializing WatsonxLLM."
+    )
+    with pytest.raises(ValueError, match=pattern):
         WatsonxLLM(
             model_id=MODEL_ID,
             model=MODEL_ID,
@@ -169,40 +165,34 @@ def test_initialize_watsonxllm_with_three_exclusive_parameters() -> None:
             apikey="test_apikey",
         )
 
-    assert (
-        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
-        " Please specify exactly one of these parameters when initializing WatsonxLLM."
-        in str(e.value)
-    )
-
 
 def test_initialize_watsonxllm_with_api_client_only() -> None:
-    with pytest.raises(ValueError) as e:
-        WatsonxLLM(watsonx_client=api_client_mock)
-    assert (
+    pattern = re.escape(
         "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
         " Please specify exactly one of these parameters when initializing WatsonxLLM."
-        in str(e.value)
     )
+    with pytest.raises(ValueError, match=pattern):
+        WatsonxLLM(watsonx_client=api_client_mock)
 
 
 def test_initialize_watsonxllm_with_watsonx_model_gateway() -> None:
-    with pytest.raises(NotImplementedError) as e:
-        WatsonxLLM(watsonx_model_gateway=gateway_mock)
-    assert (
+    pattern = re.escape(
         "Passing the 'watsonx_model_gateway' parameter to the WatsonxLLM "
-        "constructor is not supported yet." in str(e.value)
+        "constructor is not supported yet."
     )
+
+    with pytest.raises(NotImplementedError, match=pattern):
+        WatsonxLLM(watsonx_model_gateway=gateway_mock)
 
 
 def test_initialize_watsonxllm_without_any_params() -> None:
-    with pytest.raises(ValueError) as e:
-        WatsonxLLM()
-    assert (
+    pattern = re.escape(
         "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
         " Please specify exactly one of these parameters when initializing WatsonxLLM."
-        in str(e.value)
     )
+
+    with pytest.raises(ValueError, match=pattern):
+        WatsonxLLM()
 
 
 def test_initialize_watsonxllm_with_model_inference_only() -> None:

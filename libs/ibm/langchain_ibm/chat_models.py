@@ -187,7 +187,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
     if role == "function":
         return FunctionMessage(
             content=_dict.get("content", ""),
-            name=cast(str, _dict.get("name")),
+            name=cast("str", _dict.get("name")),
             id=id_,
         )
     if role == "tool":
@@ -196,7 +196,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
             additional_kwargs["name"] = _dict["name"]
         return ToolMessage(
             content=_dict.get("content", ""),
-            tool_call_id=cast(str, _dict.get("tool_call_id")),
+            tool_call_id=cast("str", _dict.get("tool_call_id")),
             additional_kwargs=additional_kwargs,
             name=name,
             id=id_,
@@ -321,8 +321,8 @@ def _convert_delta_to_message_chunk(
     is_first_tool_chunk: bool,
 ) -> BaseMessageChunk:
     id_ = call_id
-    role = cast(str, _dict.get("role"))
-    content = cast(str, _dict.get("content") or "")
+    role = cast("str", _dict.get("role"))
+    content = cast("str", _dict.get("content") or "")
     additional_kwargs: dict = {}
     if _dict.get("function_call"):
         function_call = dict(_dict["function_call"])
@@ -1011,6 +1011,9 @@ class ChatWatsonx(BaseChatModel):
     """Stop sequences are one or more strings which will cause the text generation
     to stop if/when they are produced as part of the output."""
 
+    chat_template_kwargs: dict | None = None
+    """Additional chat template parameters."""
+
     verify: str | bool | None = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
@@ -1294,9 +1297,9 @@ class ChatWatsonx(BaseChatModel):
         _prompt_tokens_included = False
 
         for chunk in chunk_iter:
-            chunk_ = chunk if isinstance(chunk, dict) else chunk.model_dump()
+            chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk_,
+                chunk_data,
                 default_chunk_class,
                 is_first_tool_chunk=is_first_tool_chunk,
                 _prompt_tokens_included=_prompt_tokens_included,
@@ -1360,9 +1363,9 @@ class ChatWatsonx(BaseChatModel):
         _prompt_tokens_included = False
 
         async for chunk in chunk_iter:
-            chunk_ = chunk if isinstance(chunk, dict) else chunk.model_dump()
+            chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk_,
+                chunk_data,
                 default_chunk_class,
                 is_first_tool_chunk=is_first_tool_chunk,
                 _prompt_tokens_included=_prompt_tokens_included,
@@ -1484,6 +1487,7 @@ class ChatWatsonx(BaseChatModel):
             "logit_bias",
             "seed",
             "stop",
+            "chat_template_kwargs",
         ]
 
     def bind_tools(
