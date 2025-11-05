@@ -186,7 +186,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
     if role == "function":
         return FunctionMessage(
             content=_dict.get("content", ""),
-            name=cast(str, _dict.get("name")),
+            name=cast("str", _dict.get("name")),
             id=id_,
         )
     if role == "tool":
@@ -195,7 +195,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
             additional_kwargs["name"] = _dict["name"]
         return ToolMessage(
             content=_dict.get("content", ""),
-            tool_call_id=cast(str, _dict.get("tool_call_id")),
+            tool_call_id=cast("str", _dict.get("tool_call_id")),
             additional_kwargs=additional_kwargs,
             name=name,
             id=id_,
@@ -320,8 +320,8 @@ def _convert_delta_to_message_chunk(
     is_first_tool_chunk: bool,
 ) -> BaseMessageChunk:
     id_ = call_id
-    role = cast(str, _dict.get("role"))
-    content = cast(str, _dict.get("content") or "")
+    role = cast("str", _dict.get("role"))
+    content = cast("str", _dict.get("content") or "")
     additional_kwargs: dict = {}
     if _dict.get("function_call"):
         function_call = dict(_dict["function_call"])
@@ -1909,7 +1909,8 @@ class ChatWatsonx(BaseChatModel):
                 "Received a Pydantic BaseModel V1 schema. This is not supported by "
                 'method="json_schema". Please use method="function_calling" '
                 "or specify schema via JSON Schema or Pydantic V2 BaseModel. "
-                'Overriding to method="function_calling".'
+                'Overriding to method="function_calling".',
+                stacklevel=2,
             )
             method = "function_calling"
 
