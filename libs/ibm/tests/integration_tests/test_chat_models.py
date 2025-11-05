@@ -1011,12 +1011,12 @@ def test_chat_streaming_multiple_tool_call() -> None:
     # tool_call_chunks
     predicted_tool_call_chunks = []
     for i, el in enumerate(ai_message.tool_calls):
-        el |= {"type": "tool_call_chunk"}  # type: ignore[typeddict-item]
-        el["args"] = json.dumps(el["args"])  # type: ignore[typeddict-item]
-        el |= {"index": i}  # type: ignore[misc]
-        predicted_tool_call_chunks.append(el)
+        tool_call_chunk = el | {"type": "tool_call_chunk"}
+        tool_call_chunk["args"] = json.dumps(tool_call_chunk["args"])
+        tool_call_chunk = tool_call_chunk | {"index": i}
+        predicted_tool_call_chunks.append(tool_call_chunk)
 
-    assert ai_message.tool_call_chunks == predicted_tool_call_chunks  # type: ignore[comparison-overlap]
+    assert ai_message.tool_call_chunks == predicted_tool_call_chunks
     assert (
         json.loads(
             ai_message.additional_kwargs["tool_calls"][0]["function"]["arguments"]
