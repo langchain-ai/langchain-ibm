@@ -17,6 +17,7 @@ from langchain_core.messages import (
     BaseMessageChunk,
     HumanMessage,
     SystemMessage,
+    ToolCallChunk,
 )
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
@@ -1016,9 +1017,13 @@ def test_chat_streaming_multiple_tool_call() -> None:
     # tool_call_chunks
     predicted_tool_call_chunks = []
     for i, el in enumerate(ai_message.tool_calls):
-        tool_call_chunk = el | {"type": "tool_call_chunk"}
-        tool_call_chunk["args"] = json.dumps(tool_call_chunk["args"])
-        tool_call_chunk = tool_call_chunk | {"index": i}
+        tool_call_chunk = ToolCallChunk(
+            name=el["name"],
+            args=json.dumps(el["args"]),
+            id=el["id"],
+            index=i,
+            type="tool_call_chunk",
+        )
         predicted_tool_call_chunks.append(tool_call_chunk)
 
     assert ai_message.tool_call_chunks == predicted_tool_call_chunks
@@ -1384,8 +1389,8 @@ def test_init_and_invoke_with_params_4() -> None:
         params=params_1_a,
     )
 
-    pattern = (
-        r"Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+    pattern = re.escape(
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
     )
 
     with pytest.raises(ValueError, match=pattern) as e:
