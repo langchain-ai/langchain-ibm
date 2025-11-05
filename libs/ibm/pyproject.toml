@@ -93,7 +93,6 @@ ignore = [
     "SLF001",  # Private member access in tests
     "T201",
     # TODO
-    "RUF012",
     "PGH003",
     "S",
     "PT"

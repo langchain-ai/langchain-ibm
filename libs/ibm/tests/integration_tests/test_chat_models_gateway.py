@@ -1,4 +1,5 @@
 import os
+from typing import ClassVar
 
 import pytest
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
@@ -20,7 +21,7 @@ MODEL = "mistralai/mistral-large"
 class TestChatModelsGateway:
     prompt = "Hello, How are you!"
 
-    messages = [
+    messages: ClassVar[list[tuple[str, str]]] = [
         ("user", "You are a helpful assistant that translates English to French."),
         (
             "human",
