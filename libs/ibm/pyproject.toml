@@ -90,9 +90,6 @@ ignore = [
     "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
     "SLF001",  # Private member access in tests
     "T201",
-    # TODO
-    "PGH003",
-    "PT"
 ]
 "scripts/*" = [
     "D",
