@@ -1,5 +1,5 @@
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
-from ibm_watsonx_ai.service_instance import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient, Credentials
+from ibm_watsonx_ai.service_instance import (
     ServiceInstance,
 )
 from langchain_core.tools import BaseTool

@@ -2,8 +2,8 @@
 
 from typing import Any, cast
 
-from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models.utils import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models.utils import (
     Tool,
     Toolkit,
 )

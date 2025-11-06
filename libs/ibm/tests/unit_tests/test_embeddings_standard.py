@@ -1,22 +1,17 @@
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
-from ibm_watsonx_ai.service_instance import (  # type: ignore[import-untyped]
-    ServiceInstance,
-)
+import pytest
+from ibm_watsonx_ai import APIClient, Credentials
 from langchain_tests.unit_tests.embeddings import EmbeddingsUnitTests
+from pytest_mock import MockerFixture
 
 from langchain_ibm import WatsonxEmbeddings
 
-client = APIClient.__new__(APIClient)
-client.CLOUD_PLATFORM_SPACES = True
-client.ICP_PLATFORM_SPACES = True
-credentials = Credentials(api_key="api_key")
-client.credentials = credentials
-client.service_instance = ServiceInstance.__new__(ServiceInstance)
-client._httpx_client = None
-client._async_httpx_client = None
-
 
 class TestWatsonxEmbeddingsStandard(EmbeddingsUnitTests):
+    @pytest.fixture(autouse=True)
+    def setup_client(self, mocker: MockerFixture) -> None:
+        self.client = mocker.Mock(APIClient)
+        self.client.credentials = Credentials(api_key="api_key")
+
     @property
     def embeddings_class(self) -> type[WatsonxEmbeddings]:
         return WatsonxEmbeddings
@@ -25,5 +20,5 @@ class TestWatsonxEmbeddingsStandard(EmbeddingsUnitTests):
     def embedding_model_params(self) -> dict:
         return {
             "model_id": "ibm/granite-13b-instruct-v2",
-            "watsonx_client": client,
+            "watsonx_client": self.client,
         }

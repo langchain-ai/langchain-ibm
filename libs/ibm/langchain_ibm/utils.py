@@ -9,11 +9,11 @@ from copy import deepcopy
 from typing import Any, cast
 from urllib.parse import urlparse
 
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient, Credentials
+from ibm_watsonx_ai.foundation_models.schema import (
     BaseSchema,
 )
-from ibm_watsonx_ai.wml_client_error import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
 )
 from pydantic import SecretStr
