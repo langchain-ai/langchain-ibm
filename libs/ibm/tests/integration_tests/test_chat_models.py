@@ -4,10 +4,10 @@ import re
 from typing import Any, Literal, cast
 
 import pytest
-from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models.schema import (
     TextChatParameters,
 )
-from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.metanames import (
     GenTextParamsMetaNames,
 )
 from langchain_core.messages import (

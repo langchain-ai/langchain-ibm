@@ -14,8 +14,8 @@ except ModuleNotFoundError as e:
     )
     raise ModuleNotFoundError(error_msg) from e
 
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
-from ibm_watsonx_ai.helpers.connections.flight_sql_service import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient, Credentials
+from ibm_watsonx_ai.helpers.connections.flight_sql_service import (
     FlightSQLClient,
 )
 from langchain_core.utils.utils import from_env
@@ -316,16 +316,16 @@ class WatsonxSQLDatabase:
 
         else:
             self.watsonx_client = watsonx_client
-
-        context_id: dict[str, str | None] = {"project_id": None, "space_id": None}
+        client_project_id = None
+        client_space_id = None
         if project_id is not None:
-            context_id["project_id"] = project_id
+            client_project_id = project_id
         elif space_id is not None:
-            context_id["space_id"] = space_id
+            client_space_id = space_id
         elif self.watsonx_client.default_project_id is not None:
-            context_id["project_id"] = self.watsonx_client.default_project_id
+            client_project_id = self.watsonx_client.default_project_id  # type: ignore[unreachable]
         elif self.watsonx_client.default_space_id is not None:
-            context_id["space_id"] = self.watsonx_client.default_space_id
+            client_space_id = self.watsonx_client.default_space_id  # type: ignore[unreachable]
         else:
             error_msg = "Either project_id or space_id is required."
             raise ValueError(error_msg)
@@ -333,7 +333,8 @@ class WatsonxSQLDatabase:
         self._flight_sql_client = FlightSQLClient(
             connection_id=connection_id,
             api_client=self.watsonx_client,
-            **context_id,
+            project_id=client_project_id,
+            space_id=client_space_id,
         )
 
         with self._flight_sql_client as flight_sql_client:

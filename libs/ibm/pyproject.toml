@@ -106,6 +106,10 @@ warn_unreachable = true
 disallow_any_generics = false
 warn_return_any = false
 
+[[tool.mypy.overrides]]
+module = "ibm_watsonx_ai.*"
+follow_untyped_imports = true
+
 [tool.coverage.run]
 omit = ["tests/*"]
 

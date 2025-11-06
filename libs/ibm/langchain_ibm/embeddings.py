@@ -1,13 +1,13 @@
 """IBM watsonx.ai embeddings wrapper."""
 
 import logging
-from typing import Any, cast
+from typing import Any
 
-from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models.embeddings import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models.embeddings import (
     Embeddings,
 )
-from ibm_watsonx_ai.gateway import Gateway  # type: ignore[import-untyped]
+from ibm_watsonx_ai.gateway import Gateway
 from langchain_core.embeddings import Embeddings as LangChainEmbeddings
 from langchain_core.utils.utils import secret_from_env
 from pydantic import (
@@ -188,9 +188,9 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         * False - no verification will be made
     """
 
-    watsonx_embed: Embeddings = Field(default=None)  #: :meta private:
+    watsonx_embed: Embeddings | None = Field(default=None)  #: :meta private:
 
-    watsonx_embed_gateway: Gateway = Field(
+    watsonx_embed_gateway: Gateway | None = Field(
         default=None,
         exclude=True,
     )  #: :meta private:
@@ -242,7 +242,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                     verify=self.verify,
                 )
                 self.watsonx_embed_gateway = watsonx_embed_gateway
-            else:
+            elif self.model_id is not None:
                 watsonx_embed = Embeddings(
                     model_id=self.model_id,
                     params=self.params,
@@ -278,7 +278,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 )
                 self.watsonx_embed_gateway = watsonx_embed_gateway
 
-            else:
+            elif self.model_id is not None:
                 watsonx_embed = Embeddings(
                     model_id=self.model_id,
                     params=self.params,
@@ -294,12 +294,14 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     @gateway_error_handler
     def _call_model_gateway(
         self,
+        gateway: Gateway,
+        /,
         *,
         model: str,
         texts: list[str],
         **params: Any,
     ) -> Any:
-        return self.watsonx_embed_gateway.embeddings.create(
+        return gateway.embeddings.create(
             model=model,
             input=texts,
             **params,
@@ -308,12 +310,14 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     @async_gateway_error_handler
     async def _acall_model_gateway(
         self,
+        gateway: Gateway,
+        /,
         *,
         model: str,
         texts: list[str],
         **params: Any,
     ) -> Any:
-        return await self.watsonx_embed_gateway.embeddings.acreate(
+        return await gateway.embeddings.acreate(
             model=model,
             input=texts,
             **params,
@@ -325,18 +329,19 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         if self.watsonx_embed_gateway is not None:
             call_kwargs = {**kwargs, **params}
             embed_response = self._call_model_gateway(
+                self.watsonx_embed_gateway,
                 model=self.model,
                 texts=texts,
                 **call_kwargs,
             )
             return [embedding["embedding"] for embedding in embed_response["data"]]
-        return cast(
-            "list[list[float]]",
-            self.watsonx_embed.embed_documents(
+        if self.watsonx_embed is not None:
+            return self.watsonx_embed.embed_documents(
                 texts=texts,
                 **(kwargs | {"params": params}),
-            ),
-        )
+            )
+        msg = "Should never reach here"
+        raise RuntimeError(msg)
 
     async def aembed_documents(
         self,
@@ -348,18 +353,19 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         if self.watsonx_embed_gateway is not None:
             call_kwargs = {**kwargs, **params}
             embed_response = await self._acall_model_gateway(
+                self.watsonx_embed_gateway,
                 model=self.model,
                 texts=texts,
                 **call_kwargs,
             )
             return [embedding["embedding"] for embedding in embed_response["data"]]
-        return cast(
-            "list[list[float]]",
-            await self.watsonx_embed.aembed_documents(
+        if self.watsonx_embed is not None:
+            return await self.watsonx_embed.aembed_documents(
                 texts=texts,
                 **(kwargs | {"params": params}),
-            ),
-        )
+            )
+        msg = "Should never reach here"
+        raise RuntimeError(msg)
 
     def embed_query(self, text: str, **kwargs: Any) -> list[float]:
         """Embed query text."""
