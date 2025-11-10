@@ -9,13 +9,7 @@ import logging
 import os
 import re
 import uuid
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    TypeVar,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 import ibm_db_dbi  # type: ignore[import-untyped]
 import numpy as np
@@ -72,6 +66,7 @@ def _handle_exceptions(func: T) -> T:
 
     return cast("T", wrapper)
 
+
 def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
     # Dictionary to map distance strategies to their corresponding function
     # names
@@ -89,9 +84,9 @@ def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
     error_msg = f"Unsupported distance strategy: {distance_strategy}"
     raise ValueError(error_msg)
 
+
 def _single_row_fetch(client: Connection, query: str, params: tuple = ()) -> bool:
-    """
-    Check if a catalog query returns at least one row.
+    """Check if a catalog query returns at least one row.
 
     Args:
         client: Active Db2 connection
@@ -109,9 +104,9 @@ def _single_row_fetch(client: Connection, query: str, params: tuple = ()) -> boo
     finally:
         cur.close()
 
+
 def _bufferpool_exists(client: Connection, bp_name: str) -> bool:
-    """
-    Check if a bufferpool exists in the catalog.
+    """Check if a bufferpool exists in the catalog.
 
     Args:
         client: Active Db2 connection
@@ -120,13 +115,13 @@ def _bufferpool_exists(client: Connection, bp_name: str) -> bool:
     Returns:
         True if the bufferpool exists, False otherwise
     """
-    # SYSCAT.BUFFERPOOLS: bpname is uppercased in catalog
+    # SYSCAT.BUFFERPOOLS - bpname is uppercased in catalog
     q = "SELECT 1 FROM SYSCAT.BUFFERPOOLS WHERE UPPER(BPNAME)=UPPER(?)"
     return _single_row_fetch(client, q, (bp_name,))
 
+
 def _tablespace_exists(client: Connection, ts_name: str) -> bool:
-    """
-    Check if a tablespace exists in the catalog.
+    """Check if a tablespace exists in the catalog.
 
     Args:
         client: Active Db2 connection
@@ -135,13 +130,13 @@ def _tablespace_exists(client: Connection, ts_name: str) -> bool:
     Returns:
         True if the tablespace exists, False otherwise
     """
-    # SYSCAT.TABLESPACES: tbspace is uppercased in catalog
+    # SYSCAT.TABLESPACES - tbspace is uppercased in catalog
     q = "SELECT 1 FROM SYSCAT.TABLESPACES WHERE UPPER(TBSPACE)=UPPER(?)"
     return _single_row_fetch(client, q, (ts_name,))
 
+
 def _table_exists(client: Connection, table_name: str) -> bool:
-    """
-    Check if a table exists in the catalog.
+    """Check if a table exists in the catalog.
 
     Args:
         client: Active Db2 connection
@@ -150,7 +145,6 @@ def _table_exists(client: Connection, table_name: str) -> bool:
     Returns:
         True if the table exists, False otherwise
     """
-
     # Handle optional schema qualification; default current schema.
     # Split into schema and name; else rely on CURRENT SCHEMA in the session.
     parts = table_name.split(".")
@@ -162,17 +156,16 @@ def _table_exists(client: Connection, table_name: str) -> bool:
             WHERE UPPER(TABSCHEMA)=UPPER(?) AND UPPER(TABNAME)=UPPER(?)
         """
         return _single_row_fetch(client, q, (schema, name))
-    else:
-        q = """
+    q = """
             SELECT 1
             FROM SYSCAT.TABLES
             WHERE UPPER(TABSCHEMA)=UPPER(CURRENT SCHEMA) AND UPPER(TABNAME)=UPPER(?)
         """
-        return _single_row_fetch(client, q, (table_name,))
+    return _single_row_fetch(client, q, (table_name,))
 
-def _ensure_32k_bufferpool(client: Connection, bp_name: str = "BP32K"):
-    """
-    Ensure a 32K bufferpool exists.
+
+def _ensure_32k_bufferpool(client: Connection, bp_name: str = "BP32K") -> None:
+    """Ensure a 32K bufferpool exists.
 
     Args:
         client: Active Db2 connection
@@ -181,28 +174,27 @@ def _ensure_32k_bufferpool(client: Connection, bp_name: str = "BP32K"):
     Returns:
         None
     """
-
     if _bufferpool_exists(client, bp_name):
-        logger.info(f"Bufferpool {bp_name} already exists.")
+        logger.info("Bufferpool %s already exists.", bp_name)
         return
 
     ddl = f"CREATE BUFFERPOOL {bp_name} PAGESIZE 32K"
     cur = client.cursor()
     try:
-        logger.info(f"Creating bufferpool {bp_name} (32K)...")
+        logger.info("Creating bufferpool %s (32K)...", bp_name)
         cur.execute(ddl)
         cur.execute("COMMIT")
-        logger.info(f"Bufferpool {bp_name} created.")
+        logger.info("Bufferpool %s created.", bp_name)
     finally:
         cur.close()
+
 
 def _ensure_32k_tablespace(
     client: Connection,
     ts_name: str = "TS32K",
     bp_name: str = "BP32K",
-):
-    """
-    Ensure a 32K tablespace exists on automatic storage bound to the given bufferpool.
+) -> None:
+    """Ensure a 32K tablespace exists.
 
     Args:
         client: Active Db2 connection
@@ -212,9 +204,8 @@ def _ensure_32k_tablespace(
     Returns:
         None
     """
-
     if _tablespace_exists(client, ts_name):
-        logger.info(f"Tablespace {ts_name} already exists.")
+        logger.info("Tablespace %s already exists.", ts_name)
         return
 
     # Ensure bufferpool exists before creating the tablespace
@@ -229,12 +220,13 @@ def _ensure_32k_tablespace(
     )
     cur = client.cursor()
     try:
-        logger.info(f"Creating tablespace {ts_name} (32K, BP={bp_name})...")
+        logger.info("Creating tablespace %s (32K, BP=%s)...", ts_name, bp_name)
         cur.execute(ddl)
         cur.execute("COMMIT")
-        logger.info(f"Tablespace {ts_name} created.")
+        logger.info("Tablespace %s created.", ts_name)
     finally:
         cur.close()
+
 
 @_handle_exceptions
 def _create_table(
@@ -243,10 +235,9 @@ def _create_table(
     embedding_dim: int,
     text_field: str = "text",
     ts_name: str = "TS32K",
-    bp_name: str = "BP32K"
+    bp_name: str = "BP32K",
 ) -> None:
-    """
-    Create a table with vector, text, and metadata columns in a 32K tablespace.
+    """Create a table with vector, text, and metadata columns in a 32K tablespace.
 
     Args:
         client: Active Db2 connection
@@ -259,7 +250,6 @@ def _create_table(
     Returns:
         None
     """
-
     cols_dict = {
         "id": "CHAR(16) PRIMARY KEY NOT NULL",
         text_field: "CLOB",
@@ -1106,14 +1096,14 @@ class DB2VS(VectorStore):
 
         return [row[0] for row in rows]
 
+
 @_handle_exceptions
 def create_index(
     connection: Connection,
     vector_store: DB2VS,
-    params: Optional[dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
 ) -> None:
-    """
-    Create an index for a Db2 Vector Store.
+    """Create an index for a Db2 Vector Store.
 
     This is a thin convenience wrapper that validates the connection and
     delegates to _create_diskann_index, using the table name and
@@ -1140,7 +1130,8 @@ def create_index(
         None
     """
     if connection is None:
-        raise ValueError("Expected an open ibm_db_dbi connection object")
+        msg = "Expected an open ibm_db_dbi connection object"
+        raise ValueError(msg)
 
     _create_diskann_index(
         connection,
@@ -1148,17 +1139,16 @@ def create_index(
         vector_store.distance_strategy,
         params,
     )
-    return
+
 
 @_handle_exceptions
 def _create_diskann_index(
     connection: Connection,
     table_name: str,
     distance_strategy: DistanceStrategy,
-    params: Optional[dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
 ) -> None:
-    """
-    Create a DiskANN vector index on a specified table and vector column.
+    """Create a DiskANN vector index on a specified table and vector column.
 
     The function safely quotes identifiers, resolves schema (from the qualified
     table name, explicit "schema" param, or CURRENT SCHEMA), checks for
@@ -1194,8 +1184,7 @@ def _create_diskann_index(
     params = params or {}
 
     def _quote_ident_and_capitalize(ident: str) -> str:
-        """
-        Return a safely quoted, uppercase identifier.
+        """Return a safely quoted, uppercase identifier.
 
         Converts the input identifier to uppercase, escapes internal double quotes
         by doubling them, and wraps the result in double quotes. This ensures the
@@ -1218,13 +1207,15 @@ def _create_diskann_index(
             unquoted identifiers.
         """
         if ident is None or ident.strip() == "":
-            raise ValueError("Identifier must be a non-empty string")
+            msg = "Identifier must be a non-empty string"
+            raise ValueError(msg)
         # Capitalize and escape internal quotes
         return '"' + ident.upper().replace('"', '""') + '"'
 
-    def _parse_qualified_name(name: str, explicit_schema: Optional[str]) -> tuple[str, str]:
-        """
-        Return (schema, table) from a possibly qualified table name.
+    def _parse_qualified_name(
+        name: str, explicit_schema: str | None
+    ) -> tuple[str, str]:
+        """Return (schema, table) from a possibly qualified table name.
 
         If name is qualified as "SCHEMA.TABLE", it is split at the first "."
         and any surrounding double quotes are stripped. Otherwise, the schema is
@@ -1252,7 +1243,6 @@ def _create_diskann_index(
             - Only the *first* dot splits schema and table to support table names
             that may include additional dots when quoted properly.
         """
-        # Returns (schema, table)
         if "." in name:
             schema, tbl = name.split(".", 1)
             schema = schema.strip('"')
@@ -1265,12 +1255,12 @@ def _create_diskann_index(
             cur.execute("VALUES CURRENT SCHEMA")
             row = cur.fetchone()
             if not row or not row[0]:
-                raise ValueError("Unable to determine CURRENT SCHEMA for unqualified table name")
+                msg = "Unable to determine CURRENT SCHEMA for unqualified table name"
+                raise ValueError(msg)
             return str(row[0]), name.strip('"')
 
     def _metric_from_strategy(strategy: DistanceStrategy) -> str:
-        """
-        Map a DistanceStrategy to the engine's DISTANCE token.
+        """Map a DistanceStrategy to the engine's DISTANCE token.
 
         Converts the provided strategy (by .name if present, else str(strategy))
         to an uppercase token compatible with the DiskANN WITH DISTANCE clause.
@@ -1298,12 +1288,11 @@ def _create_diskann_index(
         name = getattr(strategy, "name", str(strategy)).upper()
 
         # Common aliases supported here for convenience:
-        METRIC_TOKEN_MAP = {
+        metric_token_map = {
             # Euclidean
             "EUCLIDEAN": "EUCLIDEAN",
             "L2": "EUCLIDEAN",
             "EUCLIDEAN_DISTANCE": "EUCLIDEAN",
-
             # Squared Euclidean
             "EUCLIDEAN_SQUARED": "EUCLIDEAN_SQUARED",
             "EUCLIDEAN_SQUARED_DISTANCE": "EUCLIDEAN_SQUARED",
@@ -1313,19 +1302,19 @@ def _create_diskann_index(
             "SQEUCLIDEAN": "EUCLIDEAN_SQUARED",
         }
 
-        token = METRIC_TOKEN_MAP.get(name)
+        token = metric_token_map.get(name)
         if token:
             return token
 
         # Keep the error message explicit about what's supported.
-        raise ValueError(
+        msg = (
             f"Unsupported distance strategy '{name}'. "
             "Supported: EUCLIDEAN/L2, EUCLIDEAN_SQUARED."
         )
+        raise ValueError(msg)
 
     def _exists_index(schema: str, index_name: str) -> bool:
-        """
-        Return whether an index already exists in the target schema.
+        """Return whether an index already exists in the target schema.
 
         Looks up SYSCAT.INDEXES using a parameterized query and returns True if
         an index with the given (schema, index_name) is found.
@@ -1355,8 +1344,7 @@ def _create_diskann_index(
             return cur.fetchone() is not None
 
     def _drop_index(schema: str, index_name: str) -> None:
-        """
-        Drop an existing index using fully qualified and safely quoted names.
+        """Drop an existing index using fully qualified and safely quoted names.
 
         Constructs and executes DROP INDEX "SCHEMA"."INDEX" using the same
         quoting rules as other DDL, ensuring safety against special characters
@@ -1379,30 +1367,42 @@ def _create_diskann_index(
             - This function does not check existence; callers are expected to ensure
             the index exists or handle errors appropriately.
         """
-        ddl = f'DROP INDEX {_quote_ident_and_capitalize(schema)}.{_quote_ident_and_capitalize(index_name)}'
+        ddl = (
+            f"DROP INDEX {_quote_ident_and_capitalize(schema)}."
+            f"{_quote_ident_and_capitalize(index_name)}"
+        )
+
         with connection.cursor() as cur:
             cur.execute(ddl)
 
     # Extract & validate inputs
     vector_column = params.get("vector_column")
     if not vector_column or not isinstance(vector_column, str):
-        raise ValueError("params['vector_column'] (str) is required")
+        msg = "params['vector_column'] (str) is required"
+        raise ValueError(msg)
 
     explicit_schema = params.get("schema")
     schema, table = _parse_qualified_name(table_name, explicit_schema)
 
     index_name = params.get("index_name")
     if not index_name or not isinstance(index_name, str):
-        raise ValueError("params['index_name'] (str) is required")
+        msg = "params['index_name'] (str) is required"
+        raise ValueError(msg)
 
     if_exists = (params.get("if_exists") or "error").lower()
     if if_exists not in ("error", "skip", "replace"):
-        raise ValueError("params['if_exists'] must be one of: 'error', 'skip', 'replace'")
+        msg = "params['if_exists'] must be one of: 'error', 'skip', 'replace'"
+        raise ValueError(msg)
 
     metric = _metric_from_strategy(distance_strategy)
 
-    fq_table = f'{_quote_ident_and_capitalize(schema)}.{_quote_ident_and_capitalize(table)}'
-    fq_index = f'{_quote_ident_and_capitalize(schema)}.{_quote_ident_and_capitalize(index_name)}'
+    fq_table = (
+        f"{_quote_ident_and_capitalize(schema)}.{_quote_ident_and_capitalize(table)}"
+    )
+    fq_index = (
+        f"{_quote_ident_and_capitalize(schema)}."
+        f"{_quote_ident_and_capitalize(index_name)}"
+    )
     q_column = _quote_ident_and_capitalize(vector_column)
 
     # Existence handling
@@ -1413,7 +1413,8 @@ def _create_diskann_index(
         if if_exists == "replace":
             _drop_index(schema, index_name)
         else:  # "error"
-            raise ValueError(f"Index {schema}.{index_name} already exists")
+            msg = f"Index {schema}.{index_name} already exists"
+            raise ValueError(msg)
 
     # Create the index
     ddl = (
@@ -1424,10 +1425,7 @@ def _create_diskann_index(
     with connection.cursor() as cur:
         cur.execute(ddl)
 
-    try:
-        connection.commit()
-    except Exception:
-        raise
+    connection.commit()
 
     # RUNSTATS to allow the optimizer to choose the index
     runstats_stmt = (
@@ -1437,7 +1435,4 @@ def _create_diskann_index(
     with connection.cursor() as cur:
         cur.execute(runstats_stmt)
 
-    try:
-        connection.commit()
-    except Exception:
-        raise
+    connection.commit()
