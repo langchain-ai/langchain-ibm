@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from langchain_tests.integration_tests.embeddings import EmbeddingsIntegrationTests
 
@@ -18,7 +19,7 @@ class TestWatsonxEmbeddingsStandard(EmbeddingsIntegrationTests):
         return WatsonxEmbeddings
 
     @property
-    def embedding_model_params(self) -> dict:
+    def embedding_model_params(self) -> dict[str, Any]:
         return {
             "model_id": MODEL_ID,
             "url": URL,

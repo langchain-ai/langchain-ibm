@@ -5,6 +5,7 @@ You'll need to set WATSONX_APIKEY environment variable.
 
 import json
 import os
+from typing import Any
 
 import pytest
 
@@ -44,7 +45,7 @@ CREATE_CHAT_WATSONX_TOOLKIT_PARAMETERS = [
 
 
 @pytest.mark.parametrize("init_data", CREATE_CHAT_WATSONX_TOOLKIT_PARAMETERS)
-def test_00_watsonx_toolkit_init(init_data: dict) -> None:
+def test_00_watsonx_toolkit_init(init_data: dict[str, Any]) -> None:
     watsonx_toolkit = WatsonxToolkit(**init_data)
 
     assert isinstance(watsonx_toolkit, WatsonxToolkit)

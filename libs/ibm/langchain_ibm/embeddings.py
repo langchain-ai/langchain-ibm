@@ -177,7 +177,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     version: SecretStr | None = None
     """Version of the CPD instance."""
 
-    params: dict | None = None
+    params: dict[str, Any] | None = None
     """Model parameters to use during request generation."""
 
     verify: str | bool | None = None

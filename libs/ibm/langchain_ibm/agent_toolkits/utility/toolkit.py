@@ -43,18 +43,18 @@ class WatsonxTool(BaseTool):
     """The precise instruction to agent LLMs
     and should be treated as part of the system prompt."""
 
-    tool_input_schema: dict | None = None
+    tool_input_schema: dict[str, Any] | None = None
     """Schema of the input that is provided when running the tool if applicable."""
 
-    tool_config_schema: dict | None = None
+    tool_config_schema: dict[str, Any] | None = None
     """Schema of the config that can be provided when running the tool if applicable."""
 
-    tool_config: dict | None = None
+    tool_config: dict[str, Any] | None = None
     """Config properties to be used when running a tool if applicable."""
 
     args_schema: type[BaseModel] = BaseModel
 
-    _watsonx_tool: Tool | None = PrivateAttr(default=None)  #: :meta private:
+    _watsonx_tool: Tool  #: :meta private:
 
     watsonx_client: APIClient = Field(exclude=True)
 
@@ -84,7 +84,7 @@ class WatsonxTool(BaseTool):
         *args: Any,
         run_manager: CallbackManagerForToolRun | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> Any:
         """Run the tool."""
         if self.tool_input_schema is None:
             input_data = kwargs.get("input") or args[0]
@@ -95,9 +95,9 @@ class WatsonxTool(BaseTool):
                 if k in self.tool_input_schema["properties"]
             }
 
-        return cast("dict", self._watsonx_tool.run(input_data, self.tool_config))  # type: ignore[union-attr]
+        return self._watsonx_tool.run(input_data, self.tool_config)
 
-    def set_tool_config(self, tool_config: dict) -> None:
+    def set_tool_config(self, tool_config: dict[str, Any]) -> None:
         """Set tool config properties.
 
         ???+ example "Example"

@@ -4,6 +4,7 @@ You'll need to set WATSONX_APIKEY and WATSONX_PROJECT_ID environment variables.
 """
 
 import os
+from typing import Any
 
 import pytest
 from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
@@ -57,7 +58,7 @@ CREATE_WATSONX_EMBEDDINGS_INIT_PARAMETERS = [
 
 
 @pytest.mark.parametrize("init_data", CREATE_WATSONX_EMBEDDINGS_INIT_PARAMETERS)
-def test_watsonx_embeddings_init(init_data: dict) -> None:
+def test_watsonx_embeddings_init(init_data: dict[str, Any]) -> None:
     watsonx_embedding = WatsonxEmbeddings(**init_data)
 
     generate_embedding = watsonx_embedding.embed_documents(texts=DOCUMENTS)

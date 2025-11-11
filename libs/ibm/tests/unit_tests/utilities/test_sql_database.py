@@ -29,7 +29,7 @@ def table_name() -> str:
 
 
 @pytest.fixture
-def table_info() -> dict:
+def table_info() -> dict[str, Any]:
     return {
         "fields": [
             {"name": "id", "type": {"native_type": "INT", "nullable": False}},
@@ -58,10 +58,12 @@ class MockFlightSQLClient:
     def __exit__(self, *args: object) -> None:
         pass
 
-    def get_tables(self, *_args: Any, **_kwargs: Any) -> dict:
+    def get_tables(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
         return {"assets": [{"name": "table1"}, {"name": "table2"}]}
 
-    def get_table_info(self, table_name: str, *_args: Any, **_kwargs: Any) -> dict:
+    def get_table_info(
+        self, table_name: str, *_args: Any, **_kwargs: Any
+    ) -> dict[str, Any]:
         if table_name == "table1":
             return {
                 "path": "/public/table1",
@@ -139,7 +141,7 @@ def test_truncate_word_edge_cases() -> None:
 
 
 def test_pretty_print_table_info(
-    schema: str, table_name: str, table_info: dict
+    schema: str, table_name: str, table_info: dict[str, Any]
 ) -> None:
     expected_output = """
 CREATE TABLE "test_schema"."test_table" (

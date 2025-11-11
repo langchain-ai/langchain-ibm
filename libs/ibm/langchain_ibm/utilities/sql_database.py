@@ -50,10 +50,12 @@ def _from_env(env_var_name: str) -> str | None:
     return from_env(env_var_name, default=None)()
 
 
-def pretty_print_table_info(schema: str, table_name: str, table_info: dict) -> str:
+def pretty_print_table_info(
+    schema: str, table_name: str, table_info: dict[str, Any]
+) -> str:
     """Pretty print table info."""
 
-    def convert_column_data(field_metadata: dict) -> str:
+    def convert_column_data(field_metadata: dict[str, Any]) -> str:
         name = field_metadata.get("name")
 
         field_metadata_type = field_metadata.get("type", {})
@@ -69,7 +71,7 @@ CREATE TABLE "{schema}"."{table_name}" (
 
     extended_metadata = table_info.get("extended_metadata", [{}])
 
-    def _retrieve_field_data(field_name: str) -> dict:
+    def _retrieve_field_data(field_name: str) -> dict[str, Any]:
         return next(
             filter(
                 lambda el: el.get("name") == field_name,
@@ -79,7 +81,7 @@ CREATE TABLE "{schema}"."{table_name}" (
         )
 
     # Primary Key
-    primary_key: dict = _retrieve_field_data("primary_key")
+    primary_key: dict[str, Any] = _retrieve_field_data("primary_key")
     if primary_key:
         key_columns = ", ".join(primary_key.get("value", {}).get("key_columns", []))
         primary_key_text = (
@@ -89,7 +91,7 @@ CREATE TABLE "{schema}"."{table_name}" (
         primary_key_text = ""
 
     # Foreign keys
-    foreign_keys: dict = _retrieve_field_data("foreign_keys")
+    foreign_keys: dict[str, Any] = _retrieve_field_data("foreign_keys")
     if foreign_keys:
         foreign_keys_text = ""
         foreign_key_text_template = (
@@ -389,7 +391,7 @@ class WatsonxSQLDatabase:
         """Execute a SQL command and return a string representing the results."""
         result = self._execute(command)
 
-        res: list[dict] = [
+        res: list[dict[str, Any]] = [
             {
                 column: truncate_word(value, length=self._max_string_length)
                 for column, value in r.items()

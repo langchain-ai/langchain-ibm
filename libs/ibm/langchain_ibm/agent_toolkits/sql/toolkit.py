@@ -1,5 +1,7 @@
 """IBM watsonx.ai SQL Toolkit wrapper."""
 
+from typing import Any
+
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.tools import BaseTool
 from langchain_core.tools.base import BaseToolkit
@@ -20,7 +22,7 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
     db: WatsonxSQLDatabase = Field(exclude=True)
     """Instance of the watsonx SQL database."""
 
-    llm: BaseLanguageModel = Field(exclude=True)
+    llm: BaseLanguageModel[Any] = Field(exclude=True)
     """Instance of the LLM."""
 
     model_config = ConfigDict(
@@ -70,7 +72,7 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
             query_sql_checker_tool,
         ]
 
-    def get_context(self) -> dict:
+    def get_context(self) -> dict[str, Any]:
         """Return db context that you may want in agent prompt."""
         return self.db.get_context()
 

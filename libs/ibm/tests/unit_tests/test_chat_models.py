@@ -215,7 +215,7 @@ def test_initialize_chat_watsonx_with_model_inference_only() -> None:
 def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
     top_p = 0.8
 
-    def mock_modelinference_chat(**kwargs: Any) -> dict:
+    def mock_modelinference_chat(**kwargs: Any) -> dict[str, Any]:
         assert kwargs.get("messages") == [{"content": "Hello", "role": "user"}]
         assert kwargs.get("params") == (
             {

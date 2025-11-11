@@ -149,7 +149,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
         return HumanMessage(content=_dict.get("content", ""), id=id_, name=name)
     if role == "assistant":
         content = _dict.get("content", "") or ""
-        additional_kwargs: dict = {}
+        additional_kwargs: dict[str, Any] = {}
         if function_call := _dict.get("function_call"):
             additional_kwargs["function_call"] = dict(function_call)
         tool_calls = []
@@ -238,7 +238,7 @@ def _format_message_content(content: Any) -> Any:
     return formatted_content
 
 
-def _convert_message_to_dict(message: BaseMessage) -> dict:
+def _convert_message_to_dict(message: BaseMessage) -> dict[str, Any]:
     """Convert a LangChain message to a dictionary.
 
     Args:
@@ -323,7 +323,7 @@ def _convert_delta_to_message_chunk(
     id_ = call_id
     role = cast("str", _dict.get("role"))
     content = cast("str", _dict.get("content") or "")
-    additional_kwargs: dict = {}
+    additional_kwargs: dict[str, Any] = {}
     if _dict.get("function_call"):
         function_call = dict(_dict["function_call"])
         if "name" in function_call and function_call["name"] is None:
@@ -375,7 +375,7 @@ def _convert_delta_to_message_chunk(
 
 
 def _convert_chunk_to_generation_chunk(
-    chunk: dict,
+    chunk: dict[str, Any],
     default_chunk_class: type,
     *,
     is_first_tool_chunk: bool,
@@ -935,7 +935,7 @@ class ChatWatsonx(BaseChatModel):
     version: SecretStr | None = None
     """Version of the CPD instance."""
 
-    params: dict | TextChatParameters | None = None
+    params: dict[str, Any] | TextChatParameters | None = None
     """Model parameters to use during request generation.
 
     !!! note
@@ -984,7 +984,7 @@ class ChatWatsonx(BaseChatModel):
 
     We generally recommend altering this or top_p but not both."""
 
-    response_format: dict | None = None
+    response_format: dict[str, Any] | None = None
     """The chat response format parameters."""
 
     top_p: float | None = None
@@ -999,7 +999,7 @@ class ChatWatsonx(BaseChatModel):
     """Time limit in milliseconds - if not completed within this time,
     generation will stop."""
 
-    logit_bias: dict | None = None
+    logit_bias: dict[str, int] | None = None
     """Increasing or decreasing probability of tokens being selected
     during generation."""
 
@@ -1011,7 +1011,7 @@ class ChatWatsonx(BaseChatModel):
     """Stop sequences are one or more strings which will cause the text generation
     to stop if/when they are produced as part of the output."""
 
-    chat_template_kwargs: dict | None = None
+    chat_template_kwargs: dict[str, Any] | None = None
     """Additional chat template parameters."""
 
     verify: str | bool | None = None
@@ -1183,7 +1183,9 @@ class ChatWatsonx(BaseChatModel):
         return self
 
     @gateway_error_handler
-    def _call_model_gateway(self, *, model: str, messages: list, **params: Any) -> Any:
+    def _call_model_gateway(
+        self, *, model: str, messages: list[dict[str, Any]], **params: Any
+    ) -> Any:
         return self.watsonx_model_gateway.chat.completions.create(
             model=model,
             messages=messages,
@@ -1195,7 +1197,7 @@ class ChatWatsonx(BaseChatModel):
         self,
         *,
         model: str,
-        messages: list,
+        messages: list[dict[str, Any]],
         **params: Any,
     ) -> Any:
         return await self.watsonx_model_gateway.chat.completions.acreate(
@@ -1401,7 +1403,7 @@ class ChatWatsonx(BaseChatModel):
             yield generation_chunk
 
     @staticmethod
-    def _merge_params(params: dict, kwargs: dict) -> dict:
+    def _merge_params(params: dict[str, Any], kwargs: dict[str, Any]) -> dict[str, Any]:
         param_updates = {}
         for k in ChatWatsonx._get_supported_chat_params():
             if kwargs.get(k) is not None:
@@ -1434,8 +1436,8 @@ class ChatWatsonx(BaseChatModel):
 
     def _create_chat_result(
         self,
-        response: dict,
-        generation_info: dict | None = None,
+        response: dict[str, Any],
+        generation_info: dict[str, Any] | None = None,
     ) -> ChatResult:
         generations = []
 
@@ -1492,9 +1494,9 @@ class ChatWatsonx(BaseChatModel):
 
     def bind_tools(
         self,
-        tools: Sequence[dict[str, Any] | type | Callable | BaseTool],
+        tools: Sequence[dict[str, Any] | type | Callable[..., Any] | BaseTool],
         *,
-        tool_choice: dict | str | bool | None = None,
+        tool_choice: dict[str, Any] | str | bool | None = None,
         strict: bool | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, AIMessage]:
@@ -1576,7 +1578,7 @@ class ChatWatsonx(BaseChatModel):
     @override
     def with_structured_output(
         self,
-        schema: dict | type | None = None,
+        schema: dict[str, Any] | type | None = None,
         *,
         method: Literal[
             "function_calling",
@@ -1586,7 +1588,7 @@ class ChatWatsonx(BaseChatModel):
         include_raw: bool = False,
         strict: bool | None = None,
         **kwargs: Any,
-    ) -> Runnable[LanguageModelInput, dict | BaseModel]:
+    ) -> Runnable[LanguageModelInput, dict[str, Any] | BaseModel]:
         r"""Model wrapper that returns outputs formatted to match the given schema.
 
         Args:
@@ -1943,7 +1945,7 @@ class ChatWatsonx(BaseChatModel):
                 },
             )
             if is_pydantic_schema:
-                output_parser: Runnable = PydanticToolsParser(
+                output_parser: Runnable[Any, Any] = PydanticToolsParser(
                     tools=[schema],
                     first_tool_only=True,
                 )
@@ -2012,7 +2014,7 @@ def _is_pydantic_class(obj: Any) -> bool:
     return isinstance(obj, type) and is_basemodel_subclass(obj)
 
 
-def _lc_tool_call_to_watsonx_tool_call(tool_call: ToolCall) -> dict:
+def _lc_tool_call_to_watsonx_tool_call(tool_call: ToolCall) -> dict[str, Any]:
     return {
         "type": "function",
         "id": tool_call["id"],
@@ -2025,7 +2027,7 @@ def _lc_tool_call_to_watsonx_tool_call(tool_call: ToolCall) -> dict:
 
 def _lc_invalid_tool_call_to_watsonx_tool_call(
     invalid_tool_call: InvalidToolCall,
-) -> dict:
+) -> dict[str, Any]:
     return {
         "type": "function",
         "id": invalid_tool_call["id"],
@@ -2037,7 +2039,7 @@ def _lc_invalid_tool_call_to_watsonx_tool_call(
 
 
 def _create_usage_metadata(
-    oai_token_usage: dict,
+    oai_token_usage: dict[str, Any],
     *,
     _prompt_tokens_included: bool,
 ) -> UsageMetadata:
@@ -2055,7 +2057,7 @@ def _create_usage_metadata(
 
 def _convert_to_openai_response_format(
     schema: dict[str, Any] | type, *, strict: bool | None = None
-) -> dict | TypeBaseModel:
+) -> dict[str, Any] | TypeBaseModel:
     if isinstance(schema, type) and is_basemodel_subclass(schema):
         return schema
 

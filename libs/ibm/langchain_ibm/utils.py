@@ -69,7 +69,7 @@ def extract_chat_params(
     return params or {}
 
 
-def check_duplicate_chat_params(params: dict, kwargs: dict) -> None:
+def check_duplicate_chat_params(params: dict[str, Any], kwargs: dict[str, Any]) -> None:
     """Check duplicate chat params."""
     duplicate_keys = {k for k, v in kwargs.items() if v is not None and k in params}
 
@@ -81,7 +81,7 @@ def check_duplicate_chat_params(params: dict, kwargs: dict) -> None:
         raise ValueError(error_msg)
 
 
-def gateway_error_handler(func: Callable) -> Callable:
+def gateway_error_handler(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator to catch ApiRequestFailure on Model Gateway calls.
 
     Logs a uniform warning when the model is not properly registered.
@@ -107,7 +107,7 @@ def gateway_error_handler(func: Callable) -> Callable:
     return wrapper
 
 
-def async_gateway_error_handler(func: Callable) -> Callable:
+def async_gateway_error_handler(func: Callable[..., Any]) -> Callable[..., Any]:
     """Async decorator to catch ApiRequestFailure on Model Gateway calls.
 
     Log a uniform warning when the Model Gateway is misused.
