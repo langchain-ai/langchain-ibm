@@ -83,7 +83,7 @@ def test_table_exists_with_quoted_unicode_identifier(
 
 @pytest.mark.xfail
 @pytest.mark.parametrize(
-    "table_name,expected_regex",
+    ("table_name", "expected_regex"),
     [
         ("123", r"SQL0104N"),  # Invalid token
         ("", r"SQL0104N"),  # Empty string -> syntax error
@@ -112,7 +112,7 @@ def test_create_table_basic_and_duplicate(ibm_db_dbi_connection: Connection) -> 
 
 @pytest.mark.xfail
 @pytest.mark.parametrize(
-    "name,dim",
+    ("name", "dim"),
     [
         ("Hello123", 8148),  # valid ascii identifier
         ("T2", int("1000")),  # dimension provided via int conversion
@@ -187,7 +187,7 @@ def test_create_table_from_string_ops_in_name(
 
 @pytest.mark.xfail
 @pytest.mark.parametrize(
-    "name,dim,regex",
+    ("name", "dim", "regex"),
     [
         ("123", 100, r"SQL0104N"),  # invalid table name (starts with digit)
         ("", 128, r"SQL0104N"),  # empty string
@@ -205,7 +205,7 @@ def test_create_table_raises_for_invalid_names(
 
 @pytest.mark.xfail
 @pytest.mark.parametrize(
-    "name,dim,regex",
+    ("name", "dim", "regex"),
     [
         ("T1", 65536, r"SQL0604N"),  # VECTOR column exceeds supported dimension
         ("T1", 0, r"SQL0604N"),  # unsupported dimension length 0
@@ -323,7 +323,7 @@ def test_add_records_without_metadata_generates_ids(
 
 @pytest.mark.xfail
 @pytest.mark.parametrize(
-    "table,ids_override",
+    ("table", "ids_override"),
     [
         ("TB4", ["114", "124"]),  # normal strings
         ("TB5", ["", "134"]),  # one empty string
@@ -458,7 +458,7 @@ def test_add_two_different_records_concurrently(
             )
             vs.add_texts([val], ids=[val])
             ibm_db_dbi_connection.commit()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             errors.append(e)
 
     try:
@@ -469,8 +469,7 @@ def test_add_two_different_records_concurrently(
         t1.join()
         t2.join()
     finally:
-        # TODO
-        # assert not errors, f"Unexpected errors in concurrent add: {errors}"  # noqa: ERA001, E501
+        # TODO: assert not errors, f"Unexpected errors in concurrent add: {errors}"
         drop_table(ibm_db_dbi_connection, table)
         ibm_db_dbi_connection.commit()
 
@@ -498,7 +497,7 @@ def test_add_two_same_records_concurrently_conflict(
             )
             vs.add_texts([val], ids=[val])
             ibm_db_dbi_connection.commit()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             errors.append(e)
 
     try:
@@ -509,9 +508,8 @@ def test_add_two_same_records_concurrently_conflict(
         t1.join()
         t2.join()
 
-        # TODO
-        # Expect at least one PK/unique-key violation
-        # assert any("SQL0803N" in str(e) for e in errors)"
+        # TODO: Expect at least one PK/unique-key violation
+        #  assert any("SQL0803N" in str(e) for e in errors)"
     finally:
         drop_table(ibm_db_dbi_connection, table)
         ibm_db_dbi_connection.commit()
@@ -617,13 +615,15 @@ def test_similarity_search_basic_and_filtered(
         vs.add_texts(SIMILARITY_SEARCH_TEXTS, SIMILARITY_SEARCH_METADATAS)
 
         res = vs.similarity_search(SIMILARITY_SEARCH_QUERY, k=2)
-        assert isinstance(res, list) and len(res) <= 2
+        assert isinstance(res, list)
+        assert len(res) <= 2
         assert all(hasattr(d, "page_content") for d in res)
 
         res_f = vs.similarity_search(
             SIMILARITY_SEARCH_QUERY, k=2, filter=SIMILARITY_SEARCH_FILTER
         )
-        assert isinstance(res_f, list) and len(res_f) <= 2
+        assert isinstance(res_f, list)
+        assert len(res_f) <= 2
 
         allowed = set(SIMILARITY_SEARCH_FILTER["id"])
         for d in res_f:
@@ -655,7 +655,8 @@ def test_similarity_search_with_score_basic_and_filtered(
         vs.add_texts(SIMILARITY_SEARCH_TEXTS, SIMILARITY_SEARCH_METADATAS)
 
         res = vs.similarity_search_with_score(SIMILARITY_SEARCH_QUERY, k=2)
-        assert isinstance(res, list) and len(res) <= 2
+        assert isinstance(res, list)
+        assert len(res) <= 2
         for doc, score in res:
             assert hasattr(doc, "page_content")
             assert isinstance(score, (int, float))
@@ -663,7 +664,8 @@ def test_similarity_search_with_score_basic_and_filtered(
         res_f = vs.similarity_search_with_score(
             SIMILARITY_SEARCH_QUERY, k=2, filter=SIMILARITY_SEARCH_FILTER
         )
-        assert isinstance(res_f, list) and len(res_f) <= 2
+        assert isinstance(res_f, list)
+        assert len(res_f) <= 2
         allowed = set(SIMILARITY_SEARCH_FILTER["id"])
         for doc, score in res_f:
             assert isinstance(score, (int, float))
@@ -697,7 +699,8 @@ def test_mmr_search_basic_and_filtered(
         res = vs.max_marginal_relevance_search(
             SIMILARITY_SEARCH_QUERY, k=2, fetch_k=20, lambda_mult=0.5
         )
-        assert isinstance(res, list) and len(res) <= 2
+        assert isinstance(res, list)
+        assert len(res) <= 2
 
         ids = [(d.metadata or {}).get("id") for d in res]
         assert len(ids) == len(set(ids))
@@ -709,7 +712,8 @@ def test_mmr_search_basic_and_filtered(
             lambda_mult=0.5,
             filter=SIMILARITY_SEARCH_FILTER,
         )
-        assert isinstance(res_f, list) and len(res_f) <= 2
+        assert isinstance(res_f, list)
+        assert len(res_f) <= 2
         allowed = set(SIMILARITY_SEARCH_FILTER["id"])
         for d in res_f:
             mid = (d.metadata or {}).get("id")
