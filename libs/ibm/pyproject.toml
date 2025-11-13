@@ -76,8 +76,10 @@ ignore = [
     "PLR0913", # Too many arguments
     "PLR0914", # Too many local variables
     "PLR0915", # Too many statements
+    "TC001",   # Doesn't play well with Pydantic
+    "TC002",   # Doesn't play well with Pydantic
+    "TC003",   # Doesn't play well with Pydantic
     #TODO
-    "TC",
     "BLE001",
     "ANN401",
 ]
