@@ -10,7 +10,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://us-south.ml.cloud.ibm.com"
 
-MODEL_ID = "ibm/granite-embedding-107m-multilingual"
+MODEL_ID = "ibm/granite-embedding-278m-multilingual"
 
 
 class TestWatsonxEmbeddingsStandard(EmbeddingsIntegrationTests):
