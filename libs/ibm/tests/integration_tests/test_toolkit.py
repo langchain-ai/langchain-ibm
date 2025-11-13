@@ -6,7 +6,9 @@ You'll need to set WATSONX_APIKEY environment variable.
 import json
 import os
 
-from langchain_ibm import WatsonxToolkit
+import pytest
+
+from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 
@@ -14,6 +16,38 @@ URL = "https://us-south.ml.cloud.ibm.com"
 
 TOOL_NAME_1 = "GoogleSearch"
 TOOL_NAME_2 = "Weather"
+
+CREATE_CHAT_WATSONX_TOOLKIT_PARAMETERS = [
+    pytest.param(
+        {
+            "url": URL,
+            "api_key": WX_APIKEY,
+        },
+        id="only api_key",
+    ),
+    pytest.param(
+        {
+            "url": URL,
+            "apikey": WX_APIKEY,
+        },
+        id="only apikey",
+    ),
+    pytest.param(
+        {
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "apikey": WX_APIKEY,
+        },
+        id="api_key and apikey",
+    ),
+]
+
+
+@pytest.mark.parametrize("init_data", CREATE_CHAT_WATSONX_TOOLKIT_PARAMETERS)
+def test_00_watsonx_toolkit_init(init_data: dict) -> None:
+    watsonx_toolkit = WatsonxToolkit(**init_data)
+
+    assert isinstance(watsonx_toolkit, WatsonxToolkit)
 
 
 def test_01_get_tools() -> None:

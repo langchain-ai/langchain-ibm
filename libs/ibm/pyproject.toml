@@ -4,7 +4,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "langchain-ibm"
-version = "1.0.0a1"
+version = "1.0.0"
 description = "An integration package connecting IBM watsonx.ai and LangChain"
 authors = [{ name = "IBM" }]
 license = { text = "MIT" }
@@ -12,7 +12,7 @@ requires-python = ">=3.10,<3.14"
 readme = "README.md"
 
 dependencies = [
-    "langchain-core>=1.0.0",
+    "langchain-core>=1.0.0,<2.0.0",
     "ibm-watsonx-ai>=1.3.37,<2.0.0",
 ]
 
@@ -70,40 +70,26 @@ select = ["ALL"]
 ignore = [
     "COM812", # Messes with the formatter
     "C901",    # Complex functions
-    "SIM105",  # Rarely useful
     "PERF203", # Rarely useful
     "PLR0911", # Too many return statements
     "PLR0912", # Too many branches
     "PLR0913", # Too many arguments
     "PLR0914", # Too many local variables
     "PLR0915", # Too many statements
-    "PLR2004",
     #TODO
     "TC",
-    "ARG002",
     "BLE001",
     "ANN401",
-    "FBT",
-    "D301",
-    "PLW",
-    "A001",
-    "B028",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
     "D",       # Docstring checks in tests
+    "PLR2004", # Magic numbers allowed in tests
     "S101",    # Tests need assertions
     "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
     "SLF001",  # Private member access in tests
     "T201",
-    "FIX",     # TODOs
-    "TD",      # TODOs
-    # TODO
-    "RUF012",
-    "PGH003",
-    "S",
-    "PT"
 ]
 "scripts/*" = [
     "D",

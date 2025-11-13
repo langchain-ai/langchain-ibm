@@ -5,19 +5,69 @@ You'll need to set WATSONX_APIKEY and WATSONX_PROJECT_ID environment variables.
 
 import os
 
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
-from ibm_watsonx_ai.foundation_models import Model, ModelInference  # type: ignore
-from ibm_watsonx_ai.foundation_models.utils.enums import (  # type: ignore
+import pytest
+from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+    Model,
+    ModelInference,
+)
+from ibm_watsonx_ai.foundation_models.utils.enums import (  # type: ignore[import-untyped]
     DecodingMethods,
 )
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
+from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+    GenTextParamsMetaNames,
+)
 from langchain_core.outputs import LLMResult
 
 from langchain_ibm import WatsonxLLM
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
+
+URL = "https://us-south.ml.cloud.ibm.com"
+
 MODEL_ID = "ibm/granite-3-3-8b-instruct"
+
+CREATE_WATSONX_LLM_INIT_PARAMETERS = [
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only api_key",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only apikey",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="api_key and apikey",
+    ),
+]
+
+
+@pytest.mark.parametrize("init_data", CREATE_WATSONX_LLM_INIT_PARAMETERS)
+def test_watsonxllm_init(init_data: dict) -> None:
+    watsonxllm = WatsonxLLM(**init_data)
+
+    response = watsonxllm.invoke("What color sunflower is?")
+    print(f"\nResponse: {response}")
+    assert isinstance(response, str)
+    assert len(response) > 0
 
 
 def test_watsonxllm_invoke() -> None:
@@ -480,7 +530,7 @@ async def test_watsonx_agenerate() -> None:
         ["What color sunflower is?", "What color turtle is?"]
     )
     assert len(response.generations) > 0
-    assert response.llm_output["token_usage"]["completion_tokens"] != 0  # type: ignore
+    assert response.llm_output["token_usage"]["completion_tokens"] != 0  # type: ignore[index]
 
 
 async def test_watsonx_agenerate_with_stream() -> None:

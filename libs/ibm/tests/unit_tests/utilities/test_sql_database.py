@@ -58,10 +58,10 @@ class MockFlightSQLClient:
     def __exit__(self, *args: object) -> None:
         pass
 
-    def get_tables(self, *args: Any, **kwargs: Any) -> dict:
+    def get_tables(self, *_args: Any, **_kwargs: Any) -> dict:
         return {"assets": [{"name": "table1"}, {"name": "table2"}]}
 
-    def get_table_info(self, table_name: str, *args: Any, **kwargs: Any) -> dict:
+    def get_table_info(self, table_name: str, *_args: Any, **_kwargs: Any) -> dict:
         if table_name == "table1":
             return {
                 "path": "/public/table1",
@@ -95,7 +95,7 @@ class MockFlightSQLClient:
         error_msg = "Table not found"
         raise flight.FlightError(error_msg)
 
-    def execute(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
+    def execute(self, *_args: Any, **kwargs: Any) -> pd.DataFrame:
         if "table1" in kwargs.get("query", ""):
             return pd.DataFrame({"id": [1], "name": ["test"], "age": [35]})
 
@@ -106,9 +106,7 @@ class MockFlightSQLClient:
         error_msg = "syntax error"
         raise ValueError(error_msg)
 
-    def get_n_first_rows(
-        self, schema: str, table_name: str, n: int = 3
-    ) -> pd.DataFrame:
+    def get_n_first_rows(self, *_args: Any, **_kwargs: Any) -> pd.DataFrame:
         return pd.DataFrame({"id": [1], "name": ["test"], "age": [35]})
 
 
@@ -204,62 +202,55 @@ CREATE TABLE "no_pk_schema"."no_pk_table" (
 
 
 def test_initialize_watsonx_sql_database_without_url(schema: str) -> None:
-    with pytest.raises(ValueError) as e:
+    pattern = r"(?=.*url)(?=.*WATSONX_URL)"
+    with pytest.raises(ValueError, match=pattern):
         WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
-    assert "url" in str(e.value)
-    assert "WATSONX_URL" in str(e.value)
 
-
-def test_initialize_watsonx_sql_database_cloud_bad_path(schema: str) -> None:
-    with pytest.raises(ValueError) as e:
+def test_initialize_watsonx_sql_database_cloud_only_url(schema: str) -> None:
+    pattern = (
+        r"(?=.*api_key)(?=.*token)(?!.*password)"
+        r"(?=.*WATSONX_API_KEY)(?=.*WATSONX_TOKEN)(?!.*WATSONX_PASSWORD)"
+    )
+    with pytest.raises(ValueError, match=pattern):
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
             url="https://us-south.ml.cloud.ibm.com",
         )
 
-    assert "apikey" in str(e.value) and "token" in str(e.value)
-    assert "WATSONX_APIKEY" in str(e.value) and "WATSONX_TOKEN" in str(e.value)
-
 
 def test_initialize_watsonx_sql_database_cpd_bad_path_without_all(schema: str) -> None:
-    with pytest.raises(ValueError) as e:
+    pattern = (
+        r"(?=.*api_key)(?=.*password)(?=.*token)"
+        r"(?=.*WATSONX_API_KEY)(?=.*WATSONX_PASSWORD)(?=.*WATSONX_TOKEN)"
+    )
+    with pytest.raises(ValueError, match=pattern):
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
         )
-    assert (
-        "apikey" in str(e.value)
-        and "password" in str(e.value)
-        and "token" in str(e.value)
-    )
-    assert (
-        "WATSONX_APIKEY" in str(e.value)
-        and "WATSONX_PASSWORD" in str(e.value)
-        and "WATSONX_TOKEN" in str(e.value)
-    )
 
 
 def test_initialize_watsonx_sql_database_cpd_bad_path_password_without_username(
     schema: str,
 ) -> None:
-    with pytest.raises(ValueError) as e:
+    pattern = r"(?=.*username)(?=.*WATSONX_USERNAME)"
+    with pytest.raises(ValueError, match=pattern):
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
-            password="test_password",
+            password="test_password",  # noqa: S106
         )
-    assert "username" in str(e.value)
-    assert "WATSONX_USERNAME" in str(e.value)
 
 
 def test_initialize_watsonx_sql_database_cpd_bad_path_apikey_without_username(
     schema: str,
 ) -> None:
-    with pytest.raises(ValueError) as e:
+    pattern = r"(?=.*username)(?=.*WATSONX_USERNAME)"
+    with pytest.raises(ValueError, match=pattern):
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
@@ -267,14 +258,12 @@ def test_initialize_watsonx_sql_database_cpd_bad_path_apikey_without_username(
             apikey="test_apikey",
         )
 
-    assert "username" in str(e.value)
-    assert "WATSONX_USERNAME" in str(e.value)
-
 
 def test_initialize_watsonx_sql_database_cpd_bad_path_without_instance_id(
     schema: str,
 ) -> None:
-    with pytest.raises(ValueError) as e:
+    pattern = r"(?=.*instance_id)(?=.*WATSONX_INSTANCE_ID)"
+    with pytest.raises(ValueError, match=pattern):
         WatsonxSQLDatabase(
             connection_id=CONNECTION_ID,
             schema=schema,
@@ -282,8 +271,6 @@ def test_initialize_watsonx_sql_database_cpd_bad_path_without_instance_id(
             apikey="test_apikey",
             username="test_user",
         )
-    assert "instance_id" in str(e.value)
-    assert "WATSONX_INSTANCE_ID" in str(e.value)
 
 
 def test_initialize_watsonx_sql_database_without_any_params() -> None:
@@ -459,9 +446,10 @@ def test_initialize_watsonx_sql_database_get_table_info_no_throw(
             monkeypatch.setenv(k, v)
 
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"table_names {'tableX'} not found in database"
+        ):
             wx_sql_database.get_table_info(["tableX"])
-        assert "tableX" in wx_sql_database.get_table_info_no_throw(["tableX"])
 
 
 def test_initialize_watsonx_sql_database_run(
@@ -493,7 +481,7 @@ def test_initialize_watsonx_sql_database_run(
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
         assert (
-            wx_sql_database.run(f"SELECT * FROM {schema}.table1", include_columns=True)
+            wx_sql_database.run(f"SELECT * FROM {schema}.table1", include_columns=True)  # noqa: S608
             == "[{'id': 1, 'name': 'test', 'age': 35}]"
         )
 
@@ -527,5 +515,6 @@ def test_initialize_watsonx_sql_database_run_no_throw(
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
         assert "Table not found" in wx_sql_database.run_no_throw(
-            f"SELECT * FROM {schema}.tableX", include_columns=True
+            f"SELECT * FROM {schema}.tableX",  # noqa: S608
+            include_columns=True,
         )

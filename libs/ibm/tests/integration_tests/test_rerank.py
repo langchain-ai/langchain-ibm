@@ -1,7 +1,8 @@
 import os
 
-from ibm_watsonx_ai import APIClient  # type: ignore
-from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore
+import pytest
+from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
     RerankParameters,
     RerankReturnOptions,
 )
@@ -16,9 +17,42 @@ URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/slate-125m-english-rtrvr"
 
+CREATE_WATSONX_RERANK_INIT_PARAMETERS = [
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only api_key",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only apikey",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="api_key and apikey",
+    ),
+]
 
-def test_01_rerank_init() -> None:
-    wx_rerank = WatsonxRerank(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)
+
+@pytest.mark.parametrize("init_data", CREATE_WATSONX_RERANK_INIT_PARAMETERS)
+def test_01_watsonx_rerank_init(init_data: dict) -> None:
+    wx_rerank = WatsonxRerank(**init_data)
+
     assert isinstance(wx_rerank, WatsonxRerank)
 
 

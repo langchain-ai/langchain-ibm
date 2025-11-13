@@ -1,77 +1,55 @@
-
 <!--
-# Thank you for contributing to LangChain-IBM!
+🙏 Thank you for contributing to LangChain-IBM!
+Your time and effort help make the ecosystem stronger.
 -->
 
-<!--
-## Checklist for PR Creation
+## 📝 Description
 
-- [ ] PR Title: "<type>[optional scope]: <description>"
+**Related Issue:** <!-- Add issue link or reference here -->
 
-  - Where type is one of: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, release
-  - Scope is used to specifiy the package targeted. Options are: genai, vertex, community, infra (repo-level)
+### 💡 Summary of Changes
+<!-- Briefly describe what this PR changes and why -->
 
-- [ ] PR Description and Relevant issues:
+-
 
-  - Description of the change
-  - Relevant issues (if applicable)
-  - Any dependencies required for this change
+---
 
-- [ ] Add Tests and Docs:
+## ✅ PR Checklist
 
-  - If adding a new integration:
-    1. Include a test for the integration (preferably unit tests that do not rely on network access)
-    2. Add an example notebook showing its use (place in the `docs/docs/integrations` directory)
+- [ ] **PR Title Format:** `{TYPE}({SCOPE}): {DESCRIPTION}`
+  - **Examples:**
+    - feat(langchain-ibm): add multi-tenant support  
+    - fix(langchain-db2): resolve flag parsing error  
+    - docs(langchain-ibm): update API usage examples  
+  - **Allowed `{TYPE}` values:**  
+    `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`, `release`
+  - **Allowed `{SCOPE}` values (optional):**  
+    `langchain-ibm`, `langchain-db2`
 
-- [ ] Lint and Test:
-  - Run `make format`, `make lint`, and `make test` from the root of the package(s) you've modified
-  - See contribution guidelines for more: https://github.com/langchain-ai/langchain-ibm/blob/main/README.md#contribute-code
--->
+- [ ] **PR Description:** The *Description* section clearly lists what was changed, why, and how it was tested.
 
-<!--
-## Additional guidelines
+- [ ] **Formatting, Linting & Tests**  
+  Run the following commands from the root of the modified package(s):
+  ```bash
+  make format
+  make lint
+  make test
+  ```
+  ⚠️ PRs will only be considered if all checks pass in CI.  
+  See the [contribution guidelines](https://docs.langchain.com/oss/python/contributing) for more details.
 
-- [ ] PR title and description are appropriate
-- [ ] Necessary tests and documentation have been added
-- [ ] Lint and tests pass successfully
-- [ ] The following additional guidelines are adhered to:
-  - Optional dependencies are imported within functions
-  - No unnecessary dependencies added to pyproject.toml files (except those required for unit tests)
-  - PR doesn't touch more than one package
-  - Changes are backwards compatible
--->
+---
 
-## Description
+## 🧪 Testing (optional)
 
-<!-- e.g. "Implement user authentication feature" -->
+<!-- Describe how you tested your changes and include any relevant outputs -->
 
-## Relevant issues
+---
 
-<!-- e.g. "Fixes #000" -->
+## 🗒️ Notes (optional)
 
-## Type
+<!-- Add any additional context, known issues, or follow-up tasks -->
 
-<!-- Select the type of Pull Request -->
-<!-- Keep only the necessary ones -->
 
-🆕 New Feature
-🐛 Bug Fix
-🧹 Refactoring
-📖 Documentation
-🚄 Infrastructure
-✅ Test
-
-## Changes(optional)
-
-<!-- List of changes -->
-
-## Testing(optional)
-
-<!-- Test procedure -->
-<!-- Test result -->
-
-## Note(optional)
-
-<!-- Information about the errors fixed by PR -->
-<!-- Remaining issue or something -->
-<!-- Other information about PR -->
+Thank you again for helping improve **LangChain-IBM**! 🚀  
+Your contribution makes the project better for everyone.

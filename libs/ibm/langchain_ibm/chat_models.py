@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import json
 import logging
 import warnings
@@ -78,16 +79,25 @@ from langchain_core.utils.pydantic import (
     is_basemodel_subclass,
 )
 from langchain_core.utils.utils import secret_from_env
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    model_validator,
+)
 from pydantic.v1 import BaseModel as BaseModelV1
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from langchain_ibm.utils import (
     async_gateway_error_handler,
     check_duplicate_chat_params,
     extract_chat_params,
     gateway_error_handler,
+    normalize_api_key,
     resolve_watsonx_credentials,
+    secret_from_env_multi,
 )
 
 logger = logging.getLogger(__name__)
@@ -177,7 +187,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
     if role == "function":
         return FunctionMessage(
             content=_dict.get("content", ""),
-            name=cast(str, _dict.get("name")),
+            name=cast("str", _dict.get("name")),
             id=id_,
         )
     if role == "tool":
@@ -186,7 +196,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
             additional_kwargs["name"] = _dict["name"]
         return ToolMessage(
             content=_dict.get("content", ""),
-            tool_call_id=cast(str, _dict.get("tool_call_id")),
+            tool_call_id=cast("str", _dict.get("tool_call_id")),
             additional_kwargs=additional_kwargs,
             name=name,
             id=id_,
@@ -307,11 +317,12 @@ def _convert_delta_to_message_chunk(
     _dict: Mapping[str, Any],
     default_class: type[BaseMessageChunk],
     call_id: str,
+    *,
     is_first_tool_chunk: bool,
 ) -> BaseMessageChunk:
     id_ = call_id
-    role = cast(str, _dict.get("role"))
-    content = cast(str, _dict.get("content") or "")
+    role = cast("str", _dict.get("role"))
+    content = cast("str", _dict.get("content") or "")
     additional_kwargs: dict = {}
     if _dict.get("function_call"):
         function_call = dict(_dict["function_call"])
@@ -321,7 +332,7 @@ def _convert_delta_to_message_chunk(
     tool_call_chunks = []
     if raw_tool_calls := _dict.get("tool_calls"):
         additional_kwargs["tool_calls"] = raw_tool_calls
-        try:
+        with contextlib.suppress(KeyError):
             tool_call_chunks = [
                 tool_call_chunk(
                     name=rtc["function"].get("name")
@@ -335,8 +346,6 @@ def _convert_delta_to_message_chunk(
                 )
                 for rtc in raw_tool_calls
             ]
-        except KeyError:
-            pass
 
     if reasoning_content := _dict.get("reasoning_content"):
         additional_kwargs["reasoning_content"] = reasoning_content
@@ -368,6 +377,7 @@ def _convert_delta_to_message_chunk(
 def _convert_chunk_to_generation_chunk(
     chunk: dict,
     default_chunk_class: type,
+    *,
     is_first_tool_chunk: bool,
     _prompt_tokens_included: bool,
 ) -> ChatGenerationChunk | None:
@@ -375,7 +385,9 @@ def _convert_chunk_to_generation_chunk(
     choices = chunk.get("choices", [])
 
     usage_metadata: UsageMetadata | None = (
-        _create_usage_metadata(token_usage, _prompt_tokens_included)
+        _create_usage_metadata(
+            token_usage, _prompt_tokens_included=_prompt_tokens_included
+        )
         if token_usage
         else None
     )
@@ -394,7 +406,7 @@ def _convert_chunk_to_generation_chunk(
         choice["delta"],
         default_chunk_class,
         chunk["id"],
-        is_first_tool_chunk,
+        is_first_tool_chunk=is_first_tool_chunk,
     )
     generation_info = {}
 
@@ -419,13 +431,13 @@ def _convert_chunk_to_generation_chunk(
 
 
 class ChatWatsonx(BaseChatModel):
-    """`IBM watsonx.ai` chat models integration.
+    r"""`IBM watsonx.ai` chat models integration.
 
     ???+ info "Setup"
 
         To use, you should have `langchain_ibm` python package installed,
-        and the environment variable `WATSONX_APIKEY` set with your API key, or pass
-        it as a named parameter `apikey` to the constructor.
+        and the environment variable `WATSONX_API_KEY` set with your API key, or pass
+        it as a named parameter `api_key` to the constructor.
 
         ```bash
         pip install -U langchain-ibm
@@ -435,8 +447,12 @@ class ChatWatsonx(BaseChatModel):
         ```
 
         ```bash
-        export WATSONX_APIKEY="your-api-key"
+        export WATSONX_API_KEY="your-api-key"
         ```
+
+        !!! deprecated
+            `apikey` and `WATSONX_APIKEY` are deprecated and will be removed in
+            version `2.0.0`. Use `api_key` and `WATSONX_API_KEY` instead.
 
     ??? info "Instantiate"
 
@@ -455,7 +471,7 @@ class ChatWatsonx(BaseChatModel):
             url="https://us-south.ml.cloud.ibm.com",
             project_id="*****",
             params=parameters,
-            # apikey="*****"
+            # api_key="*****"
         )
         ```
 
@@ -669,7 +685,7 @@ class ChatWatsonx(BaseChatModel):
             url="https://us-south.ml.cloud.ibm.com",
             project_id="*****",
             params=parameters,
-            # apikey="*****"
+            # api_key="*****"
         )
 
         response = model.invoke("What is 3^3?")
@@ -730,7 +746,7 @@ class ChatWatsonx(BaseChatModel):
         ```
 
         ```txt
-        '{\\n  "random_ints": [12, 34, 56, 78, 10, 22, 44, 66, 88, 99]\\n}'
+        '{\n  "random_ints": [12, 34, 56, 78, 10, 22, 44, 66, 88, 99]\n}'
         ```
 
     ??? info "Image input"
@@ -880,9 +896,15 @@ class ChatWatsonx(BaseChatModel):
     )
     """URL to the Watson Machine Learning or CPD instance."""
 
-    apikey: SecretStr | None = Field(
-        alias="apikey",
-        default_factory=secret_from_env("WATSONX_APIKEY", default=None),
+    apikey: SecretStr | None = None
+    api_key: SecretStr | None = Field(
+        default_factory=secret_from_env_multi(
+            names_priority=["WATSONX_API_KEY", "WATSONX_APIKEY"],
+            deprecated={"WATSONX_APIKEY"},
+        ),
+        serialization_alias="api_key",
+        validation_alias=AliasChoices("api_key", "apikey"),  # accept both on input
+        description="API key to the Watson Machine Learning or CPD instance.",
     )
     """API key to the Watson Machine Learning or CPD instance."""
 
@@ -989,6 +1011,9 @@ class ChatWatsonx(BaseChatModel):
     """Stop sequences are one or more strings which will cause the text generation
     to stop if/when they are produced as part of the output."""
 
+    chat_template_kwargs: dict | None = None
+    """Additional chat template parameters."""
+
     verify: str | bool | None = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
@@ -1040,12 +1065,21 @@ class ChatWatsonx(BaseChatModel):
         """Mapping of secret environment variables."""
         return {
             "url": "WATSONX_URL",
+            "api_key": "WATSONX_API_KEY",  # preferred
             "apikey": "WATSONX_APIKEY",
             "token": "WATSONX_TOKEN",
             "password": "WATSONX_PASSWORD",
             "username": "WATSONX_USERNAME",
             "instance_id": "WATSONX_INSTANCE_ID",
         }
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_and_warn_deprecated_input(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Handle deprecated input kwarg name `apikey` vs new `api_key`.
+            data = normalize_api_key(data=data)
+        return data
 
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
@@ -1119,7 +1153,7 @@ class ChatWatsonx(BaseChatModel):
 
             credentials = resolve_watsonx_credentials(
                 url=self.url,
-                apikey=self.apikey,
+                api_key=self.api_key,
                 token=self.token,
                 password=self.password,
                 username=self.username,
@@ -1263,12 +1297,12 @@ class ChatWatsonx(BaseChatModel):
         _prompt_tokens_included = False
 
         for chunk in chunk_iter:
-            chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
+            chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk,
+                chunk_data,
                 default_chunk_class,
-                is_first_tool_chunk,
-                _prompt_tokens_included,
+                is_first_tool_chunk=is_first_tool_chunk,
+                _prompt_tokens_included=_prompt_tokens_included,
             )
             if generation_chunk is None:
                 continue
@@ -1329,12 +1363,12 @@ class ChatWatsonx(BaseChatModel):
         _prompt_tokens_included = False
 
         async for chunk in chunk_iter:
-            chunk = chunk if isinstance(chunk, dict) else chunk.model_dump()
+            chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
             generation_chunk = _convert_chunk_to_generation_chunk(
-                chunk,
+                chunk_data,
                 default_chunk_class,
-                is_first_tool_chunk,
-                _prompt_tokens_included,
+                is_first_tool_chunk=is_first_tool_chunk,
+                _prompt_tokens_included=_prompt_tokens_included,
             )
             if generation_chunk is None:
                 continue
@@ -1414,7 +1448,9 @@ class ChatWatsonx(BaseChatModel):
             message = _convert_dict_to_message(res["message"], response["id"])
 
             if token_usage and isinstance(message, AIMessage):
-                message.usage_metadata = _create_usage_metadata(token_usage, False)
+                message.usage_metadata = _create_usage_metadata(
+                    token_usage, _prompt_tokens_included=False
+                )
             generation_info = generation_info or {}
             generation_info["finish_reason"] = (
                 res.get("finish_reason")
@@ -1451,6 +1487,7 @@ class ChatWatsonx(BaseChatModel):
             "logit_bias",
             "seed",
             "stop",
+            "chat_template_kwargs",
         ]
 
     def bind_tools(
@@ -1473,18 +1510,23 @@ class ChatWatsonx(BaseChatModel):
                 - `str` of the form `'<<tool_name>>'`: calls `<<tool_name>>` tool.
                 - `'auto'`: automatically selects a tool (including no tool).
                 - `'none'`: does not call a tool.
-                - `'any'` or `'required'` or `True`: force at least one tool to be called.
-                - `dict` of the form `{"type": "function", "function": {"name": <<tool_name>>}}`: calls `<<tool_name>>` tool.
+                - `'any'` or `'required'` or `True`: force at least one tool to be
+                  called.
+                - `dict` of the form
+                  `{"type": "function", "function": {"name": <<tool_name>>}}`:
+                  calls `<<tool_name>>` tool.
                 - `False` or `None`: no effect, default OpenAI behavior.
 
-            strict: If `True`, model output is guaranteed to exactly match the JSON Schema
-                provided in the tool definition. The input schema will also be validated according to the
-                supported schemas.
+            strict: If `True`, model output is guaranteed to exactly match the JSON
+                Schema provided in the tool definition.
+                The input schema will also be validated according to the supported
+                schemas.
                 If `False`, input schema will not be validated and model output will not
-                be validated. If `None`, `strict` argument will not be passed to the model.
+                be validated.
+                If `None`, `strict` argument will not be passed to the model.
 
             kwargs: Any additional parameters are passed directly to `bind`.
-        """  # noqa: E501
+        """
         formatted_tools = [
             convert_to_openai_tool(tool, strict=strict) for tool in tools
         ]
@@ -1531,6 +1573,7 @@ class ChatWatsonx(BaseChatModel):
 
         return super().bind(tools=formatted_tools, **kwargs)
 
+    @override
     def with_structured_output(
         self,
         schema: dict | type | None = None,
@@ -1544,7 +1587,7 @@ class ChatWatsonx(BaseChatModel):
         strict: bool | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, dict | BaseModel]:
-        """Model wrapper that returns outputs formatted to match the given schema.
+        r"""Model wrapper that returns outputs formatted to match the given schema.
 
         Args:
             schema: The output schema. Can be passed in as:
@@ -1810,7 +1853,7 @@ class ChatWatsonx(BaseChatModel):
 
             structured_model.invoke(
                 "Answer the following question. "
-                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\\n\\n"
+                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\n\n"
                 "What's heavier a pound of bricks or a pound of feathers?"
             )
             ```
@@ -1818,7 +1861,7 @@ class ChatWatsonx(BaseChatModel):
             ```python
             {
                 "raw": AIMessage(
-                    content='{\\n    "answer": "They are both the same weight.",\\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \\n}'
+                    content='{\n    "answer": "They are both the same weight.",\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \n}'
                 ),
                 "parsed": AnswerWithJustification(
                     answer="They are both the same weight.",
@@ -1840,7 +1883,7 @@ class ChatWatsonx(BaseChatModel):
 
             structured_model.invoke(
                 "Answer the following question. "
-                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\\n\\n"
+                "Make sure to return a JSON blob with keys 'answer' and 'justification'.\n\n"
                 "What's heavier a pound of bricks or a pound of feathers?"
             )
             ```
@@ -1848,7 +1891,7 @@ class ChatWatsonx(BaseChatModel):
             ```python
             {
                 "raw": AIMessage(
-                    content='{\\n    "answer": "They are both the same weight.",\\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \\n}'
+                    content='{\n    "answer": "They are both the same weight.",\n    "justification": "Both a pound of bricks and a pound of feathers weigh one pound. The difference lies in the volume and density of the materials, not the weight." \n}'
                 ),
                 "parsed": {
                     "answer": "They are both the same weight.",
@@ -1875,7 +1918,8 @@ class ChatWatsonx(BaseChatModel):
                 "Received a Pydantic BaseModel V1 schema. This is not supported by "
                 'method="json_schema". Please use method="function_calling" '
                 "or specify schema via JSON Schema or Pydantic V2 BaseModel. "
-                'Overriding to method="function_calling".'
+                'Overriding to method="function_calling".',
+                stacklevel=2,
             )
             method = "function_calling"
 
@@ -1994,6 +2038,7 @@ def _lc_invalid_tool_call_to_watsonx_tool_call(
 
 def _create_usage_metadata(
     oai_token_usage: dict,
+    *,
     _prompt_tokens_included: bool,
 ) -> UsageMetadata:
     input_tokens = (

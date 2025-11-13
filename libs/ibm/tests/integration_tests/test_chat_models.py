@@ -1,10 +1,15 @@
 import json
 import os
+import re
 from typing import Any, Literal, cast
 
 import pytest
-from ibm_watsonx_ai.foundation_models.schema import TextChatParameters  # type: ignore
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
+from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
+    TextChatParameters,
+)
+from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+    GenTextParamsMetaNames,
+)
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
@@ -12,12 +17,14 @@ from langchain_core.messages import (
     BaseMessageChunk,
     HumanMessage,
     SystemMessage,
+    ToolCallChunk,
 )
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
 from pydantic import BaseModel
 
-from langchain_ibm import ChatWatsonx, WatsonxToolkit
+from langchain_ibm import ChatWatsonx
+from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
@@ -30,6 +37,53 @@ MODEL_ID_TOOL_2 = "mistralai/mistral-small-3-1-24b-instruct-2503"
 MODEL_ID_REASONING_CONTENT = "openai/gpt-oss-120b"
 
 PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
+
+CREATE_CHAT_WATSONX_INIT_PARAMETERS = [
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only api_key",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="only apikey",
+    ),
+    pytest.param(
+        {
+            "model_id": MODEL_ID,
+            "url": URL,
+            "api_key": WX_APIKEY,
+            "apikey": WX_APIKEY,
+            "project_id": WX_PROJECT_ID,
+        },
+        id="api_key and apikey",
+    ),
+]
+
+
+@pytest.mark.parametrize("init_data", CREATE_CHAT_WATSONX_INIT_PARAMETERS)
+def test_chat_watsonx_init(init_data: dict) -> None:
+    chat = ChatWatsonx(**init_data)
+
+    messages = [
+        ("user", "You are a helpful assistant that translates English to French."),
+        (
+            "human",
+            "Translate this sentence from English to French. I love programming.",
+        ),
+    ]
+    response = chat.invoke(messages)
+    assert response
+    assert response.content
 
 
 @pytest.mark.token_check
@@ -964,12 +1018,16 @@ def test_chat_streaming_multiple_tool_call() -> None:
     # tool_call_chunks
     predicted_tool_call_chunks = []
     for i, el in enumerate(ai_message.tool_calls):
-        el |= {"type": "tool_call_chunk"}  # type: ignore[typeddict-item]
-        el["args"] = json.dumps(el["args"])  # type: ignore[typeddict-item]
-        el |= {"index": i}  # type: ignore[misc]
-        predicted_tool_call_chunks.append(el)
+        tool_call_chunk = ToolCallChunk(
+            name=el["name"],
+            args=json.dumps(el["args"]),
+            id=el["id"],
+            index=i,
+            type="tool_call_chunk",
+        )
+        predicted_tool_call_chunks.append(tool_call_chunk)
 
-    assert ai_message.tool_call_chunks == predicted_tool_call_chunks  # type: ignore[comparison-overlap]
+    assert ai_message.tool_call_chunks == predicted_tool_call_chunks
     assert (
         json.loads(
             ai_message.additional_kwargs["tool_calls"][0]["function"]["arguments"]
@@ -983,8 +1041,7 @@ def test_chat_streaming_multiple_tool_call() -> None:
         == generated_tools_args[1]
     )
 
-    # TODO: these tests should works when usage field will be fixed
-    # assert ai_message.usage_metadata is not None
+    assert ai_message.usage_metadata is not None
 
 
 def test_chat_structured_output_function_calling() -> None:
@@ -1011,7 +1068,8 @@ def test_chat_structured_output_function_calling() -> None:
         "What weighs more a pound of bricks or a pound of feathers"
     )
     assert isinstance(result, dict)
-    assert "answer" in result and "justification" in result
+    assert "answer" in result
+    assert "justification" in result
 
 
 def test_chat_structured_output_json_schema() -> None:
@@ -1038,7 +1096,8 @@ def test_chat_structured_output_json_schema() -> None:
         "What weighs more a pound of bricks or a pound of feathers"
     )
     assert isinstance(result, dict)
-    assert "answer" in result and "justification" in result
+    assert "answer" in result
+    assert "justification" in result
 
 
 def test_chat_streaming_structured_output_function_calling() -> None:
@@ -1118,7 +1177,11 @@ def test_init_with_params_5() -> None:
     params_1 = {"max_tokens": 10}
     params_2 = {"max_tokens": 20}
 
-    with pytest.raises(ValueError) as e:
+    pattern = re.escape(
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+    )
+
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(
             model_id=MODEL_ID,
             url=URL,
@@ -1126,10 +1189,6 @@ def test_init_with_params_5() -> None:
             params=params_1,
             **params_2,
         )
-    assert (
-        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
-        in str(e.value)
-    )
 
 
 def test_invoke_with_params_1() -> None:
@@ -1213,13 +1272,11 @@ def test_invoke_with_params_4() -> None:
         url=URL,
         project_id=WX_PROJECT_ID,
     )
-    with pytest.raises(ValueError) as e:
-        chat.invoke(prompt_1, params=params_1, **params_2)  # type: ignore[arg-type]
-
-    assert (
+    pattern = re.escape(
         "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
-        in str(e.value)
     )
+    with pytest.raises(ValueError, match=pattern):
+        chat.invoke(prompt_1, params=params_1, **params_2)  # type: ignore[arg-type]
 
 
 def test_invoke_with_params_5() -> None:
@@ -1231,14 +1288,12 @@ def test_invoke_with_params_5() -> None:
         url=URL,
         project_id=WX_PROJECT_ID,
     )
-    with pytest.raises(ValueError) as e:
-        chat.invoke(prompt_1, params=params_1, **params_2, **params_3)  # type: ignore[arg-type]
-
-    assert (
-        "Duplicate parameters found in params and keyword arguments: " in str(e.value)
-        and "'logprobs'" in str(e.value)
-        and "'max_tokens'" in str(e.value)
+    pattern = (
+        r"(?=.*Duplicate parameters found in params and keyword arguments: )"
+        r"(?=.*'logprobs')(?=.*'max_tokens')"
     )
+    with pytest.raises(ValueError, match=pattern):
+        chat.invoke(prompt_1, params=params_1, **params_2, **params_3)  # type: ignore[arg-type]
 
 
 def test_init_and_invoke_with_params_1() -> None:
@@ -1334,7 +1389,12 @@ def test_init_and_invoke_with_params_4() -> None:
         project_id=WX_PROJECT_ID,
         params=params_1_a,
     )
-    with pytest.raises(ValueError) as e:
+
+    pattern = re.escape(
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+    )
+
+    with pytest.raises(ValueError, match=pattern) as e:
         chat.invoke(prompt_1, params=params_1_b, **params_1_c)  # type: ignore[arg-type]
 
     assert (

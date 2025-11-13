@@ -14,6 +14,7 @@ from langchain_core.messages import BaseMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing_extensions import override
 
 from langchain_ibm.utilities.sql_database import WatsonxSQLDatabase
 
@@ -63,6 +64,7 @@ class QuerySQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     """
     args_schema: type[BaseModel] = _QuerySQLDatabaseToolInput
 
+    @override
     def _run(
         self,
         query: str,
@@ -90,6 +92,7 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     description: str = "Get the schema and sample rows for the specified SQL tables."
     args_schema: type[BaseModel] = _InfoSQLDatabaseToolInput
 
+    @override
     def _run(
         self,
         table_names: str,
@@ -115,6 +118,7 @@ class ListSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     )
     args_schema: type[BaseModel] = _ListSQLDatabaseToolInput
 
+    @override
     def _run(
         self,
         tool_input: str = "",
@@ -156,7 +160,8 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
 
         if values["llm_chain"].first.input_variables != ["query", "schema"]:
             error_msg = (
-                "LLM chain for QueryCheckerTool must have input variables ['query', 'schema']",  # noqa: E501
+                "LLM chain for QueryCheckerTool must have input variables "
+                "['query', 'schema']",
             )
             raise ValueError(error_msg)
 
