@@ -120,7 +120,7 @@ def normalize_tool_arguments(args_str: str) -> str:
         parsed = ast.literal_eval(args_str)
 
     # Step 4: Convert back to JSON string
-    return json.dumps(parsed, indent=2)
+    return json.dumps(parsed)
 
 
 def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMessage:
