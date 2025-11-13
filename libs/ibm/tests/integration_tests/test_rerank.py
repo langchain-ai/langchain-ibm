@@ -14,7 +14,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://us-south.ml.cloud.ibm.com"
 
-MODEL_ID = "ibm/slate-125m-english-rtrvr"
+MODEL_ID = "ibm/slate-125m-english-rtrvr-v2"
 
 
 def test_01_rerank_init() -> None:
@@ -47,7 +47,7 @@ def test_02_rerank_documents() -> None:
 
 
 def test_02_rerank_documents_with_params() -> None:
-    params = RerankParameters(truncate_input_tokens=1)
+    params = RerankParameters(truncate_input_tokens=2)
     test_documents = [
         Document(page_content="This is a test document."),
     ]

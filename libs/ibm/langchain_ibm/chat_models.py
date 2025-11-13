@@ -1,5 +1,6 @@
 """IBM watsonx.ai chat wrapper."""
 
+import ast
 import hashlib
 import json
 import logging
@@ -90,6 +91,35 @@ from langchain_ibm.utils import (
 logger = logging.getLogger(__name__)
 
 
+def normalize_tool_arguments(args_str: str) -> str:
+    """Ensure arguments is always a proper JSON string.
+
+    Handles:
+    - JSON string
+    - Python dict string
+    - Extra wrapping quotes like '"{...}"'
+    Args:
+        args_str: tool call args_str.
+
+    Returns:
+        The LangChain tool call arguments args_str.
+    """
+    # Try to parse as JSON
+    try:
+        parsed = json.loads(args_str)
+    except json.JSONDecodeError:
+        pass
+    else:
+        if isinstance(parsed, str):
+            json.loads(parsed)
+            return parsed
+        return args_str
+
+    # Try Python literal (e.g., "{'a': 1}")
+    obj: Any = ast.literal_eval(args_str)
+    return json.dumps(obj, ensure_ascii=False)
+
+
 def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMessage:
     """Convert a dictionary to a LangChain message.
 
@@ -117,6 +147,13 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
         if raw_tool_calls := _dict.get("tool_calls"):
             additional_kwargs["tool_calls"] = raw_tool_calls
             for raw_tool_call in raw_tool_calls:
+                ## Code change to support langgraph with A2A and graph.astream.
+                if "function" in raw_tool_call:
+                    func = raw_tool_call.get("function", {})
+                    if "arguments" in func:
+                        raw_args = raw_tool_call["function"]["arguments"]
+                        json_args_str = normalize_tool_arguments(raw_args)
+                        raw_tool_call["function"]["arguments"] = json_args_str
                 try:
                     tool_calls.append(parse_tool_call(raw_tool_call, return_id=True))
                 except Exception as e:
