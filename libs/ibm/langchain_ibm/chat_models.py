@@ -104,23 +104,20 @@ def normalize_tool_arguments(args_str: str) -> str:
     Returns:
         The LangChain tool call arguments args_str.
     """
-    # Step 1: Remove outer quotes if it's a string starting and ending with quotes
-    if (
-        isinstance(args_str, str)
-        and args_str.startswith('"')
-        and args_str.endswith('"')
-    ):
-        args_str = args_str[1:-1].encode().decode("unicode_escape")
-
-    # Step 2: Try JSON
+    # Try to parse as JSON
     try:
         parsed = json.loads(args_str)
     except json.JSONDecodeError:
-        # Step 3: If JSON fails, try Python dict string
-        parsed = ast.literal_eval(args_str)
+        pass
+    else:
+        if isinstance(parsed, str):
+            json.loads(parsed)
+            return parsed
+        return args_str
 
-    # Step 4: Convert back to JSON string
-    return json.dumps(parsed)
+    # Try Python literal (e.g., "{'a': 1}")
+    obj: Any = ast.literal_eval(args_str)
+    return json.dumps(obj, ensure_ascii=False)
 
 
 def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMessage:
