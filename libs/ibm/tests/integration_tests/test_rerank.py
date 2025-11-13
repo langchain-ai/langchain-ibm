@@ -16,6 +16,7 @@ URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/slate-125m-english-rtrvr-v2"
 
+
 def test_01_rerank_init() -> None:
     wx_rerank = WatsonxRerank(model_id=MODEL_ID, url=URL, project_id=WX_PROJECT_ID)
     assert isinstance(wx_rerank, WatsonxRerank)
