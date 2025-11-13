@@ -136,7 +136,7 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
     """Use an LLM to check if a query is correct."""
 
     template: str = QUERY_CHECKER
-    llm: BaseLanguageModel
+    llm: BaseLanguageModel[Any]
     llm_chain: Any = Field(init=False)
     name: str = "sql_db_query_checker"
     description: str = """
@@ -154,7 +154,7 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
                 template=QUERY_CHECKER,
                 input_variables=["query", "schema"],
             )
-            llm = cast("BaseLanguageModel", values.get("llm"))
+            llm = cast("BaseLanguageModel[Any]", values.get("llm"))
 
             values["llm_chain"] = prompt | llm
 

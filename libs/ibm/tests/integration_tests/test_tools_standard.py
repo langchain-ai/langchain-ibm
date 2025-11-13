@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
 from langchain_core.tools import BaseTool
@@ -20,7 +21,7 @@ class TestWatsonxToolsStandard(ToolsIntegrationTests):
         return WatsonxTool
 
     @property
-    def tool_constructor_params(self) -> dict:
+    def tool_constructor_params(self) -> dict[str, Any]:
         return {
             "name": "GoogleSearch",
             "description": "Search for online trends, news, current events, "
@@ -57,7 +58,7 @@ class TestWatsonxToolsStandard(ToolsIntegrationTests):
         }
 
     @property
-    def tool_invoke_params_example(self) -> dict:
+    def tool_invoke_params_example(self) -> dict[str, Any]:
         """
         Returns a dictionary representing the "args" of an example tool call.
 

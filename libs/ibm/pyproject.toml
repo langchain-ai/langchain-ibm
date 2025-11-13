@@ -104,10 +104,6 @@ plugins = ["pydantic.mypy"]
 strict = true
 warn_unreachable = true
 
-# TODO: activate for 'strict' checking
-disallow_any_generics = false
-warn_return_any = false
-
 [tool.coverage.run]
 omit = ["tests/*"]
 

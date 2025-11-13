@@ -148,7 +148,7 @@ class WatsonxRerank(BaseDocumentCompressor):
     version: SecretStr | None = None
     """Version of the CPD instance."""
 
-    params: dict | RerankParameters | None = None
+    params: dict[str, Any] | RerankParameters | None = None
     """Model parameters to use during request generation."""
 
     verify: str | bool | None = None
@@ -235,7 +235,7 @@ class WatsonxRerank(BaseDocumentCompressor):
 
     def rerank(
         self,
-        documents: Sequence[str | Document | dict],
+        documents: Sequence[str | Document | dict[str, Any]],
         query: str,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:

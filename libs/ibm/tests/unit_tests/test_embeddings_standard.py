@@ -1,3 +1,5 @@
+from typing import Any
+
 from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
 from ibm_watsonx_ai.service_instance import (  # type: ignore[import-untyped]
     ServiceInstance,
@@ -22,7 +24,7 @@ class TestWatsonxEmbeddingsStandard(EmbeddingsUnitTests):
         return WatsonxEmbeddings
 
     @property
-    def embedding_model_params(self) -> dict:
+    def embedding_model_params(self) -> dict[str, Any]:
         return {
             "model_id": "ibm/granite-13b-instruct-v2",
             "watsonx_client": client,

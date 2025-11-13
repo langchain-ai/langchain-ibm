@@ -209,7 +209,7 @@ class WatsonxLLM(BaseLLM):
     version: SecretStr | None = None
     """Version of the CPD instance."""
 
-    params: dict | None = None
+    params: dict[str, Any] | None = None
     """Model parameters to use during request generation."""
 
     verify: str | bool | None = None
@@ -343,7 +343,9 @@ class WatsonxLLM(BaseLLM):
         return self
 
     @gateway_error_handler
-    def _call_model_gateway(self, *, model: str, prompt: list, **params: Any) -> Any:
+    def _call_model_gateway(
+        self, *, model: str, prompt: str | list[str] | list[int], **params: Any
+    ) -> Any:
         return self.watsonx_model_gateway.completions.create(
             model=model,
             prompt=prompt,
@@ -355,7 +357,7 @@ class WatsonxLLM(BaseLLM):
         self,
         *,
         model: str,
-        prompt: list,
+        prompt: str | list[str] | list[int],
         **params: Any,
     ) -> Any:
         return await self.watsonx_model_gateway.completions.acreate(
@@ -455,7 +457,7 @@ class WatsonxLLM(BaseLLM):
             params = (params or {}) | {"stop_sequences": stop}
         return params, kwargs
 
-    def _create_llm_result(self, response: list[dict]) -> LLMResult:
+    def _create_llm_result(self, response: list[dict[str, Any]]) -> LLMResult:
         """Create the LLMResult from the choices and prompts."""
         generations = [
             [
@@ -480,7 +482,7 @@ class WatsonxLLM(BaseLLM):
         }
         return LLMResult(generations=generations, llm_output=llm_output)
 
-    def _create_llm_gateway_result(self, response: dict) -> LLMResult:
+    def _create_llm_gateway_result(self, response: dict[str, Any]) -> LLMResult:
         """Create the LLMResult from the choices and prompts."""
         choices = response["choices"]
 

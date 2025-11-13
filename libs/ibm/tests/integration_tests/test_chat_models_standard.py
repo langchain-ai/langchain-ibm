@@ -1,5 +1,5 @@
 import os
-from typing import Literal
+from typing import Any, Literal
 
 import pytest
 from langchain_core.language_models import BaseChatModel
@@ -56,7 +56,7 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
         }
 
     @property
-    def chat_model_params(self) -> dict:
+    def chat_model_params(self) -> dict[str, Any]:
         return {
             "model_id": MODEL_ID,
             "url": URL,
@@ -65,7 +65,7 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
         }
 
     @property
-    def standard_chat_model_params(self) -> dict:
+    def standard_chat_model_params(self) -> dict[str, Any]:
         return {
             "temperature": 0,
             "params": {

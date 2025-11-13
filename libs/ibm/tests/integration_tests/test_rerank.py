@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 import pytest
 from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
@@ -50,7 +51,7 @@ CREATE_WATSONX_RERANK_INIT_PARAMETERS = [
 
 
 @pytest.mark.parametrize("init_data", CREATE_WATSONX_RERANK_INIT_PARAMETERS)
-def test_01_watsonx_rerank_init(init_data: dict) -> None:
+def test_01_watsonx_rerank_init(init_data: dict[str, Any]) -> None:
     wx_rerank = WatsonxRerank(**init_data)
 
     assert isinstance(wx_rerank, WatsonxRerank)

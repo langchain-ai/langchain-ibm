@@ -71,7 +71,7 @@ CREATE_CHAT_WATSONX_INIT_PARAMETERS = [
 
 
 @pytest.mark.parametrize("init_data", CREATE_CHAT_WATSONX_INIT_PARAMETERS)
-def test_chat_watsonx_init(init_data: dict) -> None:
+def test_chat_watsonx_init(init_data: dict[str, Any]) -> None:
     chat = ChatWatsonx(**init_data)
 
     messages = [
