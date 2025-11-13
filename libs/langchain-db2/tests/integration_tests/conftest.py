@@ -1,3 +1,4 @@
+import contextlib
 import os
 from collections.abc import Generator
 from pathlib import Path
@@ -34,14 +35,10 @@ def ibm_db_dbi_connection() -> Generator[ibm_db_dbi.Connection, None, None]:
         yield conn
     finally:
         # Best-effort cleanup
-        try:
+        with contextlib.suppress(Exception):
             conn.commit()
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             conn.close()
-        except Exception:
-            pass
 
 
 @pytest.fixture(scope="session")
