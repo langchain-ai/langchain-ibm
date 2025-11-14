@@ -1018,6 +1018,25 @@ class ChatWatsonx(BaseChatModel):
     chat_template_kwargs: dict[str, Any] | None = None
     """Additional chat template parameters."""
 
+    reasoning_effort: Literal["low", "medium", "high"] | None = None
+    """A lower reasoning effort can result in faster responses, fewer tokens used,
+    and shorter reasoning_content in the responses.
+    Supported values are: low, medium, and high."""
+
+    include_reasoning: bool | None = None
+    """Whether to include `reasoning_content` in the response."""
+
+    repetition_penalty: float | None = None
+    """Represents the penalty for penalizing tokens that have already been generated
+    or belong to the context."""
+
+    length_penalty: float | None = None
+    """Exponential penalty to the length that is used with beam-based generation.
+    It is applied as an exponent to the sequence length, which in turn is used
+    to divide the score of the sequence. Since the score is the log likelihood
+    of the sequence (i.e. negative), `length_penalty` > 0.0 promotes longer sequences,
+    while `length_penalty` < 0.0 encourages shorter sequences."""
+
     verify: str | bool | None = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
@@ -1494,6 +1513,10 @@ class ChatWatsonx(BaseChatModel):
             "seed",
             "stop",
             "chat_template_kwargs",
+            "reasoning_effort",
+            "include_reasoning",
+            "repetition_penalty",
+            "length_penalty",
         ]
 
     def bind_tools(
