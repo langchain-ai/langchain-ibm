@@ -25,6 +25,7 @@ from langchain_community.vectorstores.utils import (
 )
 from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStore
+from typing_extensions import override
 
 from langchain_db2.utils import EmbeddingsSchema
 
@@ -48,7 +49,7 @@ T = TypeVar("T", bound=Callable[..., Any])
 
 def _handle_exceptions(func: T) -> T:
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         try:
             return func(*args, **kwargs)
         except RuntimeError as db_err:
@@ -390,6 +391,7 @@ class DB2VS(VectorStore):
         return self.embedding_function(text)
 
     @_handle_exceptions
+    @override
     def add_texts(
         self,
         texts: Iterable[str],
@@ -609,8 +611,7 @@ class DB2VS(VectorStore):
         ORDER BY distance
         FETCH FIRST {k} ROWS ONLY
         """  # noqa: S608
-        # TODO:  # noqa: FIX002 TD003 TD002
-        #  No APPROX in "FETCH APPROX FIRST" now. This will be added once
+        # TODO: No APPROX in "FETCH APPROX FIRST" now. This will be added once
         #  approximate nearest neighbors search in db2 is implemented.
 
         # Execute the query
@@ -675,9 +676,8 @@ class DB2VS(VectorStore):
         ORDER BY distance
         FETCH FIRST {k} ROWS ONLY
         """  # noqa: S608
-        # TODO:  # noqa: FIX002 TD003 TD002
-        #   No APPROX in "FETCH APPROX FIRST" now. This will be added once
-        #   approximate nearest neighbors search in db2 is implemented.
+        # TODO: No APPROX in "FETCH APPROX FIRST" now. This will be added once
+        #  approximate nearest neighbors search in db2 is implemented.
 
         # Execute the query
         cursor = self.client.cursor()
@@ -773,13 +773,14 @@ class DB2VS(VectorStore):
         return [(documents[i], scores[i]) for i in mmr_selected_indices]
 
     @_handle_exceptions
+    @override
     def max_marginal_relevance_search_by_vector(
         self,
         embedding: list[float],
         k: int = 4,
         fetch_k: int = 20,
         lambda_mult: float = 0.5,
-        filter: dict[str, Any] | None = None,  # noqa: A002
+        filter: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> list[Document]:
         """Return docs selected using the maximal marginal relevance.
@@ -851,6 +852,7 @@ class DB2VS(VectorStore):
         )
 
     @_handle_exceptions
+    @override
     def delete(self, ids: list[str] | None = None, **kwargs: Any) -> None:
         """Delete by vector IDs.
 

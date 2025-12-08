@@ -62,39 +62,24 @@ select = ["ALL"]
 ignore = [
     "COM812", # Messes with the formatter
     "C901",    # Complex functions
-    "SIM105",  # Rarely useful
+    "FIX002",  # Line contains TODO
     "PERF203", # Rarely useful
     "PLR0911", # Too many return statements
     "PLR0912", # Too many branches
     "PLR0913", # Too many arguments
     "PLR0914", # Too many local variables
     "PLR0915", # Too many statements
-    "PLR2004",
-    #TODO
-    "ARG002",
-    "BLE001",
-    "ANN401",
-    "FBT",
-    "D301",
-    "PLW",
-    "A001",
-    "B028",
+    "TD002",   # Missing author in TODO
+    "TD003",   # Missing issue link in TODO
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
     "D",       # Docstring checks in tests
+    "PLR2004", # Magic numbers allowed in tests
     "S101",    # Tests need assertions
     "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
     "SLF001",  # Private member access in tests
-    "T201",
-    "FIX",     # TODOs
-    "TD",      # TODOs
-    # TODO
-    "RUF012",
-    "PGH003",
-    "S",
-    "PT"
 ]
 "scripts/*" = [
     "D",
@@ -107,10 +92,9 @@ ignore = [
     # TODO
     "INP",
     "ANN",
+    "BLE001",
     "ERA",
     "E",
-    "FIX",
-    "TD"
 ]
 
 [tool.mypy]
