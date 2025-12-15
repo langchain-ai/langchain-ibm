@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import sys
 from typing import Any
 from unittest.mock import Mock
 
@@ -212,6 +213,10 @@ def test_initialize_chat_watsonx_with_model_inference_only() -> None:
     assert isinstance(chat, ChatWatsonx)
 
 
+@pytest.mark.skipif(
+    sys.version_info[:2] != (3, 10),
+    reason="Test runs only on Python 3.10",
+)
 def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
     top_p = 0.8
 
@@ -225,6 +230,80 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
                 if "chat_template_kwargs" not in k
                 if "reasoning_effort" not in k
                 if "include_reasoning" not in k
+                if "length_penalty" not in k
+                if "repetition_penalty" not in k
+            }
+            | {
+                "logit_bias": {"1003": -100, "1004": -100},
+                "seed": 41,
+                "stop": ["this", "the"],
+            }
+            | {"top_p": top_p}
+        )
+
+        return {"id": "123", "choices": [{"message": {"content": "Hi", "role": "ai"}}]}
+
+    mocker.patch(
+        "ibm_watsonx_ai.foundation_models.ModelInference.__init__",
+        return_value=None,
+    )
+    mocker.patch(
+        "ibm_watsonx_ai.foundation_models.ModelInference.chat",
+        side_effect=mock_modelinference_chat,
+    )
+
+    chat = ChatWatsonx(
+        model_id="google/flan-ul2",
+        url="https://us-south.ml.cloud.ibm.com",
+        apikey="test_apikey",
+        frequency_penalty=0.5,
+        logprobs=True,
+        top_logprobs=3,
+        presence_penalty=0.3,
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "Sample JSON schema",
+                "schema": {
+                    "title": "SimpleUser",
+                    "type": "object",
+                    "properties": {
+                        "username": {"type": "string"},
+                        "email": {"type": "string", "format": "email"},
+                    },
+                    "required": ["username", "email"],
+                },
+                "strict": False,
+            },
+        },
+        temperature=0.7,
+        max_completion_tokens=512,
+        time_limit=600000,
+        top_p=0.9,
+        n=1,
+        logit_bias={"1003": -100, "1004": -100},
+        seed=41,
+        stop=["this", "the"],
+    )
+
+    # change only top_n
+    chat.invoke("Hello", top_p=top_p)
+
+
+@pytest.mark.skipif(
+    not ((3, 11) <= sys.version_info[:2] <= (3, 13)),
+    reason="Test runs only on Python 3.11-3.13",
+)
+def test_initialize_chat_watsonx_with_all_supported_params_v2(mocker: Any) -> None:
+    top_p = 0.8
+
+    def mock_modelinference_chat(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs.get("messages") == [{"content": "Hello", "role": "user"}]
+        assert kwargs.get("params") == (
+            {
+                k: v
+                for k, v in TextChatParameters.get_sample_params().items()
+                if "guided" not in k
             }
             | {
                 "logit_bias": {"1003": -100, "1004": -100},
@@ -279,6 +358,9 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
         stop=["this", "the"],
         length_penalty=1.0,
         repetition_penalty=1.5,
+        reasoning_effort="high",
+        include_reasoning=True,
+        chat_template_kwargs={"thinking": True},
     )
 
     # change only top_n
