@@ -4,7 +4,7 @@ from typing import Any, Literal
 import pytest
 from langchain_core.language_models import BaseChatModel
 from langchain_tests.integration_tests.chat_models import ChatModelIntegrationTests
-from pytest_benchmark.fixture import BenchmarkFixture  # type: ignore[import-untyped]
+from pytest_benchmark.fixture import BenchmarkFixture
 from vcr.cassette import Cassette  # type: ignore[import-untyped]
 
 from langchain_ibm import ChatWatsonx

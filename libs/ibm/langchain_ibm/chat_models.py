@@ -2011,7 +2011,7 @@ class ChatWatsonx(BaseChatModel):
                     },
                 }
             else:
-                response_format = _convert_to_openai_response_format(
+                response_format = _convert_to_openai_response_format(  # type: ignore[assignment]
                     schema, strict=strict
                 )
 
