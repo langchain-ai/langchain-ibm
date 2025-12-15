@@ -277,6 +277,8 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
         logit_bias={"1003": -100, "1004": -100},
         seed=41,
         stop=["this", "the"],
+        length_penalty=1.0,
+        repetition_penalty=1.5,
     )
 
     # change only top_n
