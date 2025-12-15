@@ -2001,7 +2001,19 @@ class ChatWatsonx(BaseChatModel):
                     "Received None."
                 )
                 raise ValueError(error_msg)
-            response_format = _convert_to_openai_response_format(schema, strict=strict)
+            if is_pydantic_schema:
+                response_format = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema.__name__,  # type: ignore[union-attr]
+                        "description": schema.__doc__,
+                        "schema": schema.model_json_schema(),  # type: ignore[union-attr]
+                    },
+                }
+            else:
+                response_format = _convert_to_openai_response_format(  # type: ignore[assignment]
+                    schema, strict=strict
+                )
 
             bind_kwargs = {
                 "response_format": response_format,
