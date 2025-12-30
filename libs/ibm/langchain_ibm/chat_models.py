@@ -85,6 +85,7 @@ from pydantic.v1 import BaseModel as BaseModelV1
 from typing_extensions import Self, override
 
 from langchain_ibm.utils import (
+    TOO_MANY_MODEL_PARAM_NUM,
     async_gateway_error_handler,
     check_duplicate_chat_params,
     extract_chat_params,
@@ -1140,10 +1141,18 @@ class ChatWatsonx(BaseChatModel):
             self.watsonx_client = self.watsonx_model._client  # noqa: SLF001
 
         elif isinstance(self.watsonx_client, APIClient):
-            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
+            sum_params = sum(map(bool, (self.model, self.model_id, self.deployment_id)))
+            if sum_params >= TOO_MANY_MODEL_PARAM_NUM:
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing ChatWatsonx.",
+                )
+                raise ValueError(error_msg)
+            if sum_params == 0:
+                error_msg = (
+                    "One of the parameters 'model', 'model_id' and 'deployment_id' "
+                    "must be provided . Please specify exactly one of these"
                     "parameters when initializing ChatWatsonx.",
                 )
                 raise ValueError(error_msg)
@@ -1166,10 +1175,18 @@ class ChatWatsonx(BaseChatModel):
                 )
                 self.watsonx_model = watsonx_model
         else:
-            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
+            sum_params = sum(map(bool, (self.model, self.model_id, self.deployment_id)))
+            if sum_params >= TOO_MANY_MODEL_PARAM_NUM:
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing ChatWatsonx.",
+                )
+                raise ValueError(error_msg)
+            if sum_params == 0:
+                error_msg = (
+                    "One of the parameters 'model', 'model_id' and 'deployment_id' "
+                    "must be provided . Please specify exactly one of these"
                     "parameters when initializing ChatWatsonx.",
                 )
                 raise ValueError(error_msg)
