@@ -273,7 +273,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 raise ValueError(error_msg)
             if sum_params == 0:
                 error_msg = (
-                    "One of the parameters 'model', 'model_id' and 'deployment_id' "
+                    "One of the parameters 'model', and 'model_id' "
                     "must be provided . Please specify exactly one of these"
                     "parameters when initializing WatsonxEmbeddings.",
                 )
