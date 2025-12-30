@@ -233,16 +233,16 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
             sum_params = sum(map(bool, (self.model, self.model_id)))
             if sum_params >= TOO_MANY_MODEL_PARAM_NUM:
                 error_msg = (
-                    "The parameters 'model', 'model_id' and 'deployment_id' are "
-                    "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx.",
+                    "The parameters 'model' and 'model_id' are mutually exclusive. "
+                    "Please specify exactly one of these parameters when "
+                    "initializing WatsonxEmbeddings.",
                 )
                 raise ValueError(error_msg)
             if sum_params == 0:
                 error_msg = (
                     "One of the parameters 'model', 'model_id' and 'deployment_id' "
                     "must be provided . Please specify exactly one of these"
-                    "parameters when initializing ChatWatsonx.",
+                    "parameters when initializing WatsonxEmbeddings.",
                 )
                 raise ValueError(error_msg)
             if self.model is not None:
@@ -266,16 +266,16 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
             sum_params = sum(map(bool, (self.model, self.model_id)))
             if sum_params >= TOO_MANY_MODEL_PARAM_NUM:
                 error_msg = (
-                    "The parameters 'model', 'model_id' and 'deployment_id' are "
-                    "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx.",
+                    "The parameters 'model' and 'model_id' are mutually exclusive. "
+                    "Please specify exactly one of these parameters when "
+                    "initializing WatsonxEmbeddings.",
                 )
                 raise ValueError(error_msg)
             if sum_params == 0:
                 error_msg = (
                     "One of the parameters 'model', 'model_id' and 'deployment_id' "
                     "must be provided . Please specify exactly one of these"
-                    "parameters when initializing ChatWatsonx.",
+                    "parameters when initializing WatsonxEmbeddings.",
                 )
                 raise ValueError(error_msg)
             credentials = resolve_watsonx_credentials(

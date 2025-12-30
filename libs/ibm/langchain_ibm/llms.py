@@ -285,14 +285,14 @@ class WatsonxLLM(BaseLLM):
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx.",
+                    "parameters when initializing WatsonxLLM.",
                 )
                 raise ValueError(error_msg)
             if sum_params == 0:
                 error_msg = (
                     "One of the parameters 'model', 'model_id' and 'deployment_id' "
                     "must be provided . Please specify exactly one of these"
-                    "parameters when initializing ChatWatsonx.",
+                    "parameters when initializing WatsonxLLM.",
                 )
                 raise ValueError(error_msg)
             if self.model is not None:
@@ -319,14 +319,14 @@ class WatsonxLLM(BaseLLM):
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx.",
+                    "parameters when initializing WatsonxLLM.",
                 )
                 raise ValueError(error_msg)
             if sum_params == 0:
                 error_msg = (
                     "One of the parameters 'model', 'model_id' and 'deployment_id' "
                     "must be provided . Please specify exactly one of these"
-                    "parameters when initializing ChatWatsonx.",
+                    "parameters when initializing WatsonxLLM.",
                 )
                 raise ValueError(error_msg)
 
