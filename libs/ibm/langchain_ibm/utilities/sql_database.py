@@ -51,23 +51,52 @@ def _from_env(env_var_name: str) -> str | None:
 
 
 def pretty_print_table_info(
-    schema: str, table_name: str, table_info: dict[str, Any]
+    schema: str, table_name: str, table_info: dict[str, Any], fmt: str = "ddl"
 ) -> str:
     """Pretty print table info."""
+    templates: dict[str, Any] = {
+        "ddl": {
+            "table": """
+CREATE TABLE "{schema}"."{table_name}" (
+\t{column_definitions}{primary_key}{foreign_keys}
+\t)""",
+            "column": '"{name}" {native_type}{nullable}',
+            "sep": ",",
+            "new_line": "\n\t",
+            "pk": "CONSTRAINT {pk_name} PRIMARY KEY ({key_columns})",
+            "fk": "CONSTRAINT {fk_name} FOREIGN KEY ({col_name}) REFERENCES {external_table_name}({external_col_name})",
+            "keys_prefix": "",
+        },
+        "markdown": {
+            "table": """
+## TABLE: {schema}.{table_name}
+{column_definitions}{keys_prefix}{primary_key}{foreign_keys}""",
+            "column": "- {name} ({native_type})",
+            "sep": "",
+            "new_line": "\n",
+            "pk": "- PK ({key_columns})",
+            "fk": "- FK ({col_name}) -> {external_table_name}.{external_col_name}",
+            "keys_prefix": "\n\n### Keys",
+        },
+    }
+
+    if not (template := templates.get(fmt)):
+        err_msg = (
+            f"Not supported format type '{fmt}'. "
+            f"Supported are: {list(templates.keys())}."
+        )
+        raise ValueError(err_msg)
 
     def convert_column_data(field_metadata: dict[str, Any]) -> str:
         name = field_metadata.get("name")
 
         field_metadata_type = field_metadata.get("type", {})
         native_type = field_metadata_type.get("native_type")
-        nullable = field_metadata_type.get("nullable")
+        nullable = "" if field_metadata_type.get("nullable") else " NOT NULL"
 
-        return f'"{name}" {native_type}{"" if nullable else " NOT NULL"}'
-
-    create_table_template = """
-CREATE TABLE "{schema}"."{table_name}" (
-\t{column_definitions}{primary_key}{foreign_key}
-\t)"""
+        return template["column"].format(
+            name=name, native_type=native_type, nullable=nullable
+        )
 
     extended_metadata = table_info.get("extended_metadata", [{}])
 
@@ -85,7 +114,11 @@ CREATE TABLE "{schema}"."{table_name}" (
     if primary_key:
         key_columns = ", ".join(primary_key.get("value", {}).get("key_columns", []))
         primary_key_text = (
-            f",\n\tCONSTRAINT {primary_key['name']} PRIMARY KEY ({key_columns})"
+            template["sep"]
+            + template["new_line"]
+            + template["pk"].format(
+                pk_name=primary_key["name"], key_columns=key_columns
+            )
         )
     else:
         primary_key_text = ""
@@ -94,14 +127,10 @@ CREATE TABLE "{schema}"."{table_name}" (
     foreign_keys: dict[str, Any] = _retrieve_field_data("foreign_keys")
     if foreign_keys:
         foreign_keys_text = ""
-        foreign_key_text_template = (
-            "CONSTRAINT {fk_name} FOREIGN KEY ({col_name}) "
-            "REFERENCES {external_table_name}({external_col_name})"
-        )
         for foreign_key in foreign_keys.get("value", []):
-            foreign_keys_text += ",\n\t"
+            foreign_keys_text += template["sep"] + template["new_line"]
             join_condition = foreign_key["join_condition"].split("=")
-            foreign_keys_text += foreign_key_text_template.format(
+            foreign_keys_text += template["fk"].format(
                 fk_name=foreign_key["name"],
                 col_name=join_condition[0].strip().split(".")[-1],
                 external_table_name=join_condition[1].strip().split(".")[1],
@@ -110,20 +139,26 @@ CREATE TABLE "{schema}"."{table_name}" (
     else:
         foreign_keys_text = ""
 
-    return create_table_template.format(
+    return template["table"].format(
         schema=schema,
         table_name=table_name,
-        column_definitions="\n\t".join(
+        column_definitions=template["new_line"].join(
             [
-                # Do not add comma for the last column
-                convert_column_data(field_metadata=field_metadata) + ","
-                if index < len(table_info["fields"])
-                else convert_column_data(field_metadata=field_metadata)
+                # Do not add separator for the last column
+                (
+                    convert_column_data(field_metadata=field_metadata)
+                    + template["sep"]  # separator
+                    if index < len(table_info["fields"])
+                    else convert_column_data(field_metadata=field_metadata)
+                )
                 for index, field_metadata in enumerate(table_info["fields"], start=1)
             ],
         ),
+        keys_prefix=(
+            template["keys_prefix"] if primary_key_text or foreign_keys_text else ""
+        ),
         primary_key=primary_key_text,
-        foreign_key=foreign_keys_text,
+        foreign_keys=foreign_keys_text,
     )
 
 
@@ -423,8 +458,25 @@ class WatsonxSQLDatabase:
             """Format the error message"""
             return f"Error: {e}"
 
-    def get_table_info(self, table_names: Iterable[str] | None = None) -> str:
+    def get_table_info(
+        self, table_names: Iterable[str] | None = None, fmt: str = "ddl"
+    ) -> str:
         """Get information about specified tables."""
+        templates: dict[str, Any] = {
+            "ddl": (
+                "{table_info}\n\nFirst {rows_number} rows of table {table_name}:\n\n"
+                "{rows}"
+            ),
+            "markdown": "{table_info}\n\n### Samples\n{rows}",
+        }
+
+        if not (template := templates.get(fmt)):
+            err_msg = (
+                f"Not supported format type '{fmt}'. "
+                f"Supported are: {list(templates.keys())}."
+            )
+            raise ValueError(err_msg)
+
         all_table_names = self.get_usable_table_names()
         if table_names is not None:
             missing_tables = set(table_names).difference(all_table_names)
@@ -436,20 +488,31 @@ class WatsonxSQLDatabase:
             if table_names is None:
                 table_names = self._all_tables
 
+            def convert_rows(table_name: str) -> str:
+                rows = flight_sql_client.get_n_first_rows(
+                    schema=self.schema,
+                    table_name=table_name,
+                    n=self._sample_rows_in_table_info,
+                )
+                match fmt:
+                    case "ddl":
+                        return rows.to_string(index=False)
+                    case "markdown":
+                        return rows.to_markdown(index=False, tablefmt="github")
+
             return "\n\n".join(
                 [
-                    pretty_print_table_info(
-                        schema=self.schema,
+                    template.format(
+                        table_info=pretty_print_table_info(
+                            schema=self.schema,
+                            table_name=table_name,
+                            table_info=self._meta_all_tables[table_name],
+                            fmt=fmt,
+                        ),
+                        rows_number=self._sample_rows_in_table_info,
                         table_name=table_name,
-                        table_info=self._meta_all_tables[table_name],
+                        rows=convert_rows(table_name=table_name),
                     )
-                    + f"\n\nFirst {self._sample_rows_in_table_info} rows "
-                    + f"of table {table_name}:\n\n"
-                    + flight_sql_client.get_n_first_rows(
-                        schema=self.schema,
-                        table_name=table_name,
-                        n=self._sample_rows_in_table_info,
-                    ).to_string(index=False)
                     for table_name in table_names
                 ],
             )
