@@ -44,7 +44,9 @@ def table_info() -> dict[str, Any]:
                 "value": [
                     {
                         "name": "fk_users_id",
-                        "join_condition": "test_schema.test_table.user_id = test_schema.test_users.id",
+                        "join_condition": (
+                            "test_schema.test_table.user_id = test_schema.test_users.id"
+                        ),
                     }
                 ],
             },
@@ -168,7 +170,6 @@ CREATE TABLE "test_schema"."test_table" (
 def test_pretty_print_table_info_wrong_format(
     schema: str, table_name: str, table_info: dict[str, Any]
 ) -> None:
-
     fmt = "wrong_format"
     with pytest.raises(ValueError, match=fmt):
         pretty_print_table_info(schema, table_name, table_info, fmt)
@@ -187,7 +188,6 @@ def test_pretty_print_table_info_markdown(
 ### Keys
 - PK (id)
 - FK (user_id) -> test_users.id"""
-    print(pretty_print_table_info(schema, table_name, table_info, "markdown"))
     assert (
         pretty_print_table_info(schema, table_name, table_info, "markdown")
         == expected_output
@@ -222,7 +222,7 @@ CREATE TABLE "another_schema"."another_table" (
 
 
 @pytest.mark.parametrize(
-    "fmt,expected_output",
+    ("fmt", "expected_output"),
     [
         (
             "ddl",
@@ -255,11 +255,6 @@ def test_pretty_print_table_info_without_primary_key(
             },
         ]
     }
-    #     expected_output = """
-    # CREATE TABLE "no_pk_schema"."no_pk_table" (
-    # \t"value1" INT NOT NULL,
-    # \t"value2" VARCHAR(255)
-    # \t)"""
     assert (
         pretty_print_table_info(schema, table_name, table_info, fmt) == expected_output
     )
@@ -444,7 +439,7 @@ def test_initialize_watsonx_sql_database_ignore_tables(
 
 
 @pytest.mark.parametrize(
-    "fmt,expected_output",
+    ("fmt", "expected_output"),
     [
         (
             "ddl",
@@ -606,9 +601,7 @@ def test_initialize_watsonx_sql_database_run(
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
         assert (
-            wx_sql_database.run(
-                f"SELECT * FROM {schema}.table1", include_columns=True
-            )  # noqa: S608
+            wx_sql_database.run(f"SELECT * FROM {schema}.table1", include_columns=True)  # noqa: S608
             == "[{'id': 1, 'name': 'test', 'age': 35}]"
         )
 

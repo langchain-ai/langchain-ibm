@@ -64,7 +64,10 @@ CREATE TABLE "{schema}"."{table_name}" (
             "sep": ",",
             "new_line": "\n\t",
             "pk": "CONSTRAINT {pk_name} PRIMARY KEY ({key_columns})",
-            "fk": "CONSTRAINT {fk_name} FOREIGN KEY ({col_name}) REFERENCES {external_table_name}({external_col_name})",
+            "fk": (
+                "CONSTRAINT {fk_name} FOREIGN KEY ({col_name}) "
+                "REFERENCES {external_table_name}({external_col_name})"
+            ),
             "keys_prefix": "",
         },
         "markdown": {
@@ -80,7 +83,9 @@ CREATE TABLE "{schema}"."{table_name}" (
         },
     }
 
-    if not (template := templates.get(fmt)):
+    template: dict[str, str] | None = templates.get(fmt)
+
+    if not template:
         err_msg = (
             f"Not supported format type '{fmt}'. "
             f"Supported are: {list(templates.keys())}."
@@ -462,7 +467,7 @@ class WatsonxSQLDatabase:
         self, table_names: Iterable[str] | None = None, fmt: str = "ddl"
     ) -> str:
         """Get information about specified tables."""
-        templates: dict[str, Any] = {
+        templates: dict[str, str] = {
             "ddl": (
                 "{table_info}\n\nFirst {rows_number} rows of table {table_name}:\n\n"
                 "{rows}"
@@ -496,9 +501,14 @@ class WatsonxSQLDatabase:
                 )
                 match fmt:
                     case "ddl":
-                        return rows.to_string(index=False)
+                        return str(rows.to_string(index=False) or "")
                     case "markdown":
-                        return rows.to_markdown(index=False, tablefmt="github")
+                        return str(
+                            rows.to_markdown(index=False, tablefmt="github") or ""
+                        )
+
+                err_msg = f"Format '{fmt}' is not supported"
+                raise ValueError(err_msg)
 
             return "\n\n".join(
                 [
