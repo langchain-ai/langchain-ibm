@@ -308,7 +308,10 @@ def _convert_message_to_dict(message: BaseMessage) -> dict[str, Any]:
     elif isinstance(message, ToolMessage):
         message_dict["role"] = "tool"
         message_dict["tool_call_id"] = message.tool_call_id
-        message_dict["content"] = message.text
+
+        # Fix for https://github.com/langchain-ai/langchain-ibm/issues/162
+        if "content" in message_dict and message_dict["content"] is not None:
+            message_dict["content"] = str(message_dict["content"])
 
         supported_props = {"content", "role", "tool_call_id"}
         message_dict = {k: v for k, v in message_dict.items() if k in supported_props}
