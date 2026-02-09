@@ -57,6 +57,8 @@ def extract_chat_params(
     """Extract chat params."""
     if kwargs.get("params") is not None:
         params = kwargs.pop("params")
+        if isinstance(params, BaseSchema):
+            params = params.to_dict()
         check_duplicate_chat_params(params, kwargs)
     elif default_params is not None:
         params = deepcopy(default_params)
