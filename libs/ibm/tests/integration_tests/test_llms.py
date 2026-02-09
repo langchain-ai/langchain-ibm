@@ -329,6 +329,7 @@ def test_watsonxllm_stream_with_params() -> None:
         GenTextParamsMetaNames.DECODING_METHOD: "greedy",
         GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
         GenTextParamsMetaNames.MIN_NEW_TOKENS: 5,
+        GenTextParamsMetaNames.TEMPERATURE: 0,
     }
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
