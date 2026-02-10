@@ -9,6 +9,7 @@ import pytest
 from pyarrow import flight  # type: ignore[import-untyped]
 
 from langchain_ibm.utilities.sql_database import (
+    MetaDataFormat,
     WatsonxSQLDatabase,
     pretty_print_table_info,
     truncate_word,
@@ -33,11 +34,23 @@ def table_info() -> dict:
     return {
         "fields": [
             {"name": "id", "type": {"native_type": "INT", "nullable": False}},
+            {"name": "user_id", "type": {"native_type": "INT", "nullable": False}},
             {"name": "name", "type": {"native_type": "VARCHAR(255)", "nullable": True}},
             {"name": "age", "type": {"native_type": "INT", "nullable": True}},
         ],
         "extended_metadata": [
-            {"name": "primary_key", "value": {"key_columns": ["id"]}}
+            {"name": "primary_key", "value": {"key_columns": ["id"]}},
+            {
+                "name": "foreign_keys",
+                "value": [
+                    {
+                        "name": "fk_users_id",
+                        "join_condition": (
+                            "test_schema.test_table.user_id = test_schema.test_users.id"
+                        ),
+                    }
+                ],
+            },
         ],
     }
 
@@ -146,11 +159,40 @@ def test_pretty_print_table_info(
     expected_output = """
 CREATE TABLE "test_schema"."test_table" (
 \t"id" INT NOT NULL,
+\t"user_id" INT NOT NULL,
 \t"name" VARCHAR(255),
 \t"age" INT,
-\tCONSTRAINT primary_key PRIMARY KEY (id)
+\tCONSTRAINT primary_key PRIMARY KEY (id),
+\tCONSTRAINT fk_users_id FOREIGN KEY (user_id) REFERENCES test_users(id)
 \t)"""
     assert pretty_print_table_info(schema, table_name, table_info) == expected_output
+
+
+def test_pretty_print_table_info_wrong_format(
+    schema: str, table_name: str, table_info: dict[str, Any]
+) -> None:
+    fmt = "wrong_format"
+    with pytest.raises(ValueError, match=fmt):
+        pretty_print_table_info(schema, table_name, table_info, fmt)  # type: ignore[arg-type]
+
+
+def test_pretty_print_table_info_markdown(
+    schema: str, table_name: str, table_info: dict[str, Any]
+) -> None:
+    expected_output = """
+## TABLE: test_schema.test_table
+- id (INT)
+- user_id (INT)
+- name (VARCHAR(255))
+- age (INT)
+
+### Keys
+- PK (id)
+- FK (user_id) -> test_users.id"""
+    assert (
+        pretty_print_table_info(schema, table_name, table_info, "markdown")
+        == expected_output
+    )
 
 
 def test_pretty_print_table_info_with_nullable_columns() -> None:
@@ -180,7 +222,29 @@ CREATE TABLE "another_schema"."another_table" (
     assert pretty_print_table_info(schema, table_name, table_info) == expected_output
 
 
-def test_pretty_print_table_info_without_primary_key() -> None:
+@pytest.mark.parametrize(
+    ("fmt", "expected_output"),
+    [
+        (
+            "ddl",
+            """
+CREATE TABLE "no_pk_schema"."no_pk_table" (
+\t"value1" INT NOT NULL,
+\t"value2" VARCHAR(255)
+\t)""",
+        ),
+        (
+            "markdown",
+            """
+## TABLE: no_pk_schema.no_pk_table
+- value1 (INT)
+- value2 (VARCHAR(255))""",
+        ),
+    ],
+)
+def test_pretty_print_table_info_without_primary_key(
+    fmt: MetaDataFormat, expected_output: str
+) -> None:
     schema = "no_pk_schema"
     table_name = "no_pk_table"
     table_info = {
@@ -192,12 +256,9 @@ def test_pretty_print_table_info_without_primary_key() -> None:
             },
         ]
     }
-    expected_output = """
-CREATE TABLE "no_pk_schema"."no_pk_table" (
-\t"value1" INT NOT NULL,
-\t"value2" VARCHAR(255)
-\t)"""
-    assert pretty_print_table_info(schema, table_name, table_info) == expected_output
+    assert (
+        pretty_print_table_info(schema, table_name, table_info, fmt) == expected_output
+    )
 
 
 ### WatsonSQLDatabase
@@ -389,7 +450,76 @@ def test_initialize_watsonx_sql_database_ignore_tables(
         assert wx_sql_database.get_usable_table_names() == ["table2"]
 
 
+@pytest.mark.parametrize(
+    ("fmt", "expected_output"),
+    [
+        (
+            "ddl",
+            """
+CREATE TABLE "test_schema"."table1" (
+\t"id" INT NOT NULL,
+\t"name" VARCHAR(255),
+\t"age" INT,
+\tCONSTRAINT primary_key PRIMARY KEY (id)
+\t)
+
+First 3 rows of table table1:
+
+ id name  age
+  1 test   35""",
+        ),
+        (
+            "markdown",
+            """
+## TABLE: test_schema.table1
+- id (INT)
+- name (VARCHAR(255))
+- age (INT)
+
+### Keys
+- PK (id)
+
+### Samples
+|   id | name   |   age |
+|------|--------|-------|
+|    1 | test   |    35 |""",
+        ),
+    ],
+)
 def test_initialize_watsonx_sql_database_get_table_info(
+    schema: str,
+    monkeypatch: pytest.MonkeyPatch,
+    fmt: MetaDataFormat,
+    expected_output: str,
+) -> None:
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = PROJECT_ID
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ),
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClient(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
+        assert wx_sql_database.get_table_info(["table1"], fmt=fmt) == expected_output
+
+
+def test_initialize_watsonx_sql_database_get_table_info_wrong_format(
     schema: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     mock_api_client = Mock()
@@ -416,20 +546,15 @@ def test_initialize_watsonx_sql_database_get_table_info(
             monkeypatch.setenv(k, v)
 
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
-        expected_output = """
-CREATE TABLE "test_schema"."table1" (
-\t"id" INT NOT NULL,
-\t"name" VARCHAR(255),
-\t"age" INT,
-\tCONSTRAINT primary_key PRIMARY KEY (id)
-\t)
 
-First 3 rows of table table1:
+        fmt = "wrong_format"
+        expected = fmt
 
- id name  age
-  1 test   35"""
-        print(wx_sql_database.get_table_info(["table1"]))
-        assert wx_sql_database.get_table_info(["table1"]) == expected_output
+        with pytest.raises(ValueError, match=expected):
+            wx_sql_database.get_table_info(
+                ["table1"],
+                fmt=fmt,  # type: ignore[arg-type]
+            )
 
 
 def test_initialize_watsonx_sql_database_get_table_info_no_throw(
@@ -493,7 +618,10 @@ def test_initialize_watsonx_sql_database_run(
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
         assert (
-            wx_sql_database.run(f"SELECT * FROM {schema}.table1", include_columns=True)
+            wx_sql_database.run(
+                f"SELECT * FROM {schema}.table1",  # noqa: S608
+                include_columns=True,
+            )
             == "[{'id': 1, 'name': 'test', 'age': 35}]"
         )
 
