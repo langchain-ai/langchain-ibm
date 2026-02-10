@@ -329,6 +329,7 @@ def test_watsonxllm_stream_with_params() -> None:
         GenTextParamsMetaNames.DECODING_METHOD: "greedy",
         GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
         GenTextParamsMetaNames.MIN_NEW_TOKENS: 5,
+        GenTextParamsMetaNames.TEMPERATURE: 0,
     }
     watsonxllm = WatsonxLLM(
         model_id=MODEL_ID,
@@ -517,8 +518,8 @@ async def test_watsonx_acall() -> None:
         url="https://us-south.ml.cloud.ibm.com",
         project_id=WX_PROJECT_ID,
     )
-    response = await watsonxllm._acall("what is the color of the grass?")
-    assert "green" in response.lower()
+    response = await watsonxllm._acall("What color sunflower is?")
+    assert "yellow" in response.lower()
 
 
 async def test_watsonx_agenerate() -> None:
