@@ -3,7 +3,7 @@
 import contextlib
 import urllib.parse
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Literal
 
 try:
     from pyarrow import flight  # type: ignore[import-untyped]
@@ -19,6 +19,8 @@ from ibm_watsonx_ai.helpers.connections.flight_sql_service import (  # type: ign
     FlightSQLClient,
 )
 from langchain_core.utils.utils import from_env
+
+MetaDataFormat = Literal["ddl", "markdown"]
 
 
 def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str | Any:
@@ -51,7 +53,10 @@ def _from_env(env_var_name: str) -> str | None:
 
 
 def pretty_print_table_info(
-    schema: str, table_name: str, table_info: dict[str, Any], fmt: str = "ddl"
+    schema: str,
+    table_name: str,
+    table_info: dict[str, Any],
+    fmt: MetaDataFormat = "ddl",
 ) -> str:
     """Pretty print table info."""
     templates: dict[str, Any] = {
@@ -464,7 +469,9 @@ class WatsonxSQLDatabase:
             return f"Error: {e}"
 
     def get_table_info(
-        self, table_names: Iterable[str] | None = None, fmt: str = "ddl"
+        self,
+        table_names: Iterable[str] | None = None,
+        fmt: MetaDataFormat = "ddl",
     ) -> str:
         """Get information about specified tables."""
         templates: dict[str, str] = {
@@ -507,7 +514,7 @@ class WatsonxSQLDatabase:
                             rows.to_markdown(index=False, tablefmt="github") or ""
                         )
 
-                err_msg = f"Format '{fmt}' is not supported"
+                err_msg = f"Format '{fmt}' is not supported"  # type: ignore[unreachable]
                 raise ValueError(err_msg)
 
             return "\n\n".join(

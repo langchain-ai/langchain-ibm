@@ -9,6 +9,7 @@ import pytest
 from pyarrow import flight  # type: ignore[import-untyped]
 
 from langchain_ibm.utilities.sql_database import (
+    MetaDataFormat,
     WatsonxSQLDatabase,
     pretty_print_table_info,
     truncate_word,
@@ -172,7 +173,7 @@ def test_pretty_print_table_info_wrong_format(
 ) -> None:
     fmt = "wrong_format"
     with pytest.raises(ValueError, match=fmt):
-        pretty_print_table_info(schema, table_name, table_info, fmt)
+        pretty_print_table_info(schema, table_name, table_info, fmt)  # type: ignore[arg-type]
 
 
 def test_pretty_print_table_info_markdown(
@@ -242,7 +243,7 @@ CREATE TABLE "no_pk_schema"."no_pk_table" (
     ],
 )
 def test_pretty_print_table_info_without_primary_key(
-    fmt: str, expected_output: str
+    fmt: MetaDataFormat, expected_output: str
 ) -> None:
     schema = "no_pk_schema"
     table_name = "no_pk_table"
@@ -475,7 +476,10 @@ First 3 rows of table table1:
     ],
 )
 def test_initialize_watsonx_sql_database_get_table_info(
-    schema: str, monkeypatch: pytest.MonkeyPatch, fmt: str, expected_output: str
+    schema: str,
+    monkeypatch: pytest.MonkeyPatch,
+    fmt: MetaDataFormat,
+    expected_output: str,
 ) -> None:
     mock_api_client = Mock()
     mock_api_client.default_project_id = PROJECT_ID
@@ -536,7 +540,10 @@ def test_initialize_watsonx_sql_database_get_table_info_wrong_format(
         expected = fmt
 
         with pytest.raises(ValueError, match=expected):
-            wx_sql_database.get_table_info(["table1"], fmt=fmt)
+            wx_sql_database.get_table_info(
+                ["table1"],
+                fmt=fmt,  # type: ignore[arg-type]
+            )
 
 
 def test_initialize_watsonx_sql_database_get_table_info_no_throw(
@@ -601,7 +608,10 @@ def test_initialize_watsonx_sql_database_run(
         wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
 
         assert (
-            wx_sql_database.run(f"SELECT * FROM {schema}.table1", include_columns=True)  # noqa: S608
+            wx_sql_database.run(
+                f"SELECT * FROM {schema}.table1",  # noqa: S608
+                include_columns=True,
+            )
             == "[{'id': 1, 'name': 'test', 'age': 35}]"
         )
 
