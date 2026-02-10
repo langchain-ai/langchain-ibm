@@ -20,6 +20,8 @@ from pydantic import SecretStr
 
 logger = logging.getLogger(__name__)
 
+TOO_MANY_MODEL_PARAM_NUM = 2
+
 
 def check_for_attribute(value: SecretStr | None, key: str, env_key: str) -> None:
     """Check for attribute."""
