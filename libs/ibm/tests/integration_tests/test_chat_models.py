@@ -3,8 +3,13 @@ import os
 from typing import Any, Literal, cast
 
 import pytest
-from ibm_watsonx_ai.foundation_models.schema import TextChatParameters  # type: ignore
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames  # type: ignore
+from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
+    TextChatParameters,
+    TextChatResponseFormat,
+)
+from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+    GenTextParamsMetaNames,
+)
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
@@ -15,14 +20,17 @@ from langchain_core.messages import (
 )
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    SecretStr,
+)
 
 from langchain_ibm import ChatWatsonx, WatsonxToolkit
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
-URL = "https://us-south.ml.cloud.ibm.com"
+URL = SecretStr(secret_value="https://us-south.ml.cloud.ibm.com")  # noqa: S106
 
 MODEL_ID = "ibm/granite-3-3-8b-instruct"
 MODEL_ID_TOOL = "ibm/granite-3-3-8b-instruct"
@@ -1069,40 +1077,63 @@ def test_chat_streaming_structured_output_function_calling() -> None:
 prompt_1 = "Say: 'Hello, My name is Erick!'"
 
 
-def test_init_with_params_1() -> None:
-    params_1 = None
+@pytest.mark.parametrize(("params_1", "expected"), [(None, {}), ({}, {})])
+def test_init_with_params_1(params_1: Any, expected: Any) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1,
     )
-    assert chat.params == {}
+    assert chat.params == expected
 
 
-def test_init_with_params_2() -> None:
-    params_1 = {"max_tokens": 10}
+@pytest.mark.parametrize(
+    ("params_1", "expected"),
+    [
+        ({"max_tokens": 10}, {"max_tokens": 10}),
+        (TextChatParameters(max_tokens=10), {"max_tokens": 10}),
+    ],
+)
+def test_init_with_params_2(params_1: Any, expected: Any) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1,
     )
-    assert chat.params == params_1
+    assert chat.params == expected
 
 
-def test_init_with_params_3() -> None:
-    params_1 = {"max_tokens": 10}
+@pytest.mark.parametrize(
+    ("params_1", "expected"), [({"max_tokens": 10}, {"max_tokens": 10})]
+)
+def test_init_with_params_3(params_1: Any, expected: Any) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
         **params_1,
     )
-    assert chat.params == params_1
+    assert chat.params == expected
 
 
-def test_init_with_params_4() -> None:
+@pytest.mark.parametrize(
+    ("params_1", "params_2", "expected"),
+    [
+        (
+            {"max_tokens": 10},
+            {"temperature": 0.5},
+            {"max_tokens": 10, "temperature": 0.5},
+        ),
+        (
+            TextChatParameters(max_tokens=10),
+            {"temperature": 0.5},
+            {"max_tokens": 10, "temperature": 0.5},
+        ),
+    ],
+)
+def test_init_with_params_4(params_1: Any, params_2: Any, expected: Any) -> None:
     params_1 = {"max_tokens": 10}
     params_2 = {"temperature": 0.5}
     chat = ChatWatsonx(
@@ -1112,14 +1143,28 @@ def test_init_with_params_4() -> None:
         params=params_1,
         **params_2,
     )
-    assert chat.params == params_1 | params_2
+    assert chat.params == expected
 
 
-def test_init_with_params_5() -> None:
-    params_1 = {"max_tokens": 10}
-    params_2 = {"max_tokens": 20}
+@pytest.mark.parametrize(
+    ("params_1", "params_2"),
+    [
+        (
+            {"max_tokens": 10},
+            {"max_tokens": 20},
+        ),
+        (
+            TextChatParameters(max_tokens=10),
+            {"max_tokens": 20},
+        ),
+    ],
+)
+def test_init_with_params_5(params_1: Any, params_2: Any) -> None:
+    pattern = re.escape(
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+    )
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValueError, match=pattern):
         ChatWatsonx(
             model_id=MODEL_ID_TOOL,
             url=URL,
@@ -1133,8 +1178,8 @@ def test_init_with_params_5() -> None:
     )
 
 
-def test_invoke_with_params_1() -> None:
-    params_1 = None
+@pytest.mark.parametrize(("params_1", "expected"), [(None, {}), ({}, {})])
+def test_invoke_with_params_1(params_1: Any, expected: Any) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
@@ -1145,12 +1190,19 @@ def test_invoke_with_params_1() -> None:
         "completion_tokens"
     )
 
-    assert chat.params == {}
+    assert chat.params == expected
     assert completion_tokens > 0
 
 
-def test_invoke_with_params_2() -> None:
-    params_1 = {"max_tokens": 5}
+@pytest.mark.parametrize(
+    ("params_1", "expected"),
+    [
+        ({"max_tokens": 5}, 5),
+        (TextChatParameters(max_tokens=5), 5),
+        (TextChatParameters(max_completion_tokens=5), 5),
+    ],
+)
+def test_invoke_with_params_2(params_1: Any, expected: Any) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
@@ -1162,40 +1214,111 @@ def test_invoke_with_params_2() -> None:
     )
 
     assert chat.params == {}
-    assert completion_tokens == 5
+    assert completion_tokens == expected
 
 
-def test_invoke_with_params_3() -> None:
-    params_1_a = {"max_tokens": 5}
-    params_1_b = {"max_tokens": 10}
-    params_2_a = {"logprobs": False}
-    params_2_b = {"logprobs": True}
+@pytest.mark.parametrize(
+    ("params_1", "params_2"),
+    [
+        (
+            {"max_completion_tokens": 10},
+            {"temperature": 1},
+        ),
+        (
+            TextChatParameters(max_completion_tokens=10),
+            {"temperature": 1},
+        ),
+    ],
+)
+def test_invoke_with_params_3(params_1: Any, params_2: Any) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
     )
-    resp_1 = chat.invoke(prompt_1, params=params_1_a, **params_2_a)  # type: ignore[arg-type]
+
+    resp = chat.invoke(prompt_1, params=params_1, **params_2)
+
+    assert resp
+
+    completion_tokens = resp.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    assert completion_tokens > 0
+
+
+@pytest.mark.parametrize(
+    ("params_1", "params_2"),
+    [
+        ({"max_completion_tokens": 10}, {"type": "text"}),
+        (
+            TextChatParameters(max_completion_tokens=10),
+            TextChatResponseFormat(type="text"),
+        ),
+    ],
+)
+def test_invoke_with_params_4(params_1: Any, params_2: Any) -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,
+        project_id=WX_PROJECT_ID,
+    )
+
+    resp = chat.invoke(prompt_1, params=params_1, response_format=params_2)
+
+    assert resp
+
+    completion_tokens = resp.response_metadata.get("token_usage", {}).get(
+        "completion_tokens"
+    )
+    assert completion_tokens > 0
+
+
+@pytest.mark.parametrize(
+    ("params_1_a", "params_1_b", "params_2_a", "params_2_b", "expected_tokens"),
+    [
+        (
+            {"max_tokens": 5},
+            {"max_tokens": 10},
+            {"logprobs": False},
+            {"logprobs": True},
+            5,
+        )
+    ],
+)
+def test_invoke_with_params_5(
+    params_1_a: Any,
+    params_1_b: Any,
+    params_2_a: Any,
+    params_2_b: Any,
+    expected_tokens: Any,
+) -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,
+        project_id=WX_PROJECT_ID,
+    )
+    resp_1 = chat.invoke(prompt_1, params=params_1_a, **params_2_a)
     completion_tokens = resp_1.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
     logprobs = resp_1.response_metadata.get("logprobs")
 
     assert chat.params == {}
-    assert completion_tokens == 5
+    assert completion_tokens == expected_tokens
     assert not logprobs
 
-    resp_2 = chat.invoke(prompt_1, params=params_1_a, **params_2_b)  # type: ignore[arg-type]
+    resp_2 = chat.invoke(prompt_1, params=params_1_a, **params_2_b)
     completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
     logprobs = resp_2.response_metadata.get("logprobs")
 
     assert chat.params == {}
-    assert completion_tokens == 5
+    assert completion_tokens == expected_tokens
     assert logprobs
 
-    resp_3 = chat.invoke(prompt_1, **params_1_b, **params_2_b)  # type: ignore[arg-type]
+    resp_3 = chat.invoke(prompt_1, **params_1_b, **params_2_b)
     completion_tokens = resp_3.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
@@ -1206,9 +1329,20 @@ def test_invoke_with_params_3() -> None:
     assert logprobs
 
 
-def test_invoke_with_params_4() -> None:
-    params_1 = {"max_tokens": 5}
-    params_2 = {"max_tokens": 20}
+@pytest.mark.parametrize(
+    ("params_1", "params_2"),
+    [
+        (
+            {"max_tokens": 5},
+            {"max_tokens": 20},
+        ),
+        (
+            TextChatParameters(max_tokens=5),
+            {"max_tokens": 20},
+        ),
+    ],
+)
+def test_invoke_with_params_6(params_1: Any, params_2: Any) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
@@ -1221,9 +1355,22 @@ def test_invoke_with_params_4() -> None:
         "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
         in str(e.value)
     )
+    with pytest.raises(ValueError, match=pattern):
+        chat.invoke(prompt_1, params=params_1, **params_2)
 
 
-def test_invoke_with_params_5() -> None:
+@pytest.mark.parametrize(
+    ("params_1", "params_2", "params_3"),
+    [
+        ({"max_tokens": 5, "logprobs": False}, {"max_tokens": 10}, {"logprobs": True}),
+        (
+            TextChatParameters(max_tokens=5, logprobs=False),
+            {"max_tokens": 10},
+            {"logprobs": True},
+        ),
+    ],
+)
+def test_invoke_with_params_7(params_1: Any, params_2: Any, params_3: Any) -> None:
     params_1 = {"max_tokens": 5, "logprobs": False}
     params_2 = {"max_tokens": 10}
     params_3 = {"logprobs": True}
@@ -1232,8 +1379,12 @@ def test_invoke_with_params_5() -> None:
         url=URL,
         project_id=WX_PROJECT_ID,
     )
-    with pytest.raises(ValueError) as e:
-        chat.invoke(prompt_1, params=params_1, **params_2, **params_3)  # type: ignore[arg-type]
+    pattern = (
+        r"(?=.*Duplicate parameters found in params and keyword arguments: )"
+        r"(?=.*'logprobs')(?=.*'max_tokens')"
+    )
+    with pytest.raises(ValueError, match=pattern):
+        chat.invoke(prompt_1, params=params_1, **params_2, **params_3)
 
     assert (
         "Duplicate parameters found in params and keyword arguments: " in str(e.value)
@@ -1242,8 +1393,14 @@ def test_invoke_with_params_5() -> None:
     )
 
 
-def test_init_and_invoke_with_params_1() -> None:
-    params_1 = {"max_tokens": 11}
+@pytest.mark.parametrize(
+    ("params_1", "expected"),
+    [
+        ({"max_tokens": 11}, {"max_tokens": 11}),
+        (TextChatParameters(max_tokens=11), {"max_tokens": 11}),
+    ],
+)
+def test_init_and_invoke_with_params_1(params_1: Any, expected: Any) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
@@ -1254,15 +1411,31 @@ def test_init_and_invoke_with_params_1() -> None:
     completion_tokens = resp.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    assert chat.params == params_1
+    assert chat.params == expected
     assert 7 < completion_tokens <= 11
 
 
-def test_init_and_invoke_with_params_2() -> None:
-    params_1_a = {"max_tokens": 4}
-    params_1_b = {"max_tokens": 5}
-    params_1_c = {"max_tokens": 6}
-
+@pytest.mark.parametrize(
+    (
+        "params_1_a",
+        "params_1_b",
+        "params_1_c",
+        "expected_tokens_1",
+        "expected_tokens_2",
+        "expected_tokens_3",
+    ),
+    [
+        ({"max_tokens": 4}, {"max_tokens": 5}, {"max_tokens": 6}, 5, 6, 4),
+    ],
+)
+def test_init_and_invoke_with_params_2(
+    params_1_a: Any,
+    params_1_b: Any,
+    params_1_c: Any,
+    expected_tokens_1: Any,
+    expected_tokens_2: Any,
+    expected_tokens_3: Any,
+) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
@@ -1274,28 +1447,51 @@ def test_init_and_invoke_with_params_2() -> None:
         "completion_tokens"
     )
     assert chat.params == params_1_a
-    assert completion_tokens == 5
+    assert completion_tokens == expected_tokens_1
 
-    resp_2 = chat.invoke(prompt_1, **params_1_c)  # type: ignore[arg-type]
+    resp_2 = chat.invoke(prompt_1, **params_1_c)
     completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
     assert chat.params == params_1_a
-    assert completion_tokens == 6
+    assert completion_tokens == expected_tokens_2
 
     resp_2 = chat.invoke(prompt_1)
     completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
     assert chat.params == params_1_a
-    assert completion_tokens == 4
+    assert completion_tokens == expected_tokens_3
 
 
-def test_init_and_invoke_with_params_3() -> None:
-    params_1_a = {"max_tokens": 2}
-    params_1_b = {"max_tokens": 5}
-    params_2_a = {"logprobs": False}
-    params_2_b = {"logprobs": True}
+@pytest.mark.parametrize(
+    (
+        "params_1_a",
+        "params_1_b",
+        "params_2_a",
+        "params_2_b",
+        "expected_tokens_1",
+        "expected_tokens_2",
+    ),
+    [
+        (
+            {"max_tokens": 2},
+            {"max_tokens": 5},
+            {"logprobs": False},
+            {"logprobs": True},
+            5,
+            2,
+        )
+    ],
+)
+def test_init_and_invoke_with_params_3(
+    params_1_a: Any,
+    params_1_b: Any,
+    params_2_a: Any,
+    params_2_b: Any,
+    expected_tokens_1: Any,
+    expected_tokens_2: Any,
+) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
@@ -1303,14 +1499,14 @@ def test_init_and_invoke_with_params_3() -> None:
         params=params_1_a,
         **params_2_a,
     )
-    resp_1 = chat.invoke(prompt_1, params=params_1_b, **params_2_b)  # type: ignore[arg-type]
+    resp_1 = chat.invoke(prompt_1, params=params_1_b, **params_2_b)
     completion_tokens = resp_1.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
     logprobs = resp_1.response_metadata.get("logprobs")
 
     assert chat.params == params_1_a | params_2_a
-    assert completion_tokens == 5
+    assert completion_tokens == expected_tokens_1
     assert logprobs
 
     resp_2 = chat.invoke(prompt_1)
@@ -1320,23 +1516,36 @@ def test_init_and_invoke_with_params_3() -> None:
     logprobs = resp_2.response_metadata.get("logprobs")
 
     assert chat.params == params_1_a | params_2_a
-    assert completion_tokens == 2
+    assert completion_tokens == expected_tokens_2
     assert not logprobs
 
 
-def test_init_and_invoke_with_params_4() -> None:
-    params_1_a = {"max_tokens": 4}
-    params_1_b = {"max_tokens": 5}
-    params_1_c = {"max_tokens": 6}
-
+@pytest.mark.parametrize(
+    ("params_1_a", "params_1_b", "params_1_c"),
+    [
+        (
+            {"max_tokens": 4},
+            {"max_tokens": 5},
+            {"max_tokens": 6},
+        ),
+    ],
+)
+def test_init_and_invoke_with_params_4(
+    params_1_a: Any, params_1_b: Any, params_1_c: Any
+) -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1_a,
     )
-    with pytest.raises(ValueError) as e:
-        chat.invoke(prompt_1, params=params_1_b, **params_1_c)  # type: ignore[arg-type]
+
+    pattern = re.escape(
+        "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
+    )
+
+    with pytest.raises(ValueError, match=pattern) as e:
+        chat.invoke(prompt_1, params=params_1_b, **params_1_c)
 
     assert (
         "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
