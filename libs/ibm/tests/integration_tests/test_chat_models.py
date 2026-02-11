@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Any, Literal, cast
 
 import pytest
@@ -30,7 +31,7 @@ from langchain_ibm import ChatWatsonx, WatsonxToolkit
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
-URL = SecretStr(secret_value="https://us-south.ml.cloud.ibm.com")  # noqa: S106
+URL = SecretStr(secret_value="https://us-south.ml.cloud.ibm.com")
 
 MODEL_ID = "ibm/granite-3-3-8b-instruct"
 MODEL_ID_TOOL = "ibm/granite-3-3-8b-instruct"
@@ -1164,7 +1165,7 @@ def test_init_with_params_5(params_1: Any, params_2: Any) -> None:
         "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
     )
 
-    with pytest.raises(ValueError, match=pattern):
+    with pytest.raises(ValueError, match=pattern) as e:
         ChatWatsonx(
             model_id=MODEL_ID_TOOL,
             url=URL,
@@ -1349,14 +1350,12 @@ def test_invoke_with_params_6(params_1: Any, params_2: Any) -> None:
         project_id=WX_PROJECT_ID,
     )
     with pytest.raises(ValueError) as e:
-        chat.invoke(prompt_1, params=params_1, **params_2)  # type: ignore[arg-type]
+        chat.invoke(prompt_1, params=params_1, **params_2)
 
     assert (
         "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
         in str(e.value)
     )
-    with pytest.raises(ValueError, match=pattern):
-        chat.invoke(prompt_1, params=params_1, **params_2)
 
 
 @pytest.mark.parametrize(
@@ -1383,7 +1382,7 @@ def test_invoke_with_params_7(params_1: Any, params_2: Any, params_3: Any) -> No
         r"(?=.*Duplicate parameters found in params and keyword arguments: )"
         r"(?=.*'logprobs')(?=.*'max_tokens')"
     )
-    with pytest.raises(ValueError, match=pattern):
+    with pytest.raises(ValueError, match=pattern) as e:
         chat.invoke(prompt_1, params=params_1, **params_2, **params_3)
 
     assert (

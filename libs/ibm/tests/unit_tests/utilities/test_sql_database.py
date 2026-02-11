@@ -619,7 +619,7 @@ def test_initialize_watsonx_sql_database_run(
 
         assert (
             wx_sql_database.run(
-                f"SELECT * FROM {schema}.table1",  # noqa: S608
+                f"SELECT * FROM {schema}.table1",
                 include_columns=True,
             )
             == "[{'id': 1, 'name': 'test', 'age': 35}]"
