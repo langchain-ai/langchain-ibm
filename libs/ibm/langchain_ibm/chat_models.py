@@ -1204,8 +1204,9 @@ class ChatWatsonx(BaseChatModel):
 
         message_dicts, params = self._create_message_dicts(messages, stop, **kwargs)
         updated_params = self._merge_params(params, kwargs)
+
         if self.watsonx_model_gateway is not None:
-            call_kwargs = {**kwargs, **updated_params}
+            call_kwargs = self._prepare_gateway_kwargs(kwargs, updated_params)
             response = self._call_model_gateway(
                 model=self.model,
                 messages=message_dicts,
@@ -1383,18 +1384,33 @@ class ChatWatsonx(BaseChatModel):
             yield generation_chunk
 
     @staticmethod
-    def _merge_params(params: dict, kwargs: dict) -> dict:
+    def _prepare_gateway_kwargs(
+        kwargs: dict[str, Any], updated_params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Prepare kwargs for gateway call by merging nested params."""
+        nested_params = kwargs.pop("params", {})
+        if isinstance(nested_params, BaseSchema):
+            nested_params = nested_params.to_dict()
+
+        return {**nested_params, **kwargs, **updated_params}
+
+    @staticmethod
+    def _merge_params(params: dict[str, Any], kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Merge supported chat parameters from kwargs into params."""
         param_updates = {}
         for k in ChatWatsonx._get_supported_chat_params():
-            if kwargs.get(k) is not None:
-                param_updates[k] = kwargs.pop(k)
+            value = kwargs.get(k)
+            if value is not None:
+                param_updates[k] = (
+                    value.to_dict() if isinstance(value, BaseSchema) else value
+                )
+                kwargs.pop(k)
 
-        if kwargs.get("params"):
-            merged_params = merge_dicts(params, param_updates)
-        else:
-            merged_params = params | param_updates
-
-        return merged_params
+        return (
+            merge_dicts(params, param_updates)
+            if kwargs.get("params")
+            else params | param_updates
+        )
 
     def _create_message_dicts(
         self,
@@ -1402,6 +1418,7 @@ class ChatWatsonx(BaseChatModel):
         stop: list[str] | None,
         **kwargs: Any,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Create message dicts and extract parameters."""
         params = extract_chat_params(kwargs, self.params)
 
         if stop is not None:
