@@ -466,6 +466,7 @@ async def test_watsonx_acall() -> None:
         model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
     response = await watsonxllm._acall("What color sunflower is?")
     assert "yellow" in response.lower()
@@ -489,6 +490,7 @@ async def test_watsonx_agenerate_with_stream() -> None:
         model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
     response = await watsonxllm.agenerate(["What color sunflower is?"], stream=True)
     assert "yellow" in response.generations[0][0].text.lower()
