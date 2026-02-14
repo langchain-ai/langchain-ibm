@@ -487,7 +487,7 @@ class DB2VS(VectorStore):
             f"INSERT INTO "  # noqa: S608
             f"{self.table_name} (id, embedding, metadata, {self._text_field}) "
             f"VALUES (?, VECTOR(cast(? as CLOB(100000)), {embedding_len}, FLOAT32), "
-            f"SYSTOOLS.JSON2BSON(?), ?)"
+            f"SYSIBM.JSON_TO_BSON(?), ?)"
         )
 
         cursor = self.client.cursor()
