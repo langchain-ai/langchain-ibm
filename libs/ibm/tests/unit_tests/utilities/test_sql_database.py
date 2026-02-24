@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 import pandas as pd  # type: ignore[import-untyped]
 import pytest
 from pyarrow import flight  # type: ignore[import-untyped]
+from typing_extensions import Self
 
 from langchain_ibm.utilities.sql_database import (
     MetaDataFormat,
@@ -65,7 +66,7 @@ class MockFlightSQLClient:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         pass
 
-    def __enter__(self, *args: Any, **kwargs: Any) -> "MockFlightSQLClient":
+    def __enter__(self, *args: Any, **kwargs: Any) -> Self:
         return self
 
     def __exit__(self, *args: object) -> None:
