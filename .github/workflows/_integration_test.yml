@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     name: "make integration_tests #${{ inputs.python-version }}"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           repository: "${{ inputs.fork }}/langchain-ibm"
           ref: "${{ inputs.branch }}"
