@@ -12,7 +12,7 @@ requires-python = ">=3.10,<3.14"
 readme = "README.md"
 
 dependencies = [
-    "langchain-core>=1.0.0,<2.0.0",
+    "langchain-core>=1.2.5,<2.0.0",
     "ibm-watsonx-ai>=1.3.37,<2.0.0",
 ]
 
@@ -52,6 +52,17 @@ codespell = [
 ]
 
 dev = []
+
+# CVE-2026-21441, CVE-2025-66471, CVE-2025-66418: urllib3 < 2.6.3 is vulnerable to
+# decompression-bomb attacks. No parent dependency has released a version that pins
+# urllib3 >= 2.6.3 yet. Remove once upstream dependencies require it.
+security = [
+    "urllib3>=2.6.3",
+]
+
+[tool.uv]
+# CVE-2026-21441, CVE-2025-66471, CVE-2025-66418
+constraint-dependencies = ["urllib3>=2.6.3"]
 
 [tool.ruff]
 fix = true
