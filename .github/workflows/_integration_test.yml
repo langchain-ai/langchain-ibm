@@ -31,6 +31,9 @@ on:
         default: "3.11"
         description: "Python version to use"
 
+permissions:
+  contents: read
+
 env:
   UV_FROZEN: "true"
   UV_NO_SYNC: "true"
