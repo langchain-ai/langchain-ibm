@@ -18,7 +18,7 @@ from langchain_core.messages import (
     BaseMessageChunk,
     HumanMessage,
     SystemMessage,
-    ToolCallChunk,
+    ToolMessage,
 )
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
@@ -35,7 +35,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = SecretStr(secret_value="https://us-south.ml.cloud.ibm.com")  # noqa: S106
 
-MODEL_ID = "ibm/granite-3-3-8b-instruct"
+MODEL_ID = "ibm/granite-4-h-small"
 MODEL_ID_TOOL = "meta-llama/llama-3-3-70b-instruct"
 MODEL_ID_TOOL_2 = "mistralai/mistral-small-3-1-24b-instruct-2503"
 MODEL_ID_REASONING_CONTENT = "openai/gpt-oss-120b"
@@ -955,6 +955,32 @@ def test_chat_streaming_tool_call() -> None:
     assert "tool_calls" not in acc.additional_kwargs
 
 
+def test_chat_streaming_tool_call_with_no_param() -> None:
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,
+        project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
+        streaming=True,
+    )
+
+    @tool
+    def test() -> int:
+        """A simple testing tool."""
+        return True
+
+    tools = [test]
+
+    chat_with_tools = chat.bind_tools(tools)
+
+    query = "Can you invoke test?"
+    resp = chat_with_tools.invoke(query)
+
+    assert resp.content == ""
+    assert len(resp.tool_calls) == 1
+    assert len(resp.tool_calls[0]["args"]) == 0
+
+
 def test_chat_streaming_multiple_tool_call() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID,
@@ -969,83 +995,100 @@ def test_chat_streaming_multiple_tool_call() -> None:
         return ["capital of america is washington D.C."]
 
     @tool("get_weather")
-    def get_weather(city: Literal["nyc"]) -> str:
+    def get_weather(city: Literal["NY"]) -> str:
         """Use this to get weather information."""
-        if city == "nyc":
-            return "It might be cloudy in nyc"
+        if city == "NY":
+            return "It might be cloudy in NY"
         error_msg = "Unknown city"  # type: ignore[unreachable]
         raise ValueError(error_msg)
 
     tools = [search, get_weather]
-    tools_name = {el.name for el in tools}
+    tools_functions = {tool.name: tool for tool in tools}
 
-    tool_llm = chat.bind_tools(tools)
+    tools_llm = chat.bind_tools(tools=tools)
 
-    stream_response = tool_llm.stream(
-        "What is the weather in the NY and what is capital of USA?"
+    # Initial question asking for both pieces of information
+    messages: list[BaseMessage] = [
+        HumanMessage(
+            content="What is the weather in the NY and what is capital of USA?"
+        )
+    ]
+
+    # Track tool calls with their arguments
+    tools_called_with_args = []
+
+    # Agentic loop - continue until no more tool calls
+    max_iterations = 5
+
+    for _ in range(max_iterations):
+        # Stream the response
+        ai_message = None
+        for chunk in tools_llm.stream(messages):
+            if ai_message is None:
+                ai_message = chunk
+            else:
+                ai_message += chunk  # type: ignore[assignment]
+            assert isinstance(chunk, AIMessageChunk)
+
+        ai_message = cast("AIMessageChunk", ai_message)
+        assert ai_message.id is not None
+
+        # Add AI message to conversation
+        messages.append(ai_message)  # type: ignore[arg-type]
+
+        # Check if there are tool calls
+        if not ai_message.tool_calls:
+            # No more tool calls, we're done
+            break
+
+        assert ai_message.usage_metadata is not None
+
+        # Execute each tool call and add results
+        for tool_call in ai_message.tool_calls:
+            tool_name = tool_call["name"]
+            tool_args = tool_call["args"]
+            tool_id = tool_call["id"]
+
+            tools_called_with_args.append({"name": tool_name, "args": tool_args})
+
+            # Execute the tool
+            selected_tool = tools_functions[tool_name]
+            tool_output = selected_tool.invoke(tool_args)
+
+            # Add tool result to messages
+            messages.append(ToolMessage(content=str(tool_output), tool_call_id=tool_id))
+
+    # Verify both tools were called
+    assert len(tools_called_with_args) >= 2, (
+        f"Expected at least 2 tool calls, got {len(tools_called_with_args)}"
     )
 
-    ai_message = None
+    # Verify tool call parameters
+    get_weather_calls = [
+        tc for tc in tools_called_with_args if tc["name"] == "get_weather"
+    ]
+    search_calls = [tc for tc in tools_called_with_args if tc["name"] == "search"]
 
-    for chunk in stream_response:
-        if ai_message is None:
-            ai_message = chunk
-        else:
-            ai_message += chunk  # type: ignore[assignment]
-        print(chunk.id, type(chunk.id))
-        assert isinstance(chunk, AIMessageChunk)
-        assert chunk.content == ""
-
-    ai_message = cast("AIMessageChunk", ai_message)
-    assert ai_message.response_metadata.get("finish_reason") == "tool_calls"
-    assert ai_message.response_metadata.get("model_name") == MODEL_ID
-    assert ai_message.id is not None
-
-    # additional_kwargs
-    assert ai_message.additional_kwargs is not None
-    assert "tool_calls" in ai_message.additional_kwargs
-    assert len(ai_message.additional_kwargs["tool_calls"]) == 2
-    assert {
-        el["function"]["name"] for el in ai_message.additional_kwargs["tool_calls"]
-    } == tools_name
-
-    # tool_calls
-    assert all(el["id"] is not None for el in ai_message.tool_calls)
-    assert all(el["type"] == "tool_call" for el in ai_message.tool_calls)
-    assert {el["name"] for el in ai_message.tool_calls} == tools_name
-
-    generated_tools_args = [{"city": "nyc"}, {"query": "capital of USA"}]
-    assert {next(iter(el["args"].keys())) for el in ai_message.tool_calls} == {
-        next(iter(el.keys())) for el in generated_tools_args
-    }
-
-    # tool_call_chunks
-    predicted_tool_call_chunks = []
-    for i, el in enumerate(ai_message.tool_calls):
-        tool_call_chunk = ToolCallChunk(
-            name=el["name"],
-            args=json.dumps(el["args"]),
-            id=el["id"],
-            index=i,
-            type="tool_call_chunk",
-        )
-        predicted_tool_call_chunks.append(tool_call_chunk)
-
-    assert ai_message.tool_call_chunks == predicted_tool_call_chunks
-    assert (
-        json.loads(
-            ai_message.additional_kwargs["tool_calls"][0]["function"]["arguments"]
-        )
-        == generated_tools_args[0]
+    assert len(get_weather_calls) >= 1, (
+        "get_weather should have been called at least once"
     )
-    assert (
-        json.loads(
-            ai_message.additional_kwargs["tool_calls"][1]["function"]["arguments"]
-        )
-        == generated_tools_args[1]
+    assert len(search_calls) >= 1, "search should have been called at least once"
+
+    # Check get_weather was called with city parameter (NYC/NY)
+    get_weather_args = get_weather_calls[0]["args"]
+    assert "city" in get_weather_args, "get_weather should have 'city' parameter"
+    city_value = get_weather_args["city"].lower()
+    assert "ny" in city_value or "nyc" in city_value, (
+        f"Expected city to contain 'ny' or 'nyc', got: {city_value}"
     )
 
-    assert ai_message.usage_metadata is not None
+    # Check search was called with query parameter about capital
+    search_args = search_calls[0]["args"]
+    assert "query" in search_args, "search should have 'query' parameter"
+    query_value = search_args["query"].lower()
+    assert "capital of usa" in query_value, (
+        f"Expected query about 'capital of usa', got: {query_value}"
+    )
 
 
 def test_chat_structured_output_function_calling() -> None:

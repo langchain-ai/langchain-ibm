@@ -113,6 +113,7 @@ def test_05_invoke_tool_with_input_schema() -> None:
 
     tool_input = {
         "location": "New York",
+        "country": "US",
     }
 
     result = tool.invoke(tool_input)

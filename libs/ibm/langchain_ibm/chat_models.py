@@ -108,31 +108,55 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_tool_arguments(args_str: str) -> str:
-    """Ensure arguments is always a proper JSON string.
+    r"""Ensure arguments is always a proper JSON string.
 
     Handles:
     - JSON string
     - Python dict string
     - Extra wrapping quotes like '"{...}"'
+    - Nested JSON strings like '"{\\n  \\"\\": {}\\n}"'
     Args:
         args_str: tool call args_str.
 
     Returns:
         The LangChain tool call arguments args_str.
     """
-    # Try to parse as JSON
-    try:
-        parsed = json.loads(args_str)
-    except json.JSONDecodeError:
-        pass
-    else:
-        if isinstance(parsed, str):
-            json.loads(parsed)
-            return parsed
-        return args_str
+    # Try to parse as JSON, potentially multiple times for nested strings
+    current = args_str
+    max_iterations = 5  # Prevent infinite loops
+    parsed_object = None
 
-    # Try Python literal (e.g., "{'a': 1}")
-    obj: Any = ast.literal_eval(args_str)
+    for _ in range(max_iterations):
+        try:
+            parsed = json.loads(current)
+        except json.JSONDecodeError:
+            break
+
+        # If we got a string, it might be another JSON string - try again
+        if isinstance(parsed, str):
+            current = parsed
+            continue
+
+        # We got a non-string object (dict, list, etc.)
+        parsed_object = parsed
+        break
+
+    # If we successfully parsed to an object, validate and serialize
+    if parsed_object is not None:
+        # Check for invalid patterns like empty string keys with empty values
+        has_empty_key_with_empty_value = (
+            isinstance(parsed_object, dict)
+            and "" in parsed_object
+            and not parsed_object[""]
+        )
+        if has_empty_key_with_empty_value:
+            # Invalid: empty key with empty value - likely malformed
+            parsed_object = {}
+        # Serialize back to JSON string
+        return json.dumps(parsed_object, ensure_ascii=False)
+
+    # If JSON parsing failed, try Python literal (e.g., "{'a': 1}")
+    obj: Any = ast.literal_eval(current)
     return json.dumps(obj, ensure_ascii=False)
 
 
@@ -510,7 +534,7 @@ class ChatWatsonx(BaseChatModel):
                     "prompt_tokens": 30,
                     "total_tokens": 37,
                 },
-                "model_name": "ibm/granite-3-3-8b-instruct",
+                "model_name": "ibm/granite-4-h-small",
                 "system_fingerprint": "",
                 "finish_reason": "stop",
             },
@@ -544,7 +568,7 @@ class ChatWatsonx(BaseChatModel):
             content="",
             response_metadata={
                 "finish_reason": "stop",
-                "model_name": "ibm/granite-3-3-8b-instruct",
+                "model_name": "ibm/granite-4-h-small",
             },
             id="run--e48a38d3-1500-4b5e-870c-6313e8cff775",
         )
@@ -571,7 +595,7 @@ class ChatWatsonx(BaseChatModel):
             content="J'adore programmer.",
             response_metadata={
                 "finish_reason": "stop",
-                "model_name": "ibm/granite-3-3-8b-instruct",
+                "model_name": "ibm/granite-4-h-small",
             },
             id="chatcmpl-88a48b71-c149-4a0c-9c02-d6b97ca5dc6c---b7ba15879a8c5283b1e8a3b8db0229f0---0037ca4f-8a74-4f84-a46c-ab3fd1294f24",
             usage_metadata={"input_tokens": 30, "output_tokens": 7, "total_tokens": 37},
@@ -606,7 +630,7 @@ class ChatWatsonx(BaseChatModel):
                     "prompt_tokens": 30,
                     "total_tokens": 37,
                 },
-                "model_name": "ibm/granite-3-3-8b-instruct",
+                "model_name": "ibm/granite-4-h-small",
                 "system_fingerprint": "",
                 "finish_reason": "stop",
             },
@@ -867,7 +891,7 @@ class ChatWatsonx(BaseChatModel):
                 'prompt_tokens': 30,
                 'total_tokens': 37
             },
-            'model_name': 'ibm/granite-3-3-8b-instruct',
+            'model_name': 'ibm/granite-4-h-small',
             'system_fingerprint': '',
             'finish_reason': 'stop'
         }
@@ -1298,6 +1322,62 @@ class ChatWatsonx(BaseChatModel):
             )
         return self._create_chat_result(response)
 
+    def _process_streaming_chunk(
+        self,
+        generation_chunk: ChatGenerationChunk,
+        accumulated_chunks: list[ChatGenerationChunk],
+    ) -> tuple[ChatGenerationChunk | None, bool]:
+        """Process a streaming chunk and handle tool call accumulation.
+
+        Args:
+            generation_chunk: The current generation chunk
+            accumulated_chunks: List of accumulated chunks with tool calls
+
+        Returns:
+            Tuple of (processed_chunk, should_yield)
+            - processed_chunk: The chunk to yield (may be modified with normalized args)
+            - should_yield: Whether to yield this chunk or skip it
+        """
+        # Check if this chunk has tool calls
+        has_tool_calls = (
+            hasattr(generation_chunk.message, "tool_call_chunks")
+            and generation_chunk.message.tool_call_chunks
+        )
+
+        # Store chunks with tool calls to accumulate arguments
+        if has_tool_calls:
+            accumulated_chunks.append(generation_chunk)
+
+        # On final chunk, normalize tool arguments
+        finish_reason = (generation_chunk.generation_info or {}).get("finish_reason")
+
+        if finish_reason and accumulated_chunks:
+            # Accumulate all chunks to get complete message
+            accumulated_message = accumulated_chunks[0].message
+            for gen_chunk in accumulated_chunks[1:]:
+                accumulated_message = accumulated_message + gen_chunk.message
+
+            # Normalize tool arguments in the accumulated message
+            if hasattr(accumulated_message, "tool_call_chunks"):
+                for tc_chunk in accumulated_message.tool_call_chunks:
+                    if tc_chunk.get("args"):
+                        with contextlib.suppress(Exception):
+                            tc_chunk["args"] = normalize_tool_arguments(
+                                tc_chunk["args"]
+                            )
+                # Update generation_chunk with normalized message
+                generation_chunk = ChatGenerationChunk(
+                    message=accumulated_message,
+                    generation_info=generation_chunk.generation_info,
+                )
+            return generation_chunk, True
+        if has_tool_calls and not finish_reason:
+            # Don't yield intermediate tool call chunks - wait for final
+            return None, False
+
+        # Regular chunk without tool calls - yield as is
+        return generation_chunk, True
+
     def _stream(
         self,
         messages: list[BaseMessage],
@@ -1325,6 +1405,7 @@ class ChatWatsonx(BaseChatModel):
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
+        accumulated_chunks: list[ChatGenerationChunk] = []
 
         for chunk in chunk_iter:
             chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
@@ -1362,7 +1443,13 @@ class ChatWatsonx(BaseChatModel):
                 if isinstance(first_tool_call, dict) and first_tool_call.get("name"):
                     is_first_tool_chunk = False
 
-            yield generation_chunk
+            # Process chunk and handle tool call accumulation/normalization
+            processed_chunk, should_yield = self._process_streaming_chunk(
+                generation_chunk, accumulated_chunks
+            )
+
+            if should_yield and processed_chunk:
+                yield processed_chunk
 
     async def _astream(
         self,
@@ -1391,6 +1478,7 @@ class ChatWatsonx(BaseChatModel):
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
+        accumulated_chunks: list[ChatGenerationChunk] = []
 
         async for chunk in chunk_iter:
             chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
@@ -1428,7 +1516,13 @@ class ChatWatsonx(BaseChatModel):
                 if isinstance(first_tool_call, dict) and first_tool_call.get("name"):
                     is_first_tool_chunk = False
 
-            yield generation_chunk
+            # Process chunk and handle tool call accumulation/normalization
+            processed_chunk, should_yield = self._process_streaming_chunk(
+                generation_chunk, accumulated_chunks
+            )
+
+            if should_yield and processed_chunk:
+                yield processed_chunk
 
     @staticmethod
     def _prepare_gateway_kwargs(

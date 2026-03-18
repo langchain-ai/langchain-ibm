@@ -27,7 +27,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://us-south.ml.cloud.ibm.com"
 
-MODEL_ID = "ibm/granite-3-3-8b-instruct"
+MODEL_ID = "ibm/granite-4-h-small"
 
 CREATE_WATSONX_LLM_INIT_PARAMETERS = [
     pytest.param(
