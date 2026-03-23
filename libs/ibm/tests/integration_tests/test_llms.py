@@ -146,7 +146,7 @@ def test_watsonxllm_invoke_with_params_4() -> None:
         GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
     }
     parameters_2 = {
-        "temperature": 0.6,
+        "temperature": 0.1,
     }
 
     watsonxllm = WatsonxLLM(
