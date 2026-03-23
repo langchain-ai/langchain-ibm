@@ -27,7 +27,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://us-south.ml.cloud.ibm.com"
 
-MODEL_ID = "ibm/granite-4-h-small"
+MODEL_ID = "ibm/granite-3-3-8b-instruct"
 
 CREATE_WATSONX_LLM_INIT_PARAMETERS = [
     pytest.param(
@@ -86,7 +86,7 @@ def test_watsonxllm_invoke() -> None:
 def test_watsonxllm_invoke_with_params() -> None:
     parameters = {
         GenTextParamsMetaNames.TEMPERATURE: 0,
-        GenTextParamsMetaNames.STOP_SEQUENCES: ["yellow"],
+        GenTextParamsMetaNames.STOP_SEQUENCES: ["am"],
     }
 
     watsonxllm = WatsonxLLM(
@@ -95,10 +95,10 @@ def test_watsonxllm_invoke_with_params() -> None:
         project_id=WX_PROJECT_ID,
         params=parameters,
     )
-    response = watsonxllm.invoke("What color sunflower is?")
+    response = watsonxllm.invoke("Write: 'I am superhero!'\n")
     print(f"\nResponse: {response}")
     assert isinstance(response, str)
-    assert response.endswith("yellow")
+    assert response.endswith("am")
 
 
 def test_watsonxllm_invoke_with_params_2() -> None:
@@ -146,7 +146,7 @@ def test_watsonxllm_invoke_with_params_4() -> None:
         GenTextParamsMetaNames.MAX_NEW_TOKENS: 10,
     }
     parameters_2 = {
-        "temperature": 0.1,
+        "temperature": 0.6,
     }
 
     watsonxllm = WatsonxLLM(
@@ -164,7 +164,7 @@ def test_watsonxllm_invoke_with_params_4() -> None:
 def test_watsonxllm_invoke_with_params_5_diff() -> None:
     parameters_1 = {
         GenTextParamsMetaNames.TEMPERATURE: 0,
-        GenTextParamsMetaNames.STOP_SEQUENCES: ["yellow"],
+        GenTextParamsMetaNames.STOP_SEQUENCES: ["am"],
     }
     parameters_2 = {
         GenTextParamsMetaNames.TEMPERATURE: 0,
@@ -177,14 +177,14 @@ def test_watsonxllm_invoke_with_params_5_diff() -> None:
         project_id=WX_PROJECT_ID,
         params=parameters_1,
     )
-    response_1 = watsonxllm.invoke("What color sunflower is?")
+    response_1 = watsonxllm.invoke("Write: 'I am superhero!'\n")
     print(f"\nResponse 1: {response_1}")
     assert isinstance(response_1, str)
-    assert response_1.endswith("yellow")
-    response_2 = watsonxllm.invoke("What color sunflower is?", params=parameters_2)
+    assert response_1.endswith("am")
+    response_2 = watsonxllm.invoke("Write: 'I am superhero!'\n", params=parameters_2)
     print(f"\nResponse 2: {response_2}")
     assert isinstance(response_2, str)
-    assert not response_2.endswith("yellow")
+    assert not response_2.endswith("am")
 
 
 def test_watsonxllm_generate() -> None:
@@ -519,8 +519,7 @@ async def test_watsonx_acall() -> None:
         project_id=WX_PROJECT_ID,
     )
     response = await watsonxllm._acall("What color sunflower is?")
-    assert isinstance(response, str)
-    assert len(response) > 0
+    assert "yellow" in response.lower()
 
 
 async def test_watsonx_agenerate() -> None:
@@ -543,8 +542,7 @@ async def test_watsonx_agenerate_with_stream() -> None:
         project_id=WX_PROJECT_ID,
     )
     response = await watsonxllm.agenerate(["What color sunflower is?"], stream=True)
-    assert isinstance(response.generations[0][0].text, str)
-    assert len(response.generations[0][0].text) > 0
+    assert "yellow" in response.generations[0][0].text.lower()
 
 
 def test_get_num_tokens() -> None:
