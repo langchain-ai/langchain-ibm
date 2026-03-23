@@ -1033,7 +1033,7 @@ def test_chat_streaming_multiple_tool_call() -> None:
         assert ai_message.id is not None
 
         # Add AI message to conversation
-        messages.append(ai_message)  # type: ignore[arg-type]
+        messages.append(ai_message)
 
         # Check if there are tool calls
         if not ai_message.tool_calls:
@@ -1074,17 +1074,18 @@ def test_chat_streaming_multiple_tool_call() -> None:
     assert len(search_calls) >= 1, "search should have been called at least once"
 
     # Check get_weather was called with city parameter (NYC/NY)
-    get_weather_args = get_weather_calls[0]["args"]
+    get_weather_args = cast("dict[str, Any]", get_weather_calls[0]["args"])
+
     assert "city" in get_weather_args, "get_weather should have 'city' parameter"
-    city_value = get_weather_args["city"].lower()
+    city_value = cast("str", get_weather_args["city"]).lower()
     assert "ny" in city_value or "nyc" in city_value, (
         f"Expected city to contain 'ny' or 'nyc', got: {city_value}"
     )
 
     # Check search was called with query parameter about capital
-    search_args = search_calls[0]["args"]
+    search_args = cast("dict[str, Any]", search_calls[0]["args"])
     assert "query" in search_args, "search should have 'query' parameter"
-    query_value = search_args["query"].lower()
+    query_value = cast("str", search_args["query"]).lower()
     assert "capital of usa" in query_value, (
         f"Expected query about 'capital of usa', got: {query_value}"
     )
