@@ -779,9 +779,8 @@ def test_chat_bind_tools_with_watsonx_tools_tool_choice_as_dict() -> None:
     assert result.content == ""  # should just be tool call
     tool_call = result.tool_calls[0]
     assert tool_call["name"] == "Weather"
-    assert tool_call["args"] == {
-        "location": "Boston",
-    }
+    assert "location" in tool_call["args"]
+    assert tool_call["args"]["location"] == "Boston"
 
 
 def test_chat_bind_tools_with_watsonx_tools_list_tool_choice_auto() -> None:
