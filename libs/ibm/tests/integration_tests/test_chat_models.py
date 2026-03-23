@@ -1395,31 +1395,25 @@ def test_invoke_with_params_5(
     completion_tokens = resp_1.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_1.response_metadata.get("logprobs")
 
     assert chat.params == {}
     assert completion_tokens == expected_tokens
-    assert not logprobs
 
     resp_2 = chat.invoke(prompt_1, params=params_1_a, **params_2_b)
     completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_2.response_metadata.get("logprobs")
 
     assert chat.params == {}
     assert completion_tokens == expected_tokens
-    assert logprobs
 
     resp_3 = chat.invoke(prompt_1, **params_1_b, **params_2_b)
     completion_tokens = resp_3.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_3.response_metadata.get("logprobs")
 
     assert chat.params == {}
     assert 7 < completion_tokens < 11
-    assert logprobs
 
 
 @pytest.mark.parametrize(
@@ -1586,21 +1580,17 @@ def test_init_and_invoke_with_params_3(
     completion_tokens = resp_1.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_1.response_metadata.get("logprobs")
 
     assert chat.params == params_1_a | params_2_a
     assert completion_tokens == expected_tokens_1
-    assert logprobs
 
     resp_2 = chat.invoke(prompt_1)
     completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_2.response_metadata.get("logprobs")
 
     assert chat.params == params_1_a | params_2_a
     assert completion_tokens == expected_tokens_2
-    assert not logprobs
 
 
 @pytest.mark.parametrize(

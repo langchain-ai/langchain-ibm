@@ -86,7 +86,7 @@ def test_watsonxllm_invoke() -> None:
 def test_watsonxllm_invoke_with_params() -> None:
     parameters = {
         GenTextParamsMetaNames.TEMPERATURE: 0,
-        GenTextParamsMetaNames.STOP_SEQUENCES: ["am"],
+        GenTextParamsMetaNames.STOP_SEQUENCES: ["yellow"],
     }
 
     watsonxllm = WatsonxLLM(
@@ -95,10 +95,10 @@ def test_watsonxllm_invoke_with_params() -> None:
         project_id=WX_PROJECT_ID,
         params=parameters,
     )
-    response = watsonxllm.invoke("Write: 'I am superhero!'\n")
+    response = watsonxllm.invoke("What color sunflower is?")
     print(f"\nResponse: {response}")
     assert isinstance(response, str)
-    assert response.endswith("am")
+    assert response.endswith("yellow")
 
 
 def test_watsonxllm_invoke_with_params_2() -> None:
@@ -164,7 +164,7 @@ def test_watsonxllm_invoke_with_params_4() -> None:
 def test_watsonxllm_invoke_with_params_5_diff() -> None:
     parameters_1 = {
         GenTextParamsMetaNames.TEMPERATURE: 0,
-        GenTextParamsMetaNames.STOP_SEQUENCES: ["am"],
+        GenTextParamsMetaNames.STOP_SEQUENCES: ["yellow"],
     }
     parameters_2 = {
         GenTextParamsMetaNames.TEMPERATURE: 0,
@@ -177,14 +177,14 @@ def test_watsonxllm_invoke_with_params_5_diff() -> None:
         project_id=WX_PROJECT_ID,
         params=parameters_1,
     )
-    response_1 = watsonxllm.invoke("Write: 'I am superhero!'\n")
+    response_1 = watsonxllm.invoke("What color sunflower is?")
     print(f"\nResponse 1: {response_1}")
     assert isinstance(response_1, str)
-    assert response_1.endswith("am")
-    response_2 = watsonxllm.invoke("Write: 'I am superhero!'\n", params=parameters_2)
+    assert response_1.endswith("yellow")
+    response_2 = watsonxllm.invoke("What color sunflower is?", params=parameters_2)
     print(f"\nResponse 2: {response_2}")
     assert isinstance(response_2, str)
-    assert not response_2.endswith("am")
+    assert not response_2.endswith("yellow")
 
 
 def test_watsonxllm_generate() -> None:
