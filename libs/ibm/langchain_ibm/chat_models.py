@@ -1326,7 +1326,7 @@ class ChatWatsonx(BaseChatModel):
         self,
         generation_chunk: ChatGenerationChunk,
         accumulated_chunks: list[ChatGenerationChunk],
-    ) -> tuple[ChatGenerationChunk | None, bool]:
+    ) -> list[ChatGenerationChunk]:
         """Process a streaming chunk and handle tool call accumulation.
 
         Args:
@@ -1334,9 +1334,7 @@ class ChatWatsonx(BaseChatModel):
             accumulated_chunks: List of accumulated chunks with tool calls
 
         Returns:
-            Tuple of (processed_chunk, should_yield)
-            - processed_chunk: The chunk to yield (may be modified with normalized args)
-            - should_yield: Whether to yield this chunk or skip it
+            List of chunks to yield (may be empty, or contain 1-2 chunks)
         """
         # Check if this chunk has tool calls
         has_tool_calls = (
@@ -1344,20 +1342,23 @@ class ChatWatsonx(BaseChatModel):
             and generation_chunk.message.tool_call_chunks
         )
 
-        # Store chunks with tool calls to accumulate arguments
+        # Check if this is a final chunk or a transition
+        finish_reason = (generation_chunk.generation_info or {}).get("finish_reason")
+
+        # If current chunk has tool calls, add it to accumulation first
         if has_tool_calls:
             accumulated_chunks.append(generation_chunk)
 
-        # On final chunk, normalize tool arguments
-        finish_reason = (generation_chunk.generation_info or {}).get("finish_reason")
+        # Determine if we should finalize accumulated chunks
+        should_finalize = accumulated_chunks and (not has_tool_calls or finish_reason)
 
-        if finish_reason and accumulated_chunks:
-            # Accumulate all chunks to get complete message
+        if should_finalize:
+            # Accumulate all chunks
             accumulated_message = accumulated_chunks[0].message
             for gen_chunk in accumulated_chunks[1:]:
                 accumulated_message = accumulated_message + gen_chunk.message
 
-            # Normalize tool arguments in the accumulated message
+            # Normalize tool arguments
             if hasattr(accumulated_message, "tool_call_chunks"):
                 for tc_chunk in accumulated_message.tool_call_chunks:
                     if tc_chunk.get("args"):
@@ -1365,18 +1366,32 @@ class ChatWatsonx(BaseChatModel):
                             tc_chunk["args"] = normalize_tool_arguments(
                                 tc_chunk["args"]
                             )
-                # Update generation_chunk with normalized message
-                generation_chunk = ChatGenerationChunk(
-                    message=accumulated_message,
-                    generation_info=generation_chunk.generation_info,
-                )
-            return generation_chunk, True
-        if has_tool_calls and not finish_reason:
-            # Don't yield intermediate tool call chunks - wait for final
-            return None, False
 
-        # Regular chunk without tool calls - yield as is
-        return generation_chunk, True
+            # Clear accumulated chunks
+            accumulated_chunks.clear()
+
+            if not has_tool_calls:
+                # Transition: yield tool message + current chunk
+                tool_message_chunk = ChatGenerationChunk(
+                    message=accumulated_message,
+                    generation_info=None,
+                )
+                return [tool_message_chunk, generation_chunk]
+
+            # Final chunk with finish_reason
+            # Update current chunk with accumulated message
+            generation_chunk = ChatGenerationChunk(
+                message=accumulated_message,
+                generation_info=generation_chunk.generation_info,
+            )
+            return [generation_chunk]
+
+        # If we added to accumulated_chunks but not finalizing, don't yield yet
+        if has_tool_calls:
+            return []
+
+        # Regular chunk without tool calls and no accumulated chunks - yield as is
+        return [generation_chunk]
 
     def _stream(
         self,
@@ -1444,12 +1459,11 @@ class ChatWatsonx(BaseChatModel):
                     is_first_tool_chunk = False
 
             # Process chunk and handle tool call accumulation/normalization
-            processed_chunk, should_yield = self._process_streaming_chunk(
+            chunks_to_yield = self._process_streaming_chunk(
                 generation_chunk, accumulated_chunks
             )
 
-            if should_yield and processed_chunk:
-                yield processed_chunk
+            yield from chunks_to_yield
 
     async def _astream(
         self,
@@ -1517,12 +1531,12 @@ class ChatWatsonx(BaseChatModel):
                     is_first_tool_chunk = False
 
             # Process chunk and handle tool call accumulation/normalization
-            processed_chunk, should_yield = self._process_streaming_chunk(
+            chunks_to_yield = self._process_streaming_chunk(
                 generation_chunk, accumulated_chunks
             )
 
-            if should_yield and processed_chunk:
-                yield processed_chunk
+            for gen_chunk in chunks_to_yield:
+                yield gen_chunk
 
     @staticmethod
     def _prepare_gateway_kwargs(
