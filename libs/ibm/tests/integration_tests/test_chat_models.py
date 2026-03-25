@@ -973,7 +973,7 @@ def test_chat_streaming_model_1_tool_call_with_no_param() -> None:
 
     chat_with_tools = chat.bind_tools(tools)
 
-    query = "Can you invoke test?"
+    query = "Can you invoke 'test' tool?"
     resp = chat_with_tools.invoke(query)
 
     assert resp.content == ""

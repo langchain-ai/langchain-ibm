@@ -28,6 +28,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 URL = "https://us-south.ml.cloud.ibm.com"
 
 MODEL_ID = "ibm/granite-3-3-8b-instruct"
+MODEL_ID_2 = "meta-llama/llama-3-3-70b-instruct"
 
 CREATE_WATSONX_LLM_INIT_PARAMETERS = [
     pytest.param(
@@ -238,7 +239,7 @@ def test_watsonxllm_generate_with_multiple_prompts() -> None:
 
 def test_watsonxllm_invoke_with_guardrails() -> None:
     watsonxllm = WatsonxLLM(
-        model_id=MODEL_ID,
+        model_id=MODEL_ID_2,
         url="https://us-south.ml.cloud.ibm.com",
         project_id=WX_PROJECT_ID,
     )
