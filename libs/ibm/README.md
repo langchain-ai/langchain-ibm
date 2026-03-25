@@ -103,7 +103,7 @@ Alternatively for all classes you can use Cloud Pak for Data credentials. For mo
 from langchain_ibm import ChatWatsonx
 
 model = ChatWatsonx(
-    model_id="ibm/granite-3-3-8b-instruct",
+    model_id="ibm/granite-4-h-small",
     url="PASTE YOUR URL HERE",
     username="PASTE YOUR USERNAME HERE",
     password="PASTE YOUR PASSWORD HERE",
@@ -151,7 +151,7 @@ parameters = TextGenParameters(
 )
 
 llm = WatsonxLLM(
-    model_id="ibm/granite-3-3-8b-instruct",
+    model_id="ibm/granite-4-h-small",
     url="https://us-south.ml.cloud.ibm.com",
     project_id="PASTE YOUR PROJECT_ID HERE",
     params=parameters,

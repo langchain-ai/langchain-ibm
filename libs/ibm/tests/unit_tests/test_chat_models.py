@@ -438,3 +438,27 @@ def test_normalize_tool_arguments_with_numbers_and_booleans() -> None:
     assert parsed["enabled"] is True
     assert parsed["count"] == 10
     assert parsed["data"] is None
+
+
+def test_normalize_tool_arguments_with_malformed_vllm_string() -> None:
+    """Test normalizing malformed vLLM nested JSON strings with empty keys."""
+    # Test case: vLLM malformed string with nested JSON and empty key
+    # This is the actual malformed output from vLLM
+    malformed_vllm = '"{\\n  \\"\\": {}\\n}"'
+    result = normalize_tool_arguments(malformed_vllm)
+
+    # Should return empty dict as fallback for invalid empty key pattern
+    parsed = json.loads(result)
+    assert parsed == {}
+
+    # Test case: Double-wrapped JSON string
+    double_wrapped = '"{\\"name\\": \\"test\\"}"'
+    result = normalize_tool_arguments(double_wrapped)
+    parsed = json.loads(result)
+    assert parsed == {"name": "test"}
+
+    # Test case: Triple-wrapped JSON string
+    triple_wrapped = '"\\"{\\\\\\"key\\\\\\": \\\\\\"value\\\\\\"}\\"" '
+    result = normalize_tool_arguments(triple_wrapped)
+    parsed = json.loads(result)
+    assert "key" in parsed
