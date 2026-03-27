@@ -462,3 +462,18 @@ def test_normalize_tool_arguments_with_malformed_vllm_string() -> None:
     result = normalize_tool_arguments(triple_wrapped)
     parsed = json.loads(result)
     assert "key" in parsed
+
+
+def test_normalize_tool_arguments_with_malformed_extra_brace() -> None:
+    """Test normalizing malformed JSON with extra closing brace using json_repair."""
+    malformed_json = '"{}"}'
+    result = normalize_tool_arguments(malformed_json)
+    assert result == "{}"
+
+
+def test_normalize_tool_arguments_with_malformed_missing_quotes() -> None:
+    """Test normalizing malformed JSON with missing quotes using json_repair."""
+    malformed_json = '"{key: value}"'
+    result = normalize_tool_arguments(malformed_json)
+    parsed = json.loads(result)
+    assert parsed == {"key": "value"}

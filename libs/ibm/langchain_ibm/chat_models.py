@@ -15,6 +15,7 @@ from typing import (
     cast,
 )
 
+import json_repair
 from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
 from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
     ModelInference,
@@ -115,6 +116,7 @@ def normalize_tool_arguments(args_str: str) -> str:
     - Python dict string
     - Extra wrapping quotes like '"{...}"'
     - Nested JSON strings like '"{\\n  \\"\\": {}\\n}"'
+    - Malformed JSON using json_repair as fallback
     Args:
         args_str: tool call args_str.
 
@@ -156,8 +158,17 @@ def normalize_tool_arguments(args_str: str) -> str:
         return json.dumps(parsed_object, ensure_ascii=False)
 
     # If JSON parsing failed, try Python literal (e.g., "{'a': 1}")
-    obj: Any = ast.literal_eval(current)
-    return json.dumps(obj, ensure_ascii=False)
+    try:
+        obj: Any = ast.literal_eval(current)
+        return json.dumps(obj, ensure_ascii=False)
+    except (ValueError, SyntaxError):
+        # If ast.literal_eval also fails, use json_repair as last resort
+        try:
+            repaired_obj = json_repair.loads(current)
+            return json.dumps(repaired_obj, ensure_ascii=False)
+        except Exception:
+            # If all parsing attempts fail, return empty dict
+            return "{}"
 
 
 def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMessage:

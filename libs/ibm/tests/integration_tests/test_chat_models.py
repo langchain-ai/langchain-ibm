@@ -530,6 +530,7 @@ def test_chat_bind_tools_tool_choice_required() -> None:
         model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
+        params={"temperature": 0},
     )
 
     tools = [
