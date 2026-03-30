@@ -1,6 +1,8 @@
 """Utility helpers for langchain-ibm."""
 
+import ast
 import functools
+import json
 import logging
 import os
 import warnings
@@ -16,6 +18,7 @@ from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-unt
 from ibm_watsonx_ai.wml_client_error import (  # type: ignore[import-untyped]
     ApiRequestFailure,
 )
+from json_repair import repair_json
 from pydantic import SecretStr
 
 logger = logging.getLogger(__name__)
@@ -257,3 +260,93 @@ def normalize_api_key(data: dict[str, Any]) -> dict[str, Any]:
         data.pop("apikey", None)
 
     return data
+
+
+def normalize_tool_arguments(args_str: str) -> str:
+    r"""Ensure arguments is always a proper JSON string with robust error handling.
+
+    Handles various malformed inputs from LLMs including:
+    - Valid JSON strings
+    - Python dict strings (e.g., "{'key': 'value'}")
+    - Multiple layers of JSON wrapping (e.g., '"{\\"key\\": \\"value\\"}"')
+    - Malformed outputs with trailing characters (e.g., '"{}""}')
+    - Unbalanced braces
+    - Empty or invalid inputs
+
+    Args:
+        args_str: Tool call arguments string (potentially malformed from LLM)
+
+    Returns:
+        Valid JSON string. Returns "{}" as fallback for unparseable input.
+
+    Examples:
+        >>> normalize_tool_arguments('{"key": "value"}')
+        '{"key": "value"}'
+        >>> normalize_tool_arguments("{'key': 'value'}")
+        '{"key": "value"}'
+        >>> normalize_tool_arguments('"{}""}')
+        '{}'
+        >>> normalize_tool_arguments("invalid")
+        '{}'
+    """
+    if not args_str or not args_str.strip():
+        return "{}"
+
+    current = args_str.strip()
+    parsed_object: Any = None
+
+    # Strategy 1: Try standard JSON parsing first
+    try:
+        parsed_object = json.loads(current)
+    except (json.JSONDecodeError, ValueError):
+        # Strategy 2: Try Python literal evaluation (handles single quotes, etc.)
+        try:
+            parsed_object = ast.literal_eval(current)
+        except (ValueError, SyntaxError):
+            # Strategy 3: Use repair_json as last resort
+            try:
+                repaired = repair_json(current)
+                parsed_object = json.loads(repaired)
+            except Exception as e:
+                logger.warning(
+                    "Could not parse tool arguments: %s. Error: %s", current[:100], e
+                )
+                return "{}"
+
+    # Handle special cases after successful parsing
+    # 1. If result is null, return empty dict
+    if parsed_object is None:
+        return "{}"
+
+    # 2. Recursively unwrap nested JSON strings (e.g., '"{\"key\": \"value\"}"')
+    # Keep unwrapping until we get a non-string or unwrapping fails
+    max_unwrap_depth = 5  # Prevent infinite loops
+    unwrap_count = 0
+    while isinstance(parsed_object, str) and unwrap_count < max_unwrap_depth:
+        try:
+            unwrapped = json.loads(parsed_object)
+            # Prevent infinite loop if json.loads returns the same string
+            if unwrapped == parsed_object:
+                return "{}"
+            parsed_object = unwrapped
+            unwrap_count += 1
+        except (json.JSONDecodeError, TypeError):
+            # If unwrapping fails, tool arguments should be objects not strings
+            return "{}"
+
+    # 3. If result is an array with single object, extract it
+    if isinstance(parsed_object, list) and len(parsed_object) == 1:
+        parsed_object = parsed_object[0]
+
+    # 4. Clean up known problematic patterns for dicts
+    # Remove empty keys with empty values
+    if (
+        isinstance(parsed_object, dict)
+        and "" in parsed_object
+        and not parsed_object[""]
+    ):
+        parsed_object = {k: v for k, v in parsed_object.items() if k != ""}
+        if not parsed_object:
+            return "{}"
+
+    return json.dumps(parsed_object, ensure_ascii=False)

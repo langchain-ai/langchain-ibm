@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import contextlib
 import json
 import logging
@@ -90,6 +89,7 @@ from langchain_ibm.utils import (
     extract_chat_params,
     gateway_error_handler,
     normalize_api_key,
+    normalize_tool_arguments,
     resolve_watsonx_credentials,
     secret_from_env_multi,
 )
@@ -105,59 +105,6 @@ if TYPE_CHECKING:
     from langchain_core.tools import BaseTool
 
 logger = logging.getLogger(__name__)
-
-
-def normalize_tool_arguments(args_str: str) -> str:
-    r"""Ensure arguments is always a proper JSON string.
-
-    Handles:
-    - JSON string
-    - Python dict string
-    - Extra wrapping quotes like '"{...}"'
-    - Nested JSON strings like '"{\\n  \\"\\": {}\\n}"'
-    Args:
-        args_str: tool call args_str.
-
-    Returns:
-        The LangChain tool call arguments args_str.
-    """
-    # Try to parse as JSON, potentially multiple times for nested strings
-    current = args_str
-    max_iterations = 5  # Prevent infinite loops
-    parsed_object = None
-
-    for _ in range(max_iterations):
-        try:
-            parsed = json.loads(current)
-        except json.JSONDecodeError:
-            break
-
-        # If we got a string, it might be another JSON string - try again
-        if isinstance(parsed, str):
-            current = parsed
-            continue
-
-        # We got a non-string object (dict, list, etc.)
-        parsed_object = parsed
-        break
-
-    # If we successfully parsed to an object, validate and serialize
-    if parsed_object is not None:
-        # Check for invalid patterns like empty string keys with empty values
-        has_empty_key_with_empty_value = (
-            isinstance(parsed_object, dict)
-            and "" in parsed_object
-            and not parsed_object[""]
-        )
-        if has_empty_key_with_empty_value:
-            # Invalid: empty key with empty value - likely malformed
-            parsed_object = {}
-        # Serialize back to JSON string
-        return json.dumps(parsed_object, ensure_ascii=False)
-
-    # If JSON parsing failed, try Python literal (e.g., "{'a': 1}")
-    obj: Any = ast.literal_eval(current)
-    return json.dumps(obj, ensure_ascii=False)
 
 
 def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMessage:

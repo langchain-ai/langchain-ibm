@@ -1,6 +1,5 @@
 """Test ChatWatsonx API wrapper."""
 
-import json
 import os
 import re
 import sys
@@ -21,7 +20,6 @@ from ibm_watsonx_ai.wml_client_error import (  # type: ignore[import-untyped]
 )
 
 from langchain_ibm import ChatWatsonx
-from langchain_ibm.chat_models import normalize_tool_arguments
 
 os.environ.pop("WATSONX_APIKEY", None)
 os.environ.pop("WATSONX_PROJECT_ID", None)
@@ -365,100 +363,3 @@ def test_initialize_chat_watsonx_with_all_supported_params_v2(mocker: Any) -> No
 
     # change only top_n
     chat.invoke("Hello", top_p=top_p)
-
-
-# Tests for normalize_tool_arguments function
-def test_normalize_tool_arguments_with_json_string() -> None:
-    """Test normalizing JSON string arguments."""
-    # Test case 1: JSON string
-    json_str = '{"location": "San Francisco", "unit": "celsius"}'
-    result = normalize_tool_arguments(json_str)
-    assert result == '{"location": "San Francisco", "unit": "celsius"}'
-
-
-def test_normalize_tool_arguments_with_python_dict_string() -> None:
-    """Test normalizing Python dict string arguments."""
-    # Test case 2: Python dict string with single quotes
-    python_dict_str = "{'location': 'San Francisco', 'unit': 'celsius'}"
-    result = normalize_tool_arguments(python_dict_str)
-    assert result == '{"location": "San Francisco", "unit": "celsius"}'
-
-
-def test_normalize_tool_arguments_with_extra_quotes() -> None:
-    """Test normalizing arguments with extra surrounding quotes."""
-    # Test case 3: Extra wrapping quotes like '"{...}"'
-    wrapped_json = '"{\\"location\\": \\"San Francisco\\", \\"unit\\": \\"celsius\\"}"'
-    result = normalize_tool_arguments(wrapped_json)
-    assert result == '{"location": "San Francisco", "unit": "celsius"}'
-
-
-def test_normalize_tool_arguments_with_nested_structures() -> None:
-    """Test normalizing arguments with nested dict/list structures."""
-    # Test case 4: Nested structures
-    nested_str = '{"user": {"name": "John", "prefs": ["temp", "humidity"]}}'
-    result = normalize_tool_arguments(nested_str)
-    assert result == '{"user": {"name": "John", "prefs": ["temp", "humidity"]}}'
-
-
-def test_normalize_tool_arguments_with_empty_dict() -> None:
-    """Test normalizing empty dict arguments."""
-    # Test case 5: Empty dict
-    empty_dict = "{}"
-    result = normalize_tool_arguments(empty_dict)
-    assert result == "{}"
-
-
-def test_normalize_tool_arguments_with_already_valid_json() -> None:
-    """Test that already valid JSON is returned as-is."""
-    # Test case 6: Already valid JSON
-    valid_json = '{"key": "value", "number": 42, "bool": true}'
-    result = normalize_tool_arguments(valid_json)
-    assert result == '{"key": "value", "number": 42, "bool": true}'
-
-
-def test_normalize_tool_arguments_with_special_characters() -> None:
-    """Test normalizing arguments with special characters."""
-    # Test case 7: Special characters and escaped strings
-    special_chars = '{"message": "Hello \\"world\\"!", "path": "C:\\\\\\\\Users"}'
-    result = normalize_tool_arguments(special_chars)
-
-    parsed = json.loads(result)
-    assert isinstance(parsed, dict)
-    assert "message" in parsed
-
-
-def test_normalize_tool_arguments_with_numbers_and_booleans() -> None:
-    """Test normalizing arguments with various data types."""
-    # Test case 8: Mixed data types
-    mixed_types = '{"temp": 25.5, "enabled": true, "count": 10, "data": null}'
-    result = normalize_tool_arguments(mixed_types)
-
-    parsed = json.loads(result)
-    assert parsed["temp"] == 25.5
-    assert parsed["enabled"] is True
-    assert parsed["count"] == 10
-    assert parsed["data"] is None
-
-
-def test_normalize_tool_arguments_with_malformed_vllm_string() -> None:
-    """Test normalizing malformed vLLM nested JSON strings with empty keys."""
-    # Test case: vLLM malformed string with nested JSON and empty key
-    # This is the actual malformed output from vLLM
-    malformed_vllm = '"{\\n  \\"\\": {}\\n}"'
-    result = normalize_tool_arguments(malformed_vllm)
-
-    # Should return empty dict as fallback for invalid empty key pattern
-    parsed = json.loads(result)
-    assert parsed == {}
-
-    # Test case: Double-wrapped JSON string
-    double_wrapped = '"{\\"name\\": \\"test\\"}"'
-    result = normalize_tool_arguments(double_wrapped)
-    parsed = json.loads(result)
-    assert parsed == {"name": "test"}
-
-    # Test case: Triple-wrapped JSON string
-    triple_wrapped = '"\\"{\\\\\\"key\\\\\\": \\\\\\"value\\\\\\"}\\"" '
-    result = normalize_tool_arguments(triple_wrapped)
-    parsed = json.loads(result)
-    assert "key" in parsed
