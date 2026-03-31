@@ -914,7 +914,7 @@ typing = [
 requires-dist = [
     { name = "ibm-db", specifier = ">=3.2.6,<4.0.0" },
     { name = "langchain-community", specifier = ">=0.4.0,<2.0.0" },
-    { name = "langchain-core", specifier = ">=1.2.5,<2.0.0" },
+    { name = "langchain-core", specifier = ">=1.2.22,<2.0.0" },
 ]
 
 [package.metadata.requires-dev]
