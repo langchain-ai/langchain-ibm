@@ -56,13 +56,16 @@ dev = []
 # CVE-2026-21441, CVE-2025-66471, CVE-2025-66418: urllib3 < 2.6.3 is vulnerable to
 # decompression-bomb attacks. No parent dependency has released a version that pins
 # urllib3 >= 2.6.3 yet. Remove once upstream dependencies require it.
+# CVE-2026-25645: requests < 2.33.0 insecure temp file reuse.
+# Remove once upstream dependencies require the patched version.
 security = [
     "urllib3>=2.6.3",
+    "requests>=2.33.0",
 ]
 
 [tool.uv]
-# CVE-2026-21441, CVE-2025-66471, CVE-2025-66418
-constraint-dependencies = ["urllib3>=2.6.3"]
+# CVE-2026-21441/CVE-2025-66471/CVE-2025-66418  CVE-2026-25645
+constraint-dependencies = ["urllib3>=2.6.3", "requests>=2.33.0"]
 
 [tool.ruff]
 fix = true
