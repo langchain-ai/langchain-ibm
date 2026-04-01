@@ -1271,25 +1271,24 @@ class ChatWatsonx(BaseChatModel):
 
     def _needs_streaming_accumulation(self) -> bool:
         """Check if the model needs streaming chunk accumulation for tool calls.
-        
+
         Some models (like ibm/granite-4-h-small with vLLM) return malformed
         tool arguments in streaming mode that need to be accumulated and normalized.
-        
+
         Returns:
             True if the model needs accumulation, False otherwise
         """
         if not self.model_id:
             return False
-            
+
         # List of model patterns that need streaming accumulation
         models_needing_accumulation = [
             "ibm/granite-4-h-small",
             # Add other models here as needed
         ]
-        
+
         return any(
-            pattern in self.model_id.lower()
-            for pattern in models_needing_accumulation
+            pattern in self.model_id.lower() for pattern in models_needing_accumulation
         )
 
     def _process_streaming_chunk(
@@ -1390,10 +1389,10 @@ class ChatWatsonx(BaseChatModel):
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
-        
+
         # Only use accumulation for models that need it
         use_accumulation = self._needs_streaming_accumulation()
-        accumulated_chunks: list[ChatGenerationChunk] = [] if use_accumulation else []
+        accumulated_chunks: list[ChatGenerationChunk] = []
 
         for chunk in chunk_iter:
             chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
@@ -1467,10 +1466,10 @@ class ChatWatsonx(BaseChatModel):
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
-        
+
         # Only use accumulation for models that need it
         use_accumulation = self._needs_streaming_accumulation()
-        accumulated_chunks: list[ChatGenerationChunk] = [] if use_accumulation else []
+        accumulated_chunks: list[ChatGenerationChunk] = []
 
         async for chunk in chunk_iter:
             chunk_data = chunk if isinstance(chunk, dict) else chunk.model_dump()
