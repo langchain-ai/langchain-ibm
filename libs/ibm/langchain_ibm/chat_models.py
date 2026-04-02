@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import contextlib
 import json
 import logging
@@ -90,6 +89,7 @@ from langchain_ibm.utils import (
     extract_chat_params,
     gateway_error_handler,
     normalize_api_key,
+    normalize_tool_arguments,
     resolve_watsonx_credentials,
     secret_from_env_multi,
 )
@@ -105,59 +105,6 @@ if TYPE_CHECKING:
     from langchain_core.tools import BaseTool
 
 logger = logging.getLogger(__name__)
-
-
-def normalize_tool_arguments(args_str: str) -> str:
-    r"""Ensure arguments is always a proper JSON string.
-
-    Handles:
-    - JSON string
-    - Python dict string
-    - Extra wrapping quotes like '"{...}"'
-    - Nested JSON strings like '"{\\n  \\"\\": {}\\n}"'
-    Args:
-        args_str: tool call args_str.
-
-    Returns:
-        The LangChain tool call arguments args_str.
-    """
-    # Try to parse as JSON, potentially multiple times for nested strings
-    current = args_str
-    max_iterations = 5  # Prevent infinite loops
-    parsed_object = None
-
-    for _ in range(max_iterations):
-        try:
-            parsed = json.loads(current)
-        except json.JSONDecodeError:
-            break
-
-        # If we got a string, it might be another JSON string - try again
-        if isinstance(parsed, str):
-            current = parsed
-            continue
-
-        # We got a non-string object (dict, list, etc.)
-        parsed_object = parsed
-        break
-
-    # If we successfully parsed to an object, validate and serialize
-    if parsed_object is not None:
-        # Check for invalid patterns like empty string keys with empty values
-        has_empty_key_with_empty_value = (
-            isinstance(parsed_object, dict)
-            and "" in parsed_object
-            and not parsed_object[""]
-        )
-        if has_empty_key_with_empty_value:
-            # Invalid: empty key with empty value - likely malformed
-            parsed_object = {}
-        # Serialize back to JSON string
-        return json.dumps(parsed_object, ensure_ascii=False)
-
-    # If JSON parsing failed, try Python literal (e.g., "{'a': 1}")
-    obj: Any = ast.literal_eval(current)
-    return json.dumps(obj, ensure_ascii=False)
 
 
 def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMessage:
@@ -1322,6 +1269,28 @@ class ChatWatsonx(BaseChatModel):
             )
         return self._create_chat_result(response)
 
+    def _needs_streaming_accumulation(self) -> bool:
+        """Check if the model needs streaming chunk accumulation for tool calls.
+
+        Some models (like ibm/granite-4-h-small with vLLM) return malformed
+        tool arguments in streaming mode that need to be accumulated and normalized.
+
+        Returns:
+            True if the model needs accumulation, False otherwise
+        """
+        if not self.model_id:
+            return False
+
+        # List of model patterns that need streaming accumulation
+        models_needing_accumulation = [
+            "ibm/granite-4-h-small",
+            # Add other models here as needed
+        ]
+
+        return any(
+            pattern in self.model_id.lower() for pattern in models_needing_accumulation
+        )
+
     def _process_streaming_chunk(
         self,
         generation_chunk: ChatGenerationChunk,
@@ -1420,6 +1389,9 @@ class ChatWatsonx(BaseChatModel):
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
+
+        # Only use accumulation for models that need it
+        use_accumulation = self._needs_streaming_accumulation()
         accumulated_chunks: list[ChatGenerationChunk] = []
 
         for chunk in chunk_iter:
@@ -1458,12 +1430,14 @@ class ChatWatsonx(BaseChatModel):
                 if isinstance(first_tool_call, dict) and first_tool_call.get("name"):
                     is_first_tool_chunk = False
 
-            # Process chunk and handle tool call accumulation/normalization
-            chunks_to_yield = self._process_streaming_chunk(
-                generation_chunk, accumulated_chunks
-            )
-
-            yield from chunks_to_yield
+            # Process chunk - use accumulation only for specific models
+            if use_accumulation:
+                chunks_to_yield = self._process_streaming_chunk(
+                    generation_chunk, accumulated_chunks
+                )
+                yield from chunks_to_yield
+            else:
+                yield generation_chunk
 
     async def _astream(
         self,
@@ -1492,6 +1466,9 @@ class ChatWatsonx(BaseChatModel):
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
         _prompt_tokens_included = False
+
+        # Only use accumulation for models that need it
+        use_accumulation = self._needs_streaming_accumulation()
         accumulated_chunks: list[ChatGenerationChunk] = []
 
         async for chunk in chunk_iter:
@@ -1530,13 +1507,15 @@ class ChatWatsonx(BaseChatModel):
                 if isinstance(first_tool_call, dict) and first_tool_call.get("name"):
                     is_first_tool_chunk = False
 
-            # Process chunk and handle tool call accumulation/normalization
-            chunks_to_yield = self._process_streaming_chunk(
-                generation_chunk, accumulated_chunks
-            )
-
-            for gen_chunk in chunks_to_yield:
-                yield gen_chunk
+            # Process chunk - use accumulation only for specific models
+            if use_accumulation:
+                chunks_to_yield = self._process_streaming_chunk(
+                    generation_chunk, accumulated_chunks
+                )
+                for chunk_to_yield in chunks_to_yield:
+                    yield chunk_to_yield
+            else:
+                yield generation_chunk
 
     @staticmethod
     def _prepare_gateway_kwargs(
