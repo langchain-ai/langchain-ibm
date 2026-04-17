@@ -119,6 +119,10 @@ plugins = ["pydantic.mypy"]
 strict = true
 warn_unreachable = true
 
+[[tool.mypy.overrides]]
+module = "ibm_watsonx_ai.*"
+follow_untyped_imports = true
+
 [tool.coverage.run]
 omit = ["tests/*"]
 

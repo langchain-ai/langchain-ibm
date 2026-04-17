@@ -1,6 +1,6 @@
 """IBM watsonx.ai Toolkit wrapper."""
 
-from typing import Any, Self, cast
+from typing import Any, cast
 
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.foundation_models.utils import (
@@ -20,7 +20,7 @@ from pydantic import (
     create_model,
     model_validator,
 )
-from typing_extensions import override
+from typing_extensions import Self, override
 
 from langchain_ibm.agent_toolkits.utility.utils import convert_to_watsonx_tool
 from langchain_ibm.utils import (

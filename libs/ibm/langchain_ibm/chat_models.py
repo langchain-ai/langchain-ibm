@@ -11,7 +11,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
-    Self,
     cast,
 )
 
@@ -82,7 +81,7 @@ from pydantic import (
     model_validator,
 )
 from pydantic.v1 import BaseModel as BaseModelV1
-from typing_extensions import override
+from typing_extensions import Self, override
 
 from langchain_ibm.utils import (
     async_gateway_error_handler,

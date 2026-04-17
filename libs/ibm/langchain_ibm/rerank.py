@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any
 
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.foundation_models import Rerank
@@ -12,7 +12,7 @@ from ibm_watsonx_ai.foundation_models.schema import RerankParameters
 from langchain_core.documents import BaseDocumentCompressor, Document
 from langchain_core.utils.utils import secret_from_env
 from pydantic import AliasChoices, ConfigDict, Field, SecretStr, model_validator
-from typing_extensions import override
+from typing_extensions import Self, override
 
 from langchain_ibm.utils import (
     extract_params,

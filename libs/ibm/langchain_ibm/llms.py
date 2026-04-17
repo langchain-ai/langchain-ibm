@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Self, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.foundation_models import (
@@ -19,6 +19,7 @@ from langchain_core.language_models.llms import BaseLLM
 from langchain_core.outputs import Generation, GenerationChunk, LLMResult
 from langchain_core.utils.utils import secret_from_env
 from pydantic import AliasChoices, ConfigDict, Field, SecretStr, model_validator
+from typing_extensions import Self
 
 from langchain_ibm.utils import (
     async_gateway_error_handler,
