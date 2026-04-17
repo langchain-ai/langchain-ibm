@@ -14,6 +14,8 @@ class TestWatsonxStandard(ChatModelUnitTests):
     def setup_client(self, mocker: MockerFixture) -> None:
         self.client = mocker.Mock(APIClient)
         self.client.credentials = Credentials(url="fake_url", api_key="fake_api_key")
+        self.client.CLOUD_PLATFORM_SPACES = None
+        self.client.CPD_version = 5.4
 
     @property
     def chat_model_class(self) -> type[BaseChatModel]:
