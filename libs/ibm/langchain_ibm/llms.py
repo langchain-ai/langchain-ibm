@@ -3,22 +3,22 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Self, cast
 
-from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models import (
     Model,
     ModelInference,
 )
-from ibm_watsonx_ai.gateway import Gateway  # type: ignore[import-untyped]
-from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models.schema import BaseSchema
+from ibm_watsonx_ai.gateway import Gateway
+from ibm_watsonx_ai.metanames import (
     GenTextParamsMetaNames,
 )
 from langchain_core.language_models.llms import BaseLLM
 from langchain_core.outputs import Generation, GenerationChunk, LLMResult
 from langchain_core.utils.utils import secret_from_env
 from pydantic import AliasChoices, ConfigDict, Field, SecretStr, model_validator
-from typing_extensions import Self
 
 from langchain_ibm.utils import (
     async_gateway_error_handler,
@@ -222,9 +222,11 @@ class WatsonxLLM(BaseLLM):
     streaming: bool = False
     """ Whether to stream the results or not. """
 
-    watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
+    watsonx_model: ModelInference | None = Field(
+        default=None, exclude=True
+    )  #: :meta private:
 
-    watsonx_model_gateway: Gateway = Field(
+    watsonx_model_gateway: Gateway | None = Field(
         default=None,
         exclude=True,
     )  #: :meta private:
@@ -276,7 +278,11 @@ class WatsonxLLM(BaseLLM):
             self.deployment_id = getattr(self.watsonx_model, "deployment_id", "")
             self.project_id = self.watsonx_model._client.default_project_id  # noqa: SLF001
             self.space_id = self.watsonx_model._client.default_space_id  # noqa: SLF001
-            self.params = self.watsonx_model.params
+            self.params = (
+                self.watsonx_model.params.to_dict()
+                if isinstance(self.watsonx_model.params, BaseSchema)
+                else self.watsonx_model.params
+            )
 
         elif isinstance(self.watsonx_client, APIClient):
             if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
@@ -344,9 +350,9 @@ class WatsonxLLM(BaseLLM):
 
     @gateway_error_handler
     def _call_model_gateway(
-        self, *, model: str, prompt: str | list[str] | list[int], **params: Any
+        self, gateway: Gateway, /, *, model: str, prompt: list[str], **params: Any
     ) -> Any:
-        return self.watsonx_model_gateway.completions.create(
+        return gateway.completions.create(
             model=model,
             prompt=prompt,
             **params,
@@ -355,12 +361,14 @@ class WatsonxLLM(BaseLLM):
     @async_gateway_error_handler
     async def _acall_model_gateway(
         self,
+        gateway: Gateway,
+        /,
         *,
         model: str,
-        prompt: str | list[str] | list[int],
+        prompt: list[str],
         **params: Any,
     ) -> Any:
-        return await self.watsonx_model_gateway.completions.acreate(
+        return await gateway.completions.acreate(
             model=model,
             prompt=prompt,
             **params,
@@ -638,12 +646,22 @@ class WatsonxLLM(BaseLLM):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **params}
             response = self._call_model_gateway(
+                self.watsonx_model_gateway,
                 model=self.model,
                 prompt=prompts,
                 **call_kwargs,
             )
             return self._create_llm_gateway_result(response)
-        response = self.watsonx_model.generate(prompt=prompts, params=params, **kwargs)
+        if self.watsonx_model is not None:
+            response = self.watsonx_model.generate(
+                prompt=prompts, params=params, **kwargs
+            )
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
+
+        if not isinstance(response, list):
+            response = [response]
         return self._create_llm_result(response)
 
     async def _agenerate(
@@ -668,15 +686,23 @@ class WatsonxLLM(BaseLLM):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **params}
             responses = await self._acall_model_gateway(
+                self.watsonx_model_gateway,
                 model=self.model,
                 prompt=prompts,
                 **call_kwargs,
             )
             return self._create_llm_gateway_result(responses)
-        responses = [
-            await self.watsonx_model.agenerate(prompt=prompt, params=params, **kwargs)
-            for prompt in prompts
-        ]
+
+        if self.watsonx_model is not None:
+            responses = [
+                await self.watsonx_model.agenerate(
+                    prompt=prompt, params=params, **kwargs
+                )
+                for prompt in prompts
+            ]
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
 
         return self._create_llm_result(responses)
 
@@ -710,16 +736,21 @@ class WatsonxLLM(BaseLLM):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **params, "stream": True}
             chunk_iter = self._call_model_gateway(
+                self.watsonx_model_gateway,
                 model=self.model,
                 prompt=prompt,
                 **call_kwargs,
             )
-        else:
+        elif self.watsonx_model is not None:
             chunk_iter = self.watsonx_model.generate_text_stream(
                 prompt=prompt,
                 params=params,
                 **(kwargs | {"raw_response": True}),
             )
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
+
         for stream_resp in chunk_iter:
             if not isinstance(stream_resp, dict):
                 stream_data = stream_resp.dict()
@@ -744,15 +775,20 @@ class WatsonxLLM(BaseLLM):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **params, "stream": True}
             chunk_iter = await self._acall_model_gateway(
+                self.watsonx_model_gateway,
                 model=self.model,
                 prompt=prompt,
                 **call_kwargs,
             )
-        else:
+        elif self.watsonx_model is not None:
             chunk_iter = await self.watsonx_model.agenerate_stream(
                 prompt=prompt,
                 params=params,
             )
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
+
         async for stream_resp in chunk_iter:
             if not isinstance(stream_resp, dict):
                 stream_data = stream_resp.dict()
@@ -771,7 +807,12 @@ class WatsonxLLM(BaseLLM):
                 "Tokenize endpoint is not supported by IBM Model Gateway endpoint."
             )
             raise NotImplementedError(error_msg)
-        response = self.watsonx_model.tokenize(text, return_tokens=False)
+        if self.watsonx_model is not None:
+            response = self.watsonx_model.tokenize(text, return_tokens=False)
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
+
         return cast("int", response["result"]["token_count"])
 
     def get_token_ids(self, text: str) -> list[int]:

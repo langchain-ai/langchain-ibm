@@ -1,13 +1,12 @@
 import os
 from collections.abc import Generator
-from typing import Any
+from typing import Any, Self
 from unittest import mock
 from unittest.mock import Mock, patch
 
 import pandas as pd  # type: ignore[import-untyped]
 import pytest
 from pyarrow import flight  # type: ignore[import-untyped]
-from typing_extensions import Self
 
 from langchain_ibm.utilities.sql_database import (
     MetaDataFormat,
