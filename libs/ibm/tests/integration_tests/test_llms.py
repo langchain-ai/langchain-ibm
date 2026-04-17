@@ -7,15 +7,15 @@ import os
 from typing import Any
 
 import pytest
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient, Credentials
+from ibm_watsonx_ai.foundation_models import (
     Model,
     ModelInference,
 )
-from ibm_watsonx_ai.foundation_models.utils.enums import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models.utils.enums import (
     DecodingMethods,
 )
-from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.metanames import (
     GenTextParamsMetaNames,
 )
 from langchain_core.outputs import LLMResult

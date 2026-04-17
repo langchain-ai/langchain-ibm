@@ -2,8 +2,8 @@ import os
 from typing import Any
 
 import pytest
-from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models.schema import (
     RerankParameters,
     RerankReturnOptions,
 )

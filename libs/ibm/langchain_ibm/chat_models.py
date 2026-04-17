@@ -14,15 +14,15 @@ from typing import (
     cast,
 )
 
-from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models import (
     ModelInference,
 )
-from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models.schema import (
     BaseSchema,
     TextChatParameters,
 )
-from ibm_watsonx_ai.gateway import Gateway  # type: ignore[import-untyped]
+from ibm_watsonx_ai.gateway import Gateway
 from langchain_core.language_models.chat_models import (  # type: ignore[attr-defined]
     BaseChatModel,
     LangSmithParams,
@@ -1025,9 +1025,11 @@ class ChatWatsonx(BaseChatModel):
     streaming: bool = False
     """Whether to stream the results or not."""
 
-    watsonx_model: ModelInference = Field(default=None, exclude=True)  #: :meta private:
+    watsonx_model: ModelInference | None = Field(
+        default=None, exclude=True
+    )  #: :meta private:
 
-    watsonx_model_gateway: Gateway = Field(
+    watsonx_model_gateway: Gateway | None = Field(
         default=None,
         exclude=True,
     )  #: :meta private:
@@ -1111,7 +1113,11 @@ class ChatWatsonx(BaseChatModel):
             self.deployment_id = getattr(self.watsonx_model, "deployment_id", "")
             self.project_id = self.watsonx_model._client.default_project_id  # noqa: SLF001
             self.space_id = self.watsonx_model._client.default_space_id  # noqa: SLF001
-            self.params = self.watsonx_model.params
+            self.params = (
+                self.watsonx_model.params.to_dict()
+                if isinstance(self.watsonx_model.params, BaseSchema)
+                else self.watsonx_model.params
+            )
             self.watsonx_client = self.watsonx_model._client  # noqa: SLF001
 
         elif isinstance(self.watsonx_client, APIClient):
@@ -1182,9 +1188,15 @@ class ChatWatsonx(BaseChatModel):
 
     @gateway_error_handler
     def _call_model_gateway(
-        self, *, model: str, messages: list[dict[str, Any]], **params: Any
+        self,
+        gateway: Gateway,
+        /,
+        *,
+        model: str,
+        messages: list[dict[str, Any]],
+        **params: Any,
     ) -> Any:
-        return self.watsonx_model_gateway.chat.completions.create(
+        return gateway.chat.completions.create(
             model=model,
             messages=messages,
             **params,
@@ -1193,12 +1205,14 @@ class ChatWatsonx(BaseChatModel):
     @async_gateway_error_handler
     async def _acall_model_gateway(
         self,
+        gateway: Gateway,
+        /,
         *,
         model: str,
         messages: list[dict[str, Any]],
         **params: Any,
     ) -> Any:
-        return await self.watsonx_model_gateway.chat.completions.acreate(
+        return await gateway.chat.completions.acreate(
             model=model,
             messages=messages,
             **params,
@@ -1230,11 +1244,14 @@ class ChatWatsonx(BaseChatModel):
                 messages=message_dicts,
                 **call_kwargs,
             )
-        else:
+        elif self.watsonx_model is not None:
             response = self.watsonx_model.chat(
                 messages=message_dicts,
                 **(kwargs | {"params": updated_params}),
             )
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
         return self._create_chat_result(response)
 
     async def _agenerate(
@@ -1262,11 +1279,15 @@ class ChatWatsonx(BaseChatModel):
                 messages=message_dicts,
                 **call_kwargs,
             )
-        else:
+
+        elif self.watsonx_model is not None:
             response = await self.watsonx_model.achat(
                 messages=message_dicts,
                 **(kwargs | {"params": updated_params}),
             )
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
         return self._create_chat_result(response)
 
     def _needs_streaming_accumulation(self) -> bool:
@@ -1379,12 +1400,15 @@ class ChatWatsonx(BaseChatModel):
                 messages=message_dicts,
                 **call_kwargs,
             )
-        else:
+        elif self.watsonx_model is not None:
             call_kwargs = {**kwargs, "params": updated_params}
             chunk_iter = self.watsonx_model.chat_stream(
                 messages=message_dicts,
                 **call_kwargs,
             )
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
 
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True
@@ -1456,12 +1480,15 @@ class ChatWatsonx(BaseChatModel):
                 messages=message_dicts,
                 **call_kwargs,
             )
-        else:
+        elif self.watsonx_model is not None:
             call_kwargs = {**kwargs, "params": updated_params}
             chunk_iter = await self.watsonx_model.achat_stream(
                 messages=message_dicts,
                 **call_kwargs,
             )
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
 
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         is_first_tool_chunk = True

@@ -5,11 +5,10 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
-from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models import Rerank  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models.schema import (  # type: ignore[import-untyped]
-    RerankParameters,
-)
+from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models import Rerank
+from ibm_watsonx_ai.foundation_models.rerank.rerank import TextDict
+from ibm_watsonx_ai.foundation_models.schema import RerankParameters
 from langchain_core.documents import BaseDocumentCompressor, Document
 from langchain_core.utils.utils import secret_from_env
 from pydantic import AliasChoices, ConfigDict, Field, SecretStr, model_validator
@@ -164,7 +163,7 @@ class WatsonxRerank(BaseDocumentCompressor):
     streaming: bool = False
     """ Whether to stream the results or not. """
 
-    watsonx_rerank: Rerank = Field(default=None, exclude=True)  #: :meta private:
+    watsonx_rerank: Rerank | None = Field(default=None, exclude=True)  #: :meta private:
 
     watsonx_client: APIClient | None = Field(default=None, exclude=True)
 
@@ -242,16 +241,26 @@ class WatsonxRerank(BaseDocumentCompressor):
         """Rerank documents."""
         if len(documents) == 0:  # to avoid empty api call
             return []
-        docs = [
-            doc.page_content if isinstance(doc, Document) else doc for doc in documents
-        ]
+        docs: list[str | TextDict] = []
+        for doc in documents:
+            if isinstance(doc, Document):
+                docs.append(doc.page_content)
+            elif isinstance(doc, dict):
+                docs.append(TextDict(text=doc["text"]))
+            else:
+                docs.append(doc)
         params = extract_params(kwargs, self.params)
 
-        results = self.watsonx_rerank.generate(
-            query=query,
-            inputs=docs,
-            **(kwargs | {"params": params}),
-        )
+        if self.watsonx_rerank is not None:
+            results = self.watsonx_rerank.generate(
+                query=query,
+                inputs=docs,
+                **(kwargs | {"params": params}),
+            )
+        else:
+            error_msg = "Should never reach here"
+            raise RuntimeError(error_msg)
+
         return [
             {"index": res.get("index"), "relevance_score": res.get("score")}
             for res in results["results"]
