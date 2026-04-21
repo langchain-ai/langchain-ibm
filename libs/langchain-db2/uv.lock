@@ -15,7 +15,7 @@ resolution-markers = [
 [manifest]
 constraints = [
     { name = "aiohttp", specifier = ">=3.13.4" },
-    { name = "pillow", specifier = ">=12.1.1" },
+    { name = "pillow", specifier = ">=12.2.0" },
     { name = "requests", specifier = ">=2.33.0" },
     { name = "torch", specifier = ">=2.8.0" },
     { name = "urllib3", specifier = ">=2.6.3" },
@@ -926,7 +926,7 @@ dev = []
 lint = [{ name = "ruff", specifier = ">=0.13.1,<0.16.0" }]
 security = [
     { name = "aiohttp", specifier = ">=3.13.4" },
-    { name = "pillow", specifier = ">=12.1.1" },
+    { name = "pillow", specifier = ">=12.2.0" },
     { name = "requests", specifier = ">=2.33.0" },
     { name = "urllib3", specifier = ">=2.6.3" },
 ]

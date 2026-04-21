@@ -52,25 +52,26 @@ dev = []
 # CVE-2026-34516, CVE-2026-34515, CVE-2026-34514, CVE-2026-34513, CVE-2026-22815:
 # aiohttp <= 3.13.3 multiple vulnerabilities (header injection, SSRF, DoS, etc.).
 # CVE-2026-25990: pillow < 12.1.1 out-of-bounds write loading PSD images.
+# CVE-2026-40192: pillow < 12.2.0 FITS GZIP decompression bomb.
 # CVE-2026-25645: requests < 2.33.0 insecure temp file reuse.
 # Remove each entry once upstream dependencies require the patched version.
 security = [
     "urllib3>=2.6.3",
     "aiohttp>=3.13.4",
-    "pillow>=12.1.1",
+    "pillow>=12.2.0",
     "requests>=2.33.0",
 ]
 
 [tool.uv]
 # CVE-2026-21441/CVE-2025-66471/CVE-2025-66418  CVE-2025-69223  CVE-2026-25990
-# CVE-2026-25645
+# CVE-2026-40192  CVE-2026-25645
 # CVE-2025-3730: torch<=2.7.1 improper resource shutdown - constraint-dependencies
 # only (not security group); Poetry cannot add torch here due to triton's Python<3.15
 # constraint conflicting with this project's requires-python <4.0 upper bound.
 constraint-dependencies = [
     "urllib3>=2.6.3",
     "aiohttp>=3.13.4",
-    "pillow>=12.1.1",
+    "pillow>=12.2.0",
     "requests>=2.33.0",
     "torch>=2.8.0",
 ]
