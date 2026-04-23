@@ -22,6 +22,7 @@ from pydantic import AliasChoices, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self
 
 from langchain_ibm.utils import (
+    TOO_MANY_MODEL_PARAM_NUM,
     async_gateway_error_handler,
     extract_params,
     gateway_error_handler,
@@ -286,10 +287,18 @@ class WatsonxLLM(BaseLLM):
             )
 
         elif isinstance(self.watsonx_client, APIClient):
-            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
+            sum_params = sum(map(bool, (self.model, self.model_id, self.deployment_id)))
+            if sum_params >= TOO_MANY_MODEL_PARAM_NUM:
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing WatsonxLLM.",
+                )
+                raise ValueError(error_msg)
+            if sum_params == 0:
+                error_msg = (
+                    "One of the parameters 'model', 'model_id' and 'deployment_id' "
+                    "must be provided . Please specify exactly one of these"
                     "parameters when initializing WatsonxLLM.",
                 )
                 raise ValueError(error_msg)
@@ -312,10 +321,18 @@ class WatsonxLLM(BaseLLM):
                 self.watsonx_model = watsonx_model
 
         else:
-            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
+            sum_params = sum(map(bool, (self.model, self.model_id, self.deployment_id)))
+            if sum_params >= TOO_MANY_MODEL_PARAM_NUM:
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
+                    "parameters when initializing WatsonxLLM.",
+                )
+                raise ValueError(error_msg)
+            if sum_params == 0:
+                error_msg = (
+                    "One of the parameters 'model', 'model_id' and 'deployment_id' "
+                    "must be provided . Please specify exactly one of these"
                     "parameters when initializing WatsonxLLM.",
                 )
                 raise ValueError(error_msg)
