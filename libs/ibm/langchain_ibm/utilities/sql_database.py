@@ -427,9 +427,6 @@ class WatsonxSQLDatabase:
 
     def _deduplicate_column_names(self, columns: list[str]) -> list[str]:
         """Ensure duplicate column names are made unique with suffixes."""
-        if len(columns) == len(set(columns)):
-            return columns
-
         column_counts = Counter(columns)
         column_indices: dict[str, int] = {}
         new_columns: list[str] = []
@@ -462,7 +459,10 @@ class WatsonxSQLDatabase:
         with self._flight_sql_client as flight_sql_client:
             results = flight_sql_client.execute(query=command)
 
-        results.columns = self._deduplicate_column_names(list(results.columns))
+        columns = list(results.columns)
+        # Only deduplicate if there are duplicate column names
+        if len(columns) != len(set(columns)):
+            results.columns = self._deduplicate_column_names(columns)
 
         return results.to_dict("records")
 
