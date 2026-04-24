@@ -649,3 +649,156 @@ def test_initialize_watsonx_sql_database_run_no_throw(
             f"SELECT * FROM {schema}.tableX",  # noqa: S608
             include_columns=True,
         )
+
+
+def test_execute_with_duplicate_column_names(
+    schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that _execute handles duplicate column names correctly."""
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = PROJECT_ID
+
+    class MockFlightSQLClientDuplicateCols(MockFlightSQLClient):
+        def execute(self, *_args: Any, **_kwargs: Any) -> pd.DataFrame:
+            # Return DataFrame with duplicate column names
+            df = pd.DataFrame([[1000, 2000, 3000]])
+            df.columns = ["count", "count", "count"]
+            return df
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ),
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClientDuplicateCols(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
+
+        # Execute query with duplicate column names
+        result = wx_sql_database.run(
+            "SELECT COUNT(*), COUNT(*), COUNT(*) FROM table",
+            include_columns=True,
+        )
+
+        # Verify all three columns are present with deduplicated names
+        # All duplicates get suffix: count_1, count_2, count_3
+        assert result == "[{'count_1': 1000, 'count_2': 2000, 'count_3': 3000}]"
+
+
+def test_execute_with_duplicate_column_names_edge_case(
+    schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test edge case where original query has column_1 and duplicate column."""
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = PROJECT_ID
+
+    class MockFlightSQLClientEdgeCase(MockFlightSQLClient):
+        def execute(self, *_args: Any, **_kwargs: Any) -> pd.DataFrame:
+            # Return DataFrame with column, column_1, and another column
+            df = pd.DataFrame([[100, 200, 300]])
+            df.columns = ["count", "count_1", "count"]
+            return df
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ),
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClientEdgeCase(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
+
+        result = wx_sql_database.run(
+            "SELECT column, column_1, column FROM table",
+            include_columns=True,
+        )
+
+        # count appears twice: first gets _2 (skips _1 due to collision), second gets _3
+        # count_1 is unique and keeps its original name
+        assert result == "[{'count_2': 100, 'count_1': 200, 'count_3': 300}]"
+
+
+def test_execute_with_many_duplicate_columns(
+    schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test handling many duplicate column names from aggregate functions."""
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = PROJECT_ID
+
+    class MockFlightSQLClientManyDuplicates(MockFlightSQLClient):
+        def execute(self, *_args: Any, **_kwargs: Any) -> pd.DataFrame:
+            # Simulate: SELECT SUM(amount), SUM(amount), COUNT(*), COUNT(*),
+            #                  COUNT(*), SUM(amount), COUNT(*), SUM(amount)
+            df = pd.DataFrame([[19678, 19678, 1000, 1000, 1000, 19678, 1000, 19678]])
+            df.columns = [
+                "sum",
+                "sum",
+                "count",
+                "count",
+                "count",
+                "sum",
+                "count",
+                "sum",
+            ]
+            return df
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ),
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClientManyDuplicates(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
+
+        result = wx_sql_database.run(
+            "SELECT SUM(amount), SUM(amount), COUNT(*), COUNT(*), COUNT(*), "
+            "SUM(amount), COUNT(*), SUM(amount) FROM transactions_1k",
+            include_columns=True,
+        )
+
+        # Expected: sum_1, sum_2, count_1, count_2, count_3, sum_3, count_4, sum_4
+        expected = (
+            "[{'sum_1': 19678, 'sum_2': 19678, 'count_1': 1000, 'count_2': 1000, "
+            "'count_3': 1000, 'sum_3': 19678, 'count_4': 1000, 'sum_4': 19678}]"
+        )
+        assert result == expected
