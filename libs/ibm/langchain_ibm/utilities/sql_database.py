@@ -2,6 +2,7 @@
 
 import contextlib
 import urllib.parse
+from collections import Counter
 from collections.abc import Iterable
 from typing import Any, Literal
 
@@ -424,6 +425,32 @@ class WatsonxSQLDatabase:
             return sorted(self._include_tables)
         return sorted(self._all_tables - self._ignore_tables)
 
+    def _deduplicate_column_names(self, columns: list[str]) -> list[str]:
+        """Ensure duplicate column names are made unique with suffixes."""
+        column_counts = Counter(columns)
+        column_indices: dict[str, int] = {}
+        new_columns: list[str] = []
+        all_names = set(columns)
+
+        for col in columns:
+            if column_counts[col] > 1:
+                column_indices[col] = column_indices.get(col, 0) + 1
+                suffix = column_indices[col]
+
+                # Find collision-free suffix
+                while f"{col}_{suffix}" in all_names:
+                    suffix += 1
+
+                # Update the index to the collision-free suffix
+                column_indices[col] = suffix
+                new_col = f"{col}_{suffix}"
+                all_names.add(new_col)
+                new_columns.append(new_col)
+            else:
+                new_columns.append(col)
+
+        return new_columns
+
     def _execute(
         self,
         command: str,
@@ -431,6 +458,11 @@ class WatsonxSQLDatabase:
         """Execute a command."""
         with self._flight_sql_client as flight_sql_client:
             results = flight_sql_client.execute(query=command)
+
+        columns = list(results.columns)
+        # Only deduplicate if there are duplicate column names
+        if len(columns) != len(set(columns)):
+            results.columns = self._deduplicate_column_names(columns)
 
         return results.to_dict("records")
 
