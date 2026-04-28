@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd  # type: ignore[import-untyped]
 import pytest
-from pyarrow import flight  # type: ignore[import-untyped]
+from pyarrow import flight
 from typing_extensions import Self
 
 from langchain_ibm.utilities.sql_database import (
@@ -109,7 +109,7 @@ class MockFlightSQLClient:
                 ],
             }
         error_msg = "Table not found"
-        raise flight.FlightError(error_msg)
+        raise flight.FlightError(error_msg)  # type: ignore[attr-defined]
 
     def execute(self, *_args: Any, **kwargs: Any) -> pd.DataFrame:
         if "table1" in kwargs.get("query", ""):
@@ -117,7 +117,7 @@ class MockFlightSQLClient:
 
         if "table1" not in kwargs.get("query", ""):
             error_msg = "Table not found"
-            raise flight.FlightError(error_msg)
+            raise flight.FlightError(error_msg)  # type: ignore[attr-defined]
 
         error_msg = "syntax error"
         raise ValueError(error_msg)
