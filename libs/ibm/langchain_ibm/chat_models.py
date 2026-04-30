@@ -6,6 +6,7 @@ import contextlib
 import json
 import logging
 import warnings
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from operator import itemgetter
 from typing import (
     TYPE_CHECKING,
@@ -23,12 +24,14 @@ from ibm_watsonx_ai.foundation_models.schema import (
     TextChatParameters,
 )
 from ibm_watsonx_ai.gateway import Gateway
+from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.chat_models import (  # type: ignore[attr-defined]
     BaseChatModel,
     LangSmithParams,
     agenerate_from_stream,
     generate_from_stream,
 )
+ 
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
@@ -62,6 +65,7 @@ from langchain_core.runnables import (
     RunnableMap,
     RunnablePassthrough,
 )
+from langchain_core.tools import BaseTool
 from langchain_core.utils._merge import merge_dicts
 from langchain_core.utils.function_calling import (
     convert_to_openai_function,
@@ -95,14 +99,10 @@ from langchain_ibm.utils import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
-
     from langchain_core.callbacks import (
         AsyncCallbackManagerForLLMRun,
         CallbackManagerForLLMRun,
     )
-    from langchain_core.language_models import LanguageModelInput
-    from langchain_core.tools import BaseTool
 
 logger = logging.getLogger(__name__)
 
