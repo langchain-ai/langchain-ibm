@@ -31,7 +31,6 @@ from langchain_core.language_models.chat_models import (  # type: ignore[attr-de
     agenerate_from_stream,
     generate_from_stream,
 )
- 
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
