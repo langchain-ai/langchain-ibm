@@ -3,7 +3,7 @@
 import os
 
 import pytest
-from ibm_watsonx_ai.wml_client_error import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.wml_client_error import (
     WMLClientError,
 )
 

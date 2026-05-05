@@ -7,15 +7,15 @@ import os
 from typing import Any
 
 import pytest
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
-from ibm_watsonx_ai.foundation_models import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient, Credentials
+from ibm_watsonx_ai.foundation_models import (
     Model,
     ModelInference,
 )
-from ibm_watsonx_ai.foundation_models.utils.enums import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models.utils.enums import (
     DecodingMethods,
 )
-from ibm_watsonx_ai.metanames import (  # type: ignore[import-untyped]
+from ibm_watsonx_ai.metanames import (
     GenTextParamsMetaNames,
 )
 from langchain_core.outputs import LLMResult
@@ -27,8 +27,7 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://us-south.ml.cloud.ibm.com"
 
-MODEL_ID = "ibm/granite-3-3-8b-instruct"
-MODEL_ID_2 = "meta-llama/llama-3-3-70b-instruct"
+MODEL_ID = "meta-llama/llama-3-3-70b-instruct"
 
 CREATE_WATSONX_LLM_INIT_PARAMETERS = [
     pytest.param(
@@ -239,7 +238,7 @@ def test_watsonxllm_generate_with_multiple_prompts() -> None:
 
 def test_watsonxllm_invoke_with_guardrails() -> None:
     watsonxllm = WatsonxLLM(
-        model_id=MODEL_ID_2,
+        model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",
         project_id=WX_PROJECT_ID,
     )

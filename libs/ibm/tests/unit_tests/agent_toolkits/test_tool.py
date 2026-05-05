@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
-from pyarrow import flight  # type: ignore[import-untyped]
+from pyarrow import flight
 
 from langchain_ibm.agent_toolkits.sql.tool import (
     InfoSQLDatabaseTool,
@@ -35,7 +35,7 @@ def test_query_tool_run_with_invalid_query(mock_db: Mock) -> None:
 
     def mock_run_no_throw() -> None:
         error_msg = "Invalid query"
-        raise flight.FlightError(error_msg)
+        raise flight.FlightError(error_msg)  # type: ignore[attr-defined]
 
     mock_db.run.side_effect = mock_run_no_throw
     tool = QuerySQLDatabaseTool(db=mock_db)
@@ -65,7 +65,7 @@ def test_info_tool_run_with_invalid_query(mock_db: Mock) -> None:
 
     def mock_get_table_info() -> None:
         error_msg = "Table not Found"
-        raise flight.FlightError(error_msg)
+        raise flight.FlightError(error_msg)  # type: ignore[attr-defined]
 
     mock_db.get_table_info.side_effect = mock_get_table_info
     tool = InfoSQLDatabaseTool(db=mock_db)

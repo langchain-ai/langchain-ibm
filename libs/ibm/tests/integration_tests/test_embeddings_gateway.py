@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from ibm_watsonx_ai import APIClient, Credentials  # type: ignore[import-untyped]
+from ibm_watsonx_ai import APIClient, Credentials
 
 from langchain_ibm import WatsonxEmbeddings
 
