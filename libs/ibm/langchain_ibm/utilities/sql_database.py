@@ -444,7 +444,7 @@ class WatsonxSQLDatabase:
                     extended_metadata=True,
                     interaction_properties=True,
                 )
-                | {"description": _table_descriptions.get("table_name")}
+                | {"description": _table_descriptions.get(table_name)}
                 for table_name in self._all_tables
                 if table_name in (self._include_tables or self._all_tables)
                 and table_name not in (self._ignore_tables or {})
