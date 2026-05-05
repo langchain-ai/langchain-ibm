@@ -193,7 +193,9 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
                         sep=(
                             template["sep"]
                             if index < len(table_info["fields"])
-                            or bool(primary_key_text or foreign_keys_text)
+                            or bool(
+                                primary_key_text or foreign_keys_text
+                            )  # if there are keys add the last separator
                             else None
                         ),
                     )
