@@ -66,7 +66,7 @@ def pretty_print_table_info(
 CREATE TABLE "{schema}"."{table_name}" ({table_comment}
 \t{column_definitions}{primary_key}{foreign_keys}
 \t)""",
-            "column": '"{name}" {native_type}{nullable}{column_comment}',
+            "column": '"{name}" {native_type}{nullable}{sep}{column_comment}',
             "sep": ",",
             "new_line": "\n\t",
             "pk": "CONSTRAINT {pk_name} PRIMARY KEY ({key_columns})",
@@ -80,7 +80,7 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
             "table": """
 ## TABLE: {schema}.{table_name}{table_comment}
 {column_definitions}{keys_prefix}{primary_key}{foreign_keys}""",
-            "column": "- {name} ({native_type}){column_comment}",
+            "column": "- {name} ({native_type}){column_comment}{sep}",
             "sep": "",
             "new_line": "\n",
             "pk": "- PK ({key_columns})",
@@ -99,7 +99,9 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
         raise ValueError(err_msg)
 
     def convert_column_data(
-        field_metadata: dict[str, Any], fmt: MetaDataFormat = "ddl"
+        field_metadata: dict[str, Any],
+        fmt: MetaDataFormat = "ddl",
+        sep: str | None = None,
     ) -> str:
         name = field_metadata.get("name")
 
@@ -121,6 +123,7 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
             native_type=native_type,
             nullable=nullable,
             column_comment=column_comment,
+            sep=sep or "",
         )
 
     extended_metadata = table_info.get("extended_metadata", [{}])
@@ -138,12 +141,8 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
     primary_key: dict[str, Any] = _retrieve_field_data("primary_key")
     if primary_key:
         key_columns = ", ".join(primary_key.get("value", {}).get("key_columns", []))
-        primary_key_text = (
-            template["sep"]
-            + template["new_line"]
-            + template["pk"].format(
-                pk_name=primary_key["name"], key_columns=key_columns
-            )
+        primary_key_text = template["new_line"] + template["pk"].format(
+            pk_name=primary_key["name"], key_columns=key_columns
         )
     else:
         primary_key_text = ""
@@ -152,8 +151,9 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
     foreign_keys: dict[str, Any] = _retrieve_field_data("foreign_keys")
     if foreign_keys:
         foreign_keys_text = ""
-        for foreign_key in foreign_keys.get("value", []):
-            foreign_keys_text += template["sep"] + template["new_line"]
+        foreign_keys_values = foreign_keys.get("value", [])
+        for index, foreign_key in enumerate(foreign_keys_values):
+            foreign_keys_text += template["new_line"]
             join_condition = foreign_key["join_condition"].split("=")
             foreign_keys_text += template["fk"].format(
                 fk_name=foreign_key["name"],
@@ -161,8 +161,14 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
                 external_table_name=join_condition[1].strip().split(".")[1],
                 external_col_name=join_condition[1].strip().split(".")[2],
             )
+            foreign_keys_text += (
+                template["sep"] if index < len(foreign_keys_values) - 1 else ""
+            )
     else:
         foreign_keys_text = ""
+
+    if primary_key_text and foreign_keys_text:
+        primary_key_text += template["sep"]
 
     description = table_info.get("description")
     table_comment = (
@@ -181,10 +187,16 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
             [
                 # Do not add separator for the last column
                 (
-                    convert_column_data(field_metadata=field_metadata, fmt=fmt)
-                    + template["sep"]  # separator
-                    if index < len(table_info["fields"])
-                    else convert_column_data(field_metadata=field_metadata, fmt=fmt)
+                    convert_column_data(
+                        field_metadata=field_metadata,
+                        fmt=fmt,
+                        sep=(
+                            template["sep"]
+                            if index < len(table_info["fields"])
+                            or bool(primary_key_text or foreign_keys_text)
+                            else None
+                        ),
+                    )
                 )
                 for index, field_metadata in enumerate(table_info["fields"], start=1)
             ],

@@ -249,10 +249,10 @@ def test_pretty_print_table_info_with_column_descriptions_ddl(
 ) -> None:
     expected_output = """
 CREATE TABLE "test_schema"."test_table" (
-\t"id" INT NOT NULL -- Primary identifier,
-\t"user_id" INT NOT NULL -- Foreign key to users table,
-\t"name" VARCHAR(255) -- User's full name,
-\t"age" INT -- User's age in years,
+\t"id" INT NOT NULL, -- Primary identifier
+\t"user_id" INT NOT NULL, -- Foreign key to users table
+\t"name" VARCHAR(255), -- User's full name
+\t"age" INT, -- User's age in years
 \tCONSTRAINT primary_key PRIMARY KEY (id)
 \t)"""
     assert (
@@ -320,8 +320,8 @@ def test_pretty_print_table_info_with_all_descriptions_ddl(
 ) -> None:
     expected_output = """
 CREATE TABLE "test_schema"."test_table" ( -- User information table
-\t"id" INT NOT NULL -- Primary identifier,
-\t"name" VARCHAR(255) -- User's full name,
+\t"id" INT NOT NULL, -- Primary identifier
+\t"name" VARCHAR(255), -- User's full name
 \tCONSTRAINT primary_key PRIMARY KEY (id)
 \t)"""
     assert (
@@ -428,6 +428,66 @@ def test_pretty_print_table_info_without_primary_key(
                 "type": {"native_type": "VARCHAR(255)", "nullable": True},
             },
         ]
+    }
+    assert (
+        pretty_print_table_info(schema, table_name, table_info, fmt) == expected_output
+    )
+
+
+@pytest.mark.parametrize(
+    ("fmt", "expected_output"),
+    [
+        (
+            "ddl",
+            """
+CREATE TABLE "fk_schema"."fk_table" (
+\t"order_id" INT NOT NULL,
+\t"user_id" INT NOT NULL,
+\t"product_id" INT,
+\tCONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id),
+\tCONSTRAINT fk_product FOREIGN KEY (product_id) REFERENCES products(id)
+\t)""",
+        ),
+        (
+            "markdown",
+            """
+## TABLE: fk_schema.fk_table
+- order_id (INT)
+- user_id (INT)
+- product_id (INT)
+
+### Keys
+- FK (user_id) -> users.id
+- FK (product_id) -> products.id""",
+        ),
+    ],
+)
+def test_pretty_print_table_info_with_foreign_key_without_primary_key(
+    fmt: MetaDataFormat, expected_output: str
+) -> None:
+    schema = "fk_schema"
+    table_name = "fk_table"
+    table_info = {
+        "fields": [
+            {"name": "order_id", "type": {"native_type": "INT", "nullable": False}},
+            {"name": "user_id", "type": {"native_type": "INT", "nullable": False}},
+            {"name": "product_id", "type": {"native_type": "INT", "nullable": True}},
+        ],
+        "extended_metadata": [
+            {
+                "name": "foreign_keys",
+                "value": [
+                    {
+                        "name": "fk_user",
+                        "join_condition": "fk_schema.fk_table.user_id = fk_schema.users.id",
+                    },
+                    {
+                        "name": "fk_product",
+                        "join_condition": "fk_schema.fk_table.product_id = fk_schema.products.id",
+                    },
+                ],
+            },
+        ],
     }
     assert (
         pretty_print_table_info(schema, table_name, table_info, fmt) == expected_output
