@@ -62,10 +62,10 @@ def pretty_print_table_info(
     templates: dict[str, Any] = {
         "ddl": {
             "table": """
-CREATE TABLE "{schema}"."{table_name}" (
+CREATE TABLE "{schema}"."{table_name}" ({table_comment}
 \t{column_definitions}{primary_key}{foreign_keys}
 \t)""",
-            "column": '"{name}" {native_type}{nullable}',
+            "column": '"{name}" {native_type}{nullable}{column_comment}',
             "sep": ",",
             "new_line": "\n\t",
             "pk": "CONSTRAINT {pk_name} PRIMARY KEY ({key_columns})",
@@ -77,9 +77,9 @@ CREATE TABLE "{schema}"."{table_name}" (
         },
         "markdown": {
             "table": """
-## TABLE: {schema}.{table_name}
+## TABLE: {schema}.{table_name}{table_comment}
 {column_definitions}{keys_prefix}{primary_key}{foreign_keys}""",
-            "column": "- {name} ({native_type})",
+            "column": "- {name} ({native_type}){column_comment}",
             "sep": "",
             "new_line": "\n",
             "pk": "- PK ({key_columns})",
@@ -97,15 +97,29 @@ CREATE TABLE "{schema}"."{table_name}" (
         )
         raise ValueError(err_msg)
 
-    def convert_column_data(field_metadata: dict[str, Any]) -> str:
+    def convert_column_data(
+        field_metadata: dict[str, Any], fmt: MetaDataFormat = "ddl"
+    ) -> str:
         name = field_metadata.get("name")
 
         field_metadata_type = field_metadata.get("type", {})
         native_type = field_metadata_type.get("native_type")
         nullable = "" if field_metadata_type.get("nullable") else " NOT NULL"
+        description = field_metadata.get("description")
+        column_comment = (
+            ""
+            if not description
+            else {
+                "ddl": f" -- {description}",
+                "markdown": f": {description}",
+            }.get(fmt)
+        )
 
         return template["column"].format(
-            name=name, native_type=native_type, nullable=nullable
+            name=name,
+            native_type=native_type,
+            nullable=nullable,
+            column_comment=column_comment,
         )
 
     extended_metadata = table_info.get("extended_metadata", [{}])
@@ -149,6 +163,16 @@ CREATE TABLE "{schema}"."{table_name}" (
     else:
         foreign_keys_text = ""
 
+    description = table_info.get("description")
+    table_comment = (
+        ""
+        if not description
+        else {
+            "ddl": f" -- {description}",
+            "markdown": f"\n> {description}",
+        }.get(fmt)
+    )
+
     return template["table"].format(
         schema=schema,
         table_name=table_name,
@@ -156,10 +180,10 @@ CREATE TABLE "{schema}"."{table_name}" (
             [
                 # Do not add separator for the last column
                 (
-                    convert_column_data(field_metadata=field_metadata)
+                    convert_column_data(field_metadata=field_metadata, fmt=fmt)
                     + template["sep"]  # separator
                     if index < len(table_info["fields"])
-                    else convert_column_data(field_metadata=field_metadata)
+                    else convert_column_data(field_metadata=field_metadata, fmt=fmt)
                 )
                 for index, field_metadata in enumerate(table_info["fields"], start=1)
             ],
@@ -169,6 +193,7 @@ CREATE TABLE "{schema}"."{table_name}" (
         ),
         primary_key=primary_key_text,
         foreign_keys=foreign_keys_text,
+        table_comment=table_comment,
     )
 
 
@@ -389,6 +414,11 @@ class WatsonxSQLDatabase:
                 self._all_tables = {
                     table.get("name") for table in _tables if table.get("name")
                 }
+                _table_descriptions = {
+                    table.get("name"): table.get("description")
+                    for table in _tables
+                    if table.get("name")
+                }
             else:
                 error_msg = f"No tables found in the schema: {schema}"
                 raise RuntimeError(error_msg)
@@ -411,6 +441,7 @@ class WatsonxSQLDatabase:
                     extended_metadata=True,
                     interaction_properties=True,
                 )
+                | {"description": _table_descriptions.get("table_name")}
                 for table_name in self._all_tables
                 if table_name in (self._include_tables or self._all_tables)
                 and table_name not in (self._ignore_tables or {})
