@@ -74,7 +74,7 @@ from langchain_core.utils.pydantic import (
     TypeBaseModel,
     is_basemodel_subclass,
 )
-from langchain_core.utils.utils import secret_from_env
+from langchain_core.utils.utils import from_env, secret_from_env
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -862,10 +862,16 @@ class ChatWatsonx(BaseChatModel):
     deployment_id: str | None = None
     """Type of deployed model to use."""
 
-    project_id: str | None = None
+    project_id: str | None = Field(
+        alias="project_id",
+        default_factory=from_env("WATSONX_PROJECT_ID", default=None),
+    )
     """ID of the Watson Studio project."""
 
-    space_id: str | None = None
+    space_id: str | None = Field(
+        alias="space_id",
+        default_factory=from_env("WATSONX_SPACE_ID", default=None),
+    )
     """ID of the Watson Studio space."""
 
     url: SecretStr = Field(

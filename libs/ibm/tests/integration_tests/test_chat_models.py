@@ -1744,3 +1744,42 @@ def test_init_and_invoke_with_params_4(
         "Duplicate parameters found in params and keyword arguments: ['max_tokens']"
         in str(e.value)
     )
+
+
+def test_chat_watsonx_with_project_id_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """project_id loaded from WATSONX_PROJECT_ID environment variable."""
+    monkeypatch.setenv("WATSONX_PROJECT_ID", WX_PROJECT_ID)
+
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,
+        api_key=WX_APIKEY,
+    )
+
+    assert chat.project_id == WX_PROJECT_ID
+
+    messages = [HumanMessage(content="Say 'Hello' in one word.")]
+    response = chat.invoke(messages)
+    assert response
+    assert response.content
+
+
+def test_chat_watsonx_explicit_project_id_overrides_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit project_id parameter overrides environment variable."""
+    monkeypatch.setenv("WATSONX_PROJECT_ID", "env_project_id")
+
+    chat = ChatWatsonx(
+        model_id=MODEL_ID,
+        url=URL,
+        api_key=WX_APIKEY,
+        project_id=WX_PROJECT_ID,
+    )
+
+    assert chat.project_id == WX_PROJECT_ID
+
+    messages = [HumanMessage(content="Say 'Hello' in one word.")]
+    response = chat.invoke(messages)
+    assert response
+    assert response.content
