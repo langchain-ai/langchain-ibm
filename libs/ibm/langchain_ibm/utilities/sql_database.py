@@ -392,8 +392,6 @@ class WatsonxSQLDatabase:
             )
             self.watsonx_client = APIClient(
                 credentials=credentials,
-                project_id=project_id,
-                space_id=space_id,
             )
             if project_id:
                 self.watsonx_client.set.default_project(project_id=project_id)
