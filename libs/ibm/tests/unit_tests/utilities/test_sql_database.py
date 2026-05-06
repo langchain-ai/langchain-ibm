@@ -479,11 +479,15 @@ def test_pretty_print_table_info_with_foreign_key_without_primary_key(
                 "value": [
                     {
                         "name": "fk_user",
-                        "join_condition": "fk_schema.fk_table.user_id = fk_schema.users.id",
+                        "join_condition": (
+                            "fk_schema.fk_table.user_id = fk_schema.users.id"
+                        ),
                     },
                     {
                         "name": "fk_product",
-                        "join_condition": "fk_schema.fk_table.product_id = fk_schema.products.id",
+                        "join_condition": (
+                            "fk_schema.fk_table.product_id = fk_schema.products.id"
+                        ),
                     },
                 ],
             },
