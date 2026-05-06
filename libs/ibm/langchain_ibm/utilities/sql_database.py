@@ -149,8 +149,8 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
 
     # Foreign keys
     foreign_keys: dict[str, Any] = _retrieve_field_data("foreign_keys")
+    foreign_keys_text = ""
     if foreign_keys:
-        foreign_keys_text = ""
         foreign_keys_values = foreign_keys.get("value", [])
         for index, foreign_key in enumerate(foreign_keys_values):
             foreign_keys_text += template["new_line"]
@@ -164,8 +164,6 @@ CREATE TABLE "{schema}"."{table_name}" ({table_comment}
             foreign_keys_text += (
                 template["sep"] if index < len(foreign_keys_values) - 1 else ""
             )
-    else:
-        foreign_keys_text = ""
 
     if primary_key_text and foreign_keys_text:
         primary_key_text += template["sep"]
