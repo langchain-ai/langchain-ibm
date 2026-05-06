@@ -126,13 +126,13 @@ def test_initialize_watsonx_rerank_with_project_id_from_env(
         return_value=None,
     )
 
-    embeddings = WatsonxRerank(
+    rerank = WatsonxRerank(
         model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",
         apikey="test_apikey",
     )
 
-    assert embeddings.project_id == test_project_id
+    assert rerank.project_id == test_project_id
 
 
 def test_initialize_watsonx_rerank_with_space_id_from_env(
@@ -147,13 +147,13 @@ def test_initialize_watsonx_rerank_with_space_id_from_env(
         return_value=None,
     )
 
-    embeddings = WatsonxRerank(
+    rerank = WatsonxRerank(
         model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",
         apikey="test_apikey",
     )
 
-    assert embeddings.space_id == test_space_id
+    assert rerank.space_id == test_space_id
 
 
 def test_initialize_watsonx_rerank_with_both_ids_from_env(
@@ -170,14 +170,14 @@ def test_initialize_watsonx_rerank_with_both_ids_from_env(
         return_value=None,
     )
 
-    embeddings = WatsonxRerank(
+    rerank = WatsonxRerank(
         model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",
         apikey="test_apikey",
     )
 
-    assert embeddings.project_id == test_project_id
-    assert embeddings.space_id == test_space_id
+    assert rerank.project_id == test_project_id
+    assert rerank.space_id == test_space_id
 
 
 def test_initialize_watsonx_rerank_explicit_project_id_overrides_env(
@@ -193,14 +193,14 @@ def test_initialize_watsonx_rerank_explicit_project_id_overrides_env(
         return_value=None,
     )
 
-    embeddings = WatsonxRerank(
+    rerank = WatsonxRerank(
         model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",
         apikey="test_apikey",
         project_id=explicit_project_id,
     )
 
-    assert embeddings.project_id == explicit_project_id
+    assert rerank.project_id == explicit_project_id
 
 
 def test_initialize_watsonx_rerank_explicit_space_id_overrides_env(
@@ -216,14 +216,14 @@ def test_initialize_watsonx_rerank_explicit_space_id_overrides_env(
         return_value=None,
     )
 
-    embeddings = WatsonxRerank(
+    rerank = WatsonxRerank(
         model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",
         apikey="test_apikey",
         space_id=explicit_space_id,
     )
 
-    assert embeddings.space_id == explicit_space_id
+    assert rerank.space_id == explicit_space_id
 
 
 def test_initialize_watsonx_rerank_without_project_id_or_space_id_env(
@@ -238,11 +238,11 @@ def test_initialize_watsonx_rerank_without_project_id_or_space_id_env(
         return_value=None,
     )
 
-    embeddings = WatsonxRerank(
+    rerank = WatsonxRerank(
         model_id=MODEL_ID,
         url="https://us-south.ml.cloud.ibm.com",
         apikey="test_apikey",
     )
 
-    assert embeddings.project_id is None
-    assert embeddings.space_id is None
+    assert rerank.project_id is None
+    assert rerank.space_id is None
