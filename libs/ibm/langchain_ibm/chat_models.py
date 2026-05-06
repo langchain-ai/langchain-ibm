@@ -863,11 +863,13 @@ class ChatWatsonx(BaseChatModel):
     """Type of deployed model to use."""
 
     project_id: str | None = Field(
+        alias="project_id",
         default_factory=from_env("WATSONX_PROJECT_ID", default=None),
     )
     """ID of the Watson Studio project."""
 
     space_id: str | None = Field(
+        alias="space_id",
         default_factory=from_env("WATSONX_SPACE_ID", default=None),
     )
     """ID of the Watson Studio space."""
