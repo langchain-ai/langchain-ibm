@@ -9,7 +9,7 @@ from ibm_watsonx_ai.foundation_models.utils import (
 )
 from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.tools.base import BaseTool, BaseToolkit
-from langchain_core.utils.utils import secret_from_env
+from langchain_core.utils.utils import from_env, secret_from_env
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -199,10 +199,16 @@ class WatsonxToolkit(BaseToolkit):
 
     """
 
-    project_id: str | None = None
+    project_id: str | None = Field(
+        alias="project_id",
+        default_factory=from_env("WATSONX_PROJECT_ID", default=None),
+    )
     """ID of the watsonx.ai Studio project."""
 
-    space_id: str | None = None
+    space_id: str | None = Field(
+        alias="space_id",
+        default_factory=from_env("WATSONX_SPACE_ID", default=None),
+    )
     """ID of the watsonx.ai Studio space."""
 
     url: SecretStr = Field(
