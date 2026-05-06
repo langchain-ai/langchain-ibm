@@ -251,7 +251,6 @@ class WatsonxSQLDatabase:
 
         ```bash
         export WATSONX_API_KEY="your-api-key"
-        export WATSONX_PROJECT_ID="your-project-id"  # or WATSONX_SPACE_ID
         ```
 
         !!! deprecated
