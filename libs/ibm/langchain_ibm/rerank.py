@@ -10,7 +10,7 @@ from ibm_watsonx_ai.foundation_models import Rerank
 from ibm_watsonx_ai.foundation_models.rerank.rerank import TextDict
 from ibm_watsonx_ai.foundation_models.schema import RerankParameters
 from langchain_core.documents import BaseDocumentCompressor, Document
-from langchain_core.utils.utils import secret_from_env
+from langchain_core.utils.utils import from_env, secret_from_env
 from pydantic import AliasChoices, ConfigDict, Field, SecretStr, model_validator
 from typing_extensions import Self, override
 
@@ -96,10 +96,16 @@ class WatsonxRerank(BaseDocumentCompressor):
     model_id: str
     """Type of model to use."""
 
-    project_id: str | None = None
+    project_id: str | None = Field(
+        alias="project_id",
+        default_factory=from_env("WATSONX_PROJECT_ID", default=None),
+    )
     """ID of the Watson Studio project."""
 
-    space_id: str | None = None
+    space_id: str | None = Field(
+        alias="space_id",
+        default_factory=from_env("WATSONX_SPACE_ID", default=None),
+    )
     """ID of the Watson Studio space."""
 
     url: SecretStr = Field(
