@@ -9,7 +9,7 @@ from ibm_watsonx_ai.foundation_models.embeddings import (
 )
 from ibm_watsonx_ai.gateway import Gateway
 from langchain_core.embeddings import Embeddings as LangChainEmbeddings
-from langchain_core.utils.utils import secret_from_env
+from langchain_core.utils.utils import from_env, secret_from_env
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -126,10 +126,16 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
     For more details on configuration and usage, see [IBM watsonx Model Gateway docs](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-model-gateway.html?context=wx&audience=wdp)
     """
 
-    project_id: str | None = None
+    project_id: str | None = Field(
+        alias="project_id",
+        default_factory=from_env("WATSONX_PROJECT_ID", default=None),
+    )
     """ID of the Watson Studio project."""
 
-    space_id: str | None = None
+    space_id: str | None = Field(
+        alias="space_id",
+        default_factory=from_env("WATSONX_SPACE_ID", default=None),
+    )
     """ID of the Watson Studio space."""
 
     url: SecretStr = Field(
