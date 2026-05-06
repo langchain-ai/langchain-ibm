@@ -610,6 +610,131 @@ def test_initialize_watsonx_sql_database_valid(
         assert wx_sql_database.schema == schema
 
 
+def test_initialize_watsonx_sql_database_with_project_id_env(
+    schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that WATSONX_PROJECT_ID environment variable is used."""
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = None
+    mock_api_client.default_space_id = None
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ) as mock_client,
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClient(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+            "WATSONX_PROJECT_ID": PROJECT_ID,
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
+
+        # Verify APIClient was called with project_id from environment
+        mock_client.assert_called_once()
+        call_kwargs = mock_client.call_args[1]
+        assert call_kwargs["project_id"] == PROJECT_ID
+        assert call_kwargs["space_id"] is None
+        assert isinstance(wx_sql_database._flight_sql_client, MockFlightSQLClient)
+        assert wx_sql_database.schema == schema
+
+
+def test_initialize_watsonx_sql_database_with_space_id_env(
+    schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that WATSONX_SPACE_ID environment variable is used."""
+    space_id = "test_space_id"
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = None
+    mock_api_client.default_space_id = None
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ) as mock_client,
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClient(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+            "WATSONX_SPACE_ID": space_id,
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(connection_id=CONNECTION_ID, schema=schema)
+
+        # Verify APIClient was called with space_id from environment
+        mock_client.assert_called_once()
+        call_kwargs = mock_client.call_args[1]
+        assert call_kwargs["project_id"] is None
+        assert call_kwargs["space_id"] == space_id
+        assert isinstance(wx_sql_database._flight_sql_client, MockFlightSQLClient)
+        assert wx_sql_database.schema == schema
+
+
+def test_initialize_watsonx_sql_database_param_overrides_env(
+    schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that explicit parameters override environment variables."""
+    param_project_id = "param_project_id"
+    env_project_id = "env_project_id"
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = None
+    mock_api_client.default_space_id = None
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ) as mock_client,
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClient(),
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+            "WATSONX_PROJECT_ID": env_project_id,
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        wx_sql_database = WatsonxSQLDatabase(
+            connection_id=CONNECTION_ID, schema=schema, project_id=param_project_id
+        )
+
+        # Verify APIClient was called with project_id from parameter, not environment
+        mock_client.assert_called_once()
+        call_kwargs = mock_client.call_args[1]
+        assert call_kwargs["project_id"] == param_project_id
+        assert call_kwargs["space_id"] is None
+        assert isinstance(wx_sql_database._flight_sql_client, MockFlightSQLClient)
+        assert wx_sql_database.schema == schema
+
+
 def test_initialize_watsonx_sql_database_include_tables(
     schema: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

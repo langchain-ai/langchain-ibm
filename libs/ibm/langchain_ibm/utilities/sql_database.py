@@ -218,8 +218,8 @@ class WatsonxSQLDatabase:
     Args:
         connection_id: ID of db connection asset
         schema: name of the database schema from which tables will be read
-        project_id: ID of project
-        space_id: ID of space
+        project_id: ID of project (can also be set via WATSONX_PROJECT_ID env var)
+        space_id: ID of space (can also be set via WATSONX_SPACE_ID env var)
         url: URL to the Watson Machine Learning or CPD instance
         api_key: API key to the Watson Machine Learning or CPD instance
         apikey: API key to the Watson Machine Learning or CPD instance (deprecated)
@@ -251,6 +251,7 @@ class WatsonxSQLDatabase:
 
         ```bash
         export WATSONX_API_KEY="your-api-key"
+        export WATSONX_PROJECT_ID="your-project-id"  # or WATSONX_SPACE_ID
         ```
 
         !!! deprecated
@@ -314,6 +315,9 @@ class WatsonxSQLDatabase:
         if watsonx_client is None:
             url = url or _from_env("WATSONX_URL")
             _validate_param(url, "url", "WATSONX_URL")
+
+            project_id = project_id or _from_env("WATSONX_PROJECT_ID")
+            space_id = space_id or _from_env("WATSONX_SPACE_ID")
 
             parsed_url = urllib.parse.urlparse(url)
             if parsed_url.netloc.endswith(".cloud.ibm.com"):  # type: ignore[arg-type]
@@ -392,8 +396,6 @@ class WatsonxSQLDatabase:
                 project_id=project_id,
                 space_id=space_id,
             )
-            project_id = project_id or _from_env("WATSONX_PROJECT_ID")
-            space_id = space_id or _from_env("WATSONX_SPACE_ID")
             if project_id:
                 self.watsonx_client.set.default_project(project_id=project_id)
             elif space_id:
