@@ -27,6 +27,7 @@ from langchain_ibm.utils import (
     normalize_api_key,
     resolve_watsonx_credentials,
     secret_from_env_multi,
+    validate_scope_with_model_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -277,6 +278,12 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 version=self.version,
                 verify=self.verify,
             )
+
+            # Validate that project_id or space_id is provided when using model_id
+            validate_scope_with_model_id(
+                self.model_id, self.project_id, self.space_id, self.__class__.__name__
+            )
+
             if self.model is not None:
                 watsonx_embed_gateway = Gateway(
                     credentials=credentials,
