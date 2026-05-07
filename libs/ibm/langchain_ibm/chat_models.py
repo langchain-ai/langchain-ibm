@@ -1245,6 +1245,7 @@ class ChatWatsonx(BaseChatModel):
         if self.watsonx_model_gateway is not None:
             call_kwargs = self._prepare_gateway_kwargs(kwargs, updated_params)
             response = self._call_model_gateway(
+                self.watsonx_model_gateway,
                 model=self.model,
                 messages=message_dicts,
                 **call_kwargs,
@@ -1280,6 +1281,7 @@ class ChatWatsonx(BaseChatModel):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params}
             response = await self._acall_model_gateway(
+                self.watsonx_model_gateway,
                 model=self.model,
                 messages=message_dicts,
                 **call_kwargs,
@@ -1401,6 +1403,7 @@ class ChatWatsonx(BaseChatModel):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params, "stream": True}
             chunk_iter = self._call_model_gateway(
+                self.watsonx_model_gateway,
                 model=self.model,
                 messages=message_dicts,
                 **call_kwargs,
@@ -1481,6 +1484,7 @@ class ChatWatsonx(BaseChatModel):
         if self.watsonx_model_gateway is not None:
             call_kwargs = {**kwargs, **updated_params, "stream": True}
             chunk_iter = await self._acall_model_gateway(
+                self.watsonx_model_gateway,
                 model=self.model,
                 messages=message_dicts,
                 **call_kwargs,
