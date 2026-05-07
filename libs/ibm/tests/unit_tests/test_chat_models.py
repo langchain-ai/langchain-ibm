@@ -67,6 +67,7 @@ def test_initialize_chat_watsonx_with_deprecated_apikey() -> None:
     ):
         ChatWatsonx(
             model_id=MODEL_ID,
+            project_id="fake_project_id",
             url="https://us-south.ml.cloud.ibm.com",
             apikey="test_apikey",
         )
@@ -83,6 +84,7 @@ def test_initialize_chat_watsonx_with_api_key_and_apikey() -> None:
     ):
         ChatWatsonx(
             model_id=MODEL_ID,
+            project_id="fake_project_id",
             url="https://us-south.ml.cloud.ibm.com",
             apikey="fake_apikey",
             api_key="fake_api_key",
@@ -143,6 +145,7 @@ def test_initialize_chat_watsonx_cpd_deprecation_warning_with_instance_id() -> N
     ):
         ChatWatsonx(
             model_id="google/flan-ul2",
+            project_id="fake_project_id",
             url="https://cpd-zen.apps.cpd48.cp.fyre.ibm.com",
             apikey="test_apikey",
             username="test_user",
@@ -253,6 +256,7 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
 
     chat = ChatWatsonx(
         model_id="google/flan-ul2",
+        project_id="fake_project_id",
         url="https://us-south.ml.cloud.ibm.com",
         apikey="test_apikey",
         frequency_penalty=0.5,
@@ -325,6 +329,7 @@ def test_initialize_chat_watsonx_with_all_supported_params_v2(mocker: Any) -> No
 
     chat = ChatWatsonx(
         model_id="google/flan-ul2",
+        project_id="fake_project_id",
         url="https://us-south.ml.cloud.ibm.com",
         apikey="test_apikey",
         frequency_penalty=0.5,
@@ -478,23 +483,23 @@ def test_initialize_chat_watsonx_explicit_space_id_overrides_env(
     assert chat.space_id == explicit_space_id
 
 
-def test_initialize_chat_watsonx_without_project_id_or_space_id_env(
-    mocker: Any, monkeypatch: pytest.MonkeyPatch
+def test_initialize_chat_watsonx_model_id_without_project_or_space_id(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that project_id and space_id default to None when not set."""
+    """Test that ValueError is raised when model_id is used without scope."""
     monkeypatch.delenv("WATSONX_PROJECT_ID", raising=False)
     monkeypatch.delenv("WATSONX_SPACE_ID", raising=False)
 
-    mocker.patch(
-        "ibm_watsonx_ai.foundation_models.ModelInference.__init__",
-        return_value=None,
+    error_pattern = re.escape(
+        "When using 'model_id', you must provide either 'project_id' "
+        "or 'space_id'. These can be passed as parameters to ChatWatsonx"
+        " or set as environment variables 'WATSONX_PROJECT_ID' or "
+        "'WATSONX_SPACE_ID'."
     )
 
-    chat = ChatWatsonx(
-        model_id=MODEL_ID,
-        url="https://us-south.ml.cloud.ibm.com",
-        apikey="test_apikey",
-    )
-
-    assert chat.project_id is None
-    assert chat.space_id is None
+    with pytest.raises(ValueError, match=error_pattern):
+        ChatWatsonx(
+            model_id=MODEL_ID,
+            url="https://us-south.ml.cloud.ibm.com",
+            apikey="test_apikey",
+        )

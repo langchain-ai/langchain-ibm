@@ -350,3 +350,30 @@ def normalize_tool_arguments(args_str: str) -> str:
             return "{}"
 
     return json.dumps(parsed_object, ensure_ascii=False)
+
+
+def validate_scope_with_model_id(
+    model_id: str | None,
+    project_id: str | None,
+    space_id: str | None,
+    class_name: str,
+) -> None:
+    """Validate that scope (project_id or space_id) is provided when using model_id.
+
+    Args:
+        model_id: The model ID being used
+        project_id: The project ID
+        space_id: The space ID
+        class_name: Name of the class for error message (e.g., 'ChatWatsonx')
+
+    Raises:
+        ValueError: If model_id is provided but neither project_id nor space_id is set
+    """
+    if model_id is not None and not project_id and not space_id:
+        error_msg = (
+            f"When using 'model_id', you must provide either 'project_id' "
+            f"or 'space_id'. These can be passed as parameters to {class_name}"
+            " or set as environment variables 'WATSONX_PROJECT_ID' or "
+            "'WATSONX_SPACE_ID'."
+        )
+        raise ValueError(error_msg)
