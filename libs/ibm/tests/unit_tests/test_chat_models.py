@@ -256,6 +256,7 @@ def test_initialize_chat_watsonx_with_all_supported_params(mocker: Any) -> None:
 
     chat = ChatWatsonx(
         model_id="google/flan-ul2",
+        project_id="fake_project_id",
         url="https://us-south.ml.cloud.ibm.com",
         apikey="test_apikey",
         frequency_penalty=0.5,
