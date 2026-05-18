@@ -1062,7 +1062,10 @@ class ChatWatsonx(BaseChatModel):
         """Get standard params for tracing."""
         params = super()._get_ls_params(stop=stop, **kwargs)
         params["ls_provider"] = "ibm"
-        if self.model_id:
+        override = kwargs.get("model")
+        if isinstance(override, str):
+            params["ls_model_name"] = override
+        elif self.model_id:
             params["ls_model_name"] = self.model_id
         return params
 
