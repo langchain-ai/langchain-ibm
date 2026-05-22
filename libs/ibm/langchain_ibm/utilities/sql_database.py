@@ -235,7 +235,7 @@ class WatsonxSQLDatabase:
         include_tables: list of tables that should be included
         sample_rows_in_table_info: number of first rows to be added to the table info
         max_string_length: max length of string
-        max_workers: max number of worker threads
+        max_workers: max number of worker threads. None will base it on the number of processors
 
 
     ???+ info "Setup"
