@@ -1169,8 +1169,11 @@ def test_execute_with_many_duplicate_columns(
         assert result == expected
 
 
+@pytest.mark.parametrize("max_workers", [1, None, 4])
 def test_parallel_fetching_table_metadata(
-    schema: str, monkeypatch: pytest.MonkeyPatch
+    schema: str,
+    monkeypatch: pytest.MonkeyPatch,
+    max_workers: int | None,
 ) -> None:
     """Test that table metadata is fetched in parallel using ThreadPoolExecutor."""
 
@@ -1220,13 +1223,13 @@ def test_parallel_fetching_table_metadata(
         for k, v in envvars.items():
             monkeypatch.setenv(k, v)
 
-        # Create database with max_workers=2
+        # Create database with max_workers
         wx_sql_database = WatsonxSQLDatabase(
-            connection_id=CONNECTION_ID, schema=schema, max_workers=2
+            connection_id=CONNECTION_ID, schema=schema, max_workers=max_workers
         )
 
         # Verify ThreadPoolExecutor was called with max_workers=2
-        assert executor_max_workers == 2
+        assert executor_max_workers == max_workers
 
         # Verify both tables were fetched
         assert "table1" in call_order
@@ -1235,8 +1238,11 @@ def test_parallel_fetching_table_metadata(
         assert len(wx_sql_database._meta_all_tables) == 2
 
 
+@pytest.mark.parametrize("max_workers", [1, None, 4])
 def test_parallel_fetching_sample_rows(
-    schema: str, monkeypatch: pytest.MonkeyPatch
+    schema: str,
+    monkeypatch: pytest.MonkeyPatch,
+    max_workers: int | None,
 ) -> None:
     """Test that sample rows are fetched in parallel using ThreadPoolExecutor."""
 
@@ -1283,9 +1289,9 @@ def test_parallel_fetching_sample_rows(
         for k, v in envvars.items():
             monkeypatch.setenv(k, v)
 
-        # Create database with max_workers=3
+        # Create database with max_workers
         wx_sql_database = WatsonxSQLDatabase(
-            connection_id=CONNECTION_ID, schema=schema, max_workers=3
+            connection_id=CONNECTION_ID, schema=schema, max_workers=max_workers
         )
 
         # Clear tracking for get_table_info call
@@ -1295,8 +1301,8 @@ def test_parallel_fetching_sample_rows(
         # Call get_table_info which should fetch sample rows in parallel
         wx_sql_database.get_table_info(["table1", "table2"])
 
-        # Verify ThreadPoolExecutor was called with max_workers=3 for sample rows
-        assert 3 in executor_calls
+        # Verify ThreadPoolExecutor was called with max_workers for sample rows
+        assert max_workers in executor_calls
 
         # Verify sample rows were fetched for both tables
         assert "table1" in sample_rows_calls
