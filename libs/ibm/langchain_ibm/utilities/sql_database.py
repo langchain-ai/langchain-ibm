@@ -2,6 +2,7 @@
 
 import urllib.parse
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 
 try:
@@ -61,10 +62,10 @@ def pretty_print_table_info(
     templates: dict[str, Any] = {
         "ddl": {
             "table": """
-CREATE TABLE "{schema}"."{table_name}" (
+CREATE TABLE "{schema}"."{table_name}" ({table_comment}
 \t{column_definitions}{primary_key}{foreign_keys}
 \t)""",
-            "column": '"{name}" {native_type}{nullable}',
+            "column": '"{name}" {native_type}{nullable}{sep}{column_comment}',
             "sep": ",",
             "new_line": "\n\t",
             "pk": "CONSTRAINT {pk_name} PRIMARY KEY ({key_columns})",
@@ -76,9 +77,9 @@ CREATE TABLE "{schema}"."{table_name}" (
         },
         "markdown": {
             "table": """
-## TABLE: {schema}.{table_name}
+## TABLE: {schema}.{table_name}{table_comment}
 {column_definitions}{keys_prefix}{primary_key}{foreign_keys}""",
-            "column": "- {name} ({native_type})",
+            "column": "- {name} ({native_type}){column_comment}{sep}",
             "sep": "",
             "new_line": "\n",
             "pk": "- PK ({key_columns})",
@@ -96,15 +97,32 @@ CREATE TABLE "{schema}"."{table_name}" (
         )
         raise ValueError(err_msg)
 
-    def convert_column_data(field_metadata: dict) -> str:
+    def convert_column_data(
+        field_metadata: dict[str, Any],
+        fmt: MetaDataFormat = "ddl",
+        sep: str | None = None,
+    ) -> str:
         name = field_metadata.get("name")
 
         field_metadata_type = field_metadata.get("type", {})
         native_type = field_metadata_type.get("native_type")
         nullable = "" if field_metadata_type.get("nullable") else " NOT NULL"
+        description = field_metadata.get("description")
+        column_comment = (
+            ""
+            if not description
+            else {
+                "ddl": f" -- {description}",
+                "markdown": f": {description}",
+            }.get(fmt)
+        )
 
         return template["column"].format(
-            name=name, native_type=native_type, nullable=nullable
+            name=name,
+            native_type=native_type,
+            nullable=nullable,
+            column_comment=column_comment,
+            sep=sep or "",
         )
 
     extended_metadata = table_info.get("extended_metadata", [{}])
@@ -122,22 +140,19 @@ CREATE TABLE "{schema}"."{table_name}" (
     primary_key: dict = _retrieve_field_data("primary_key")
     if primary_key:
         key_columns = ", ".join(primary_key.get("value", {}).get("key_columns", []))
-        primary_key_text = (
-            template["sep"]
-            + template["new_line"]
-            + template["pk"].format(
-                pk_name=primary_key["name"], key_columns=key_columns
-            )
+        primary_key_text = template["new_line"] + template["pk"].format(
+            pk_name=primary_key["name"], key_columns=key_columns
         )
     else:
         primary_key_text = ""
 
     # Foreign keys
     foreign_keys: dict = _retrieve_field_data("foreign_keys")
+    foreign_keys_text = ""
     if foreign_keys:
-        foreign_keys_text = ""
-        for foreign_key in foreign_keys.get("value", []):
-            foreign_keys_text += template["sep"] + template["new_line"]
+        foreign_keys_values = foreign_keys.get("value", [])
+        for index, foreign_key in enumerate(foreign_keys_values):
+            foreign_keys_text += template["new_line"]
             join_condition = foreign_key["join_condition"].split("=")
             foreign_keys_text += template["fk"].format(
                 fk_name=foreign_key["name"],
@@ -145,8 +160,22 @@ CREATE TABLE "{schema}"."{table_name}" (
                 external_table_name=join_condition[1].strip().split(".")[1],
                 external_col_name=join_condition[1].strip().split(".")[2],
             )
-    else:
-        foreign_keys_text = ""
+            foreign_keys_text += (
+                template["sep"] if index < len(foreign_keys_values) - 1 else ""
+            )
+
+    if primary_key_text and foreign_keys_text:
+        primary_key_text += template["sep"]
+
+    description = table_info.get("description")
+    table_comment = (
+        ""
+        if not description
+        else {
+            "ddl": f" -- {description}",
+            "markdown": f"\n> {description}",
+        }.get(fmt)
+    )
 
     return template["table"].format(
         schema=schema,
@@ -155,10 +184,18 @@ CREATE TABLE "{schema}"."{table_name}" (
             [
                 # Do not add separator for the last column
                 (
-                    convert_column_data(field_metadata=field_metadata)
-                    + template["sep"]  # separator
-                    if index < len(table_info["fields"])
-                    else convert_column_data(field_metadata=field_metadata)
+                    convert_column_data(
+                        field_metadata=field_metadata,
+                        fmt=fmt,
+                        sep=(
+                            template["sep"]
+                            if index < len(table_info["fields"])
+                            or bool(
+                                primary_key_text or foreign_keys_text
+                            )  # if there are keys add the last separator
+                            else None
+                        ),
+                    )
                 )
                 for index, field_metadata in enumerate(table_info["fields"], start=1)
             ],
@@ -168,6 +205,7 @@ CREATE TABLE "{schema}"."{table_name}" (
         ),
         primary_key=primary_key_text,
         foreign_keys=foreign_keys_text,
+        table_comment=table_comment,
     )
 
 
@@ -194,6 +232,7 @@ class WatsonxSQLDatabase:
         include_tables: list of tables that should be included
         sample_rows_in_table_info: number of first rows to be added to the table info
         max_string_length: max length of string
+        max_workers: max number of threads. None will base it on the number of CPUs
 
 
     ???+ info "Setup"
@@ -253,6 +292,7 @@ class WatsonxSQLDatabase:
         include_tables: list[str] | None = None,
         sample_rows_in_table_info: int = 3,
         max_string_length: int = 300,
+        max_workers: int | None = 1,
     ) -> None:
         """WatsonxSQLDatabase class."""
         if include_tables and ignore_tables:
@@ -265,6 +305,7 @@ class WatsonxSQLDatabase:
         self._sample_rows_in_table_info = sample_rows_in_table_info
 
         self._max_string_length = max_string_length
+        self._max_workers = max_workers
 
         if watsonx_client is None:
             url = url or _from_env("WATSONX_URL")
@@ -380,6 +421,11 @@ class WatsonxSQLDatabase:
                 self._all_tables = {
                     table.get("name") for table in _tables if table.get("name")
                 }
+                _table_descriptions = {
+                    table.get("name"): table.get("description")
+                    for table in _tables
+                    if table.get("name")
+                }
             else:
                 error_msg = f"No tables found in the schema: {schema}"
                 raise RuntimeError(error_msg)
@@ -395,17 +441,35 @@ class WatsonxSQLDatabase:
                     error_msg = f"ignore_tables {missing_tables} not found in database"
                     raise ValueError(error_msg)
 
-            self._meta_all_tables = {
-                table_name: flight_sql_client.get_table_info(
-                    table_name=table_name,
-                    schema=self.schema,
-                    extended_metadata=True,
-                    interaction_properties=True,
-                )
+            tables_to_fetch = {
+                table_name
                 for table_name in self._all_tables
                 if table_name in (self._include_tables or self._all_tables)
                 and table_name not in (self._ignore_tables or {})
             }
+
+            def fetch_table_metadata(table_name: str) -> tuple[str, dict[str, Any]]:
+                """Fetch metadata for a single table."""
+                return (
+                    table_name,
+                    flight_sql_client.get_table_info(
+                        table_name=table_name,
+                        schema=self.schema,
+                        extended_metadata=True,
+                        interaction_properties=True,
+                    ),
+                )
+
+            self._meta_all_tables = {}
+            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                future_to_table = {
+                    executor.submit(fetch_table_metadata, table_name): table_name
+                    for table_name in tables_to_fetch
+                }
+
+                for future in as_completed(future_to_table):
+                    table_name, metadata = future.result()
+                    self._meta_all_tables[table_name] = metadata
 
     def get_usable_table_names(self) -> Iterable[str]:
         """Get names of tables available."""
@@ -491,7 +555,8 @@ class WatsonxSQLDatabase:
             if table_names is None:
                 table_names = self._all_tables
 
-            def convert_rows(table_name: str) -> str:
+            def fetch_sample_rows(table_name: str) -> tuple[str, str]:
+                """Fetch sample rows for a single table."""
                 rows = flight_sql_client.get_n_first_rows(
                     schema=self.schema,
                     table_name=table_name,
@@ -499,14 +564,27 @@ class WatsonxSQLDatabase:
                 )
                 match fmt:
                     case "ddl":
-                        return str(rows.to_string(index=False) or "")
+                        rows_str = str(rows.to_string(index=False) or "")
                     case "markdown":
-                        return str(
+                        rows_str = str(
                             rows.to_markdown(index=False, tablefmt="github") or ""
                         )
+                    case _:
+                        err_msg = f"Format '{fmt}' is not supported"  # type: ignore[unreachable]
+                        raise ValueError(err_msg)
 
-                err_msg = f"Format '{fmt}' is not supported"  # type: ignore[unreachable]
-                raise ValueError(err_msg)
+                return table_name, rows_str
+
+            table_rows = {}
+            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                future_to_table = {
+                    executor.submit(fetch_sample_rows, table_name): table_name
+                    for table_name in table_names
+                }
+
+                for future in as_completed(future_to_table):
+                    table_name, rows_str = future.result()
+                    table_rows[table_name] = rows_str
 
             return "\n\n".join(
                 [
@@ -519,7 +597,7 @@ class WatsonxSQLDatabase:
                         ),
                         rows_number=self._sample_rows_in_table_info,
                         table_name=table_name,
-                        rows=convert_rows(table_name=table_name),
+                        rows=table_rows[table_name],
                     )
                     for table_name in table_names
                 ],

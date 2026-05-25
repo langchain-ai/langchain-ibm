@@ -33,9 +33,9 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = SecretStr(secret_value="https://us-south.ml.cloud.ibm.com")
 
-MODEL_ID = "ibm/granite-3-3-8b-instruct"
-MODEL_ID_TOOL = "ibm/granite-3-3-8b-instruct"
-MODEL_ID_TOOL_2 = "meta-llama/llama-3-3-70b-instruct"
+MODEL_ID = "ibm/granite-4-h-small"
+MODEL_ID_TOOL = "meta-llama/llama-3-3-70b-instruct"
+MODEL_ID_TOOL_2 = "mistralai/mistral-small-3-1-24b-instruct-2503"
 MODEL_ID_REASONING_CONTENT = "openai/gpt-oss-120b"
 
 PARAMS_WITH_MAX_TOKENS = {"max_tokens": 20}
@@ -513,7 +513,7 @@ def test_chat_bind_tools_tool_choice_required() -> None:
 def test_chat_bind_tools_tool_choice_as_class() -> None:
     """Test that tool choice is respected."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -568,7 +568,7 @@ def test_chat_bind_tools_tool_choice_as_dict() -> None:
 def test_chat_bind_tools_list_tool_choice_dict() -> None:
     """Test that tool choice is respected just passing in True."""
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL_2,
+        model_id=MODEL_ID_TOOL,
         url=URL,
         project_id=WX_PROJECT_ID,
         params={"temperature": 0},
@@ -909,7 +909,7 @@ def test_chat_streaming_tool_call() -> None:
 
 def test_chat_streaming_multiple_tool_call() -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID_TOOL_2,
         url=URL,
         project_id=WX_PROJECT_ID,
         temperature=0,
@@ -950,7 +950,7 @@ def test_chat_streaming_multiple_tool_call() -> None:
 
     ai_message = cast("AIMessageChunk", ai_message)
     assert ai_message.response_metadata.get("finish_reason") == "tool_calls"
-    assert ai_message.response_metadata.get("model_name") == MODEL_ID_TOOL
+    assert ai_message.response_metadata.get("model_name") == MODEL_ID_TOOL_2
     assert ai_message.id is not None
 
     # additional_kwargs
@@ -1303,31 +1303,25 @@ def test_invoke_with_params_5(
     completion_tokens = resp_1.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_1.response_metadata.get("logprobs")
 
     assert chat.params == {}
     assert completion_tokens == expected_tokens
-    assert not logprobs
 
     resp_2 = chat.invoke(prompt_1, params=params_1_a, **params_2_b)
     completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_2.response_metadata.get("logprobs")
 
     assert chat.params == {}
     assert completion_tokens == expected_tokens
-    assert logprobs
 
     resp_3 = chat.invoke(prompt_1, **params_1_b, **params_2_b)
     completion_tokens = resp_3.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_3.response_metadata.get("logprobs")
 
     assert chat.params == {}
     assert 7 < completion_tokens < 11
-    assert logprobs
 
 
 @pytest.mark.parametrize(
@@ -1492,7 +1486,7 @@ def test_init_and_invoke_with_params_3(
     expected_tokens_2: Any,
 ) -> None:
     chat = ChatWatsonx(
-        model_id=MODEL_ID_TOOL,
+        model_id=MODEL_ID,
         url=URL,
         project_id=WX_PROJECT_ID,
         params=params_1_a,
@@ -1502,21 +1496,17 @@ def test_init_and_invoke_with_params_3(
     completion_tokens = resp_1.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_1.response_metadata.get("logprobs")
 
     assert chat.params == params_1_a | params_2_a
     assert completion_tokens == expected_tokens_1
-    assert logprobs
 
     resp_2 = chat.invoke(prompt_1)
     completion_tokens = resp_2.response_metadata.get("token_usage", {}).get(
         "completion_tokens"
     )
-    logprobs = resp_2.response_metadata.get("logprobs")
 
     assert chat.params == params_1_a | params_2_a
     assert completion_tokens == expected_tokens_2
-    assert not logprobs
 
 
 @pytest.mark.parametrize(

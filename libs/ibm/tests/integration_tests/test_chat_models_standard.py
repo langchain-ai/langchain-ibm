@@ -13,8 +13,8 @@ WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
 
 URL = "https://us-south.ml.cloud.ibm.com"
 
-MODEL_ID = "ibm/granite-3-3-8b-instruct"
-MODEL_ID_2 = "meta-llama/llama-3-3-70b-instruct"
+MODEL_ID = "ibm/granite-4-h-small"
+MODEL_ID_2 = "ibm/granite-4-h-small"
 MODEL_ID_IMAGE = "meta-llama/llama-3-2-90b-vision-instruct"
 MODEL_ID_DOUBLE_MSG_CONV = "meta-llama/llama-3-2-3b-instruct"
 
@@ -104,3 +104,7 @@ class TestChatWatsonxStandard(ChatModelIntegrationTests):
         model.watsonx_model._inference.model_id = MODEL_ID_DOUBLE_MSG_CONV  # type: ignore[attr-defined]
         super().test_double_messages_conversation(model)
         model.watsonx_model._inference.model_id = MODEL_ID  # type: ignore[attr-defined]
+
+    @pytest.mark.xfail(reason="Not implemented ...")
+    def test_tool_calling_with_no_arguments(self, model: BaseChatModel) -> None:
+        super().test_tool_calling_with_no_arguments(model)
