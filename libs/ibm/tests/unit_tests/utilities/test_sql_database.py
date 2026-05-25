@@ -1,5 +1,6 @@
 import os
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor as RealThreadPoolExecutor
 from typing import Any
 from unittest import mock
 from unittest.mock import Mock, patch
@@ -657,3 +658,143 @@ def test_initialize_watsonx_sql_database_run_no_throw(
         assert "Table not found" in wx_sql_database.run_no_throw(
             f"SELECT * FROM {schema}.tableX", include_columns=True
         )
+
+
+@pytest.mark.parametrize("max_workers", [1, None, 4])
+def test_parallel_fetching_table_metadata(
+    schema: str,
+    monkeypatch: pytest.MonkeyPatch,
+    max_workers: int | None,
+) -> None:
+    """Test that table metadata is fetched in parallel using ThreadPoolExecutor."""
+
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = PROJECT_ID
+
+    # Track the order and timing of get_table_info calls
+    call_order = []
+    executor_max_workers = None
+
+    class MockFlightSQLClientParallel(MockFlightSQLClient):
+        def get_table_info(
+            self, table_name: str, *_args: Any, **_kwargs: Any
+        ) -> dict[str, Any]:
+            call_order.append(table_name)
+            return super().get_table_info(table_name, *_args, **_kwargs)
+
+    # Create a wrapper that captures max_workers but uses real ThreadPoolExecutor
+    original_executor = RealThreadPoolExecutor
+
+    def executor_wrapper(*args: Any, **kwargs: Any) -> RealThreadPoolExecutor:
+        nonlocal executor_max_workers
+        executor_max_workers = kwargs.get("max_workers")
+        return original_executor(*args, **kwargs)
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ),
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClientParallel(),
+        ),
+        patch(
+            "langchain_ibm.utilities.sql_database.ThreadPoolExecutor",
+            side_effect=executor_wrapper,
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        # Create database with max_workers
+        wx_sql_database = WatsonxSQLDatabase(
+            connection_id=CONNECTION_ID, schema=schema, max_workers=max_workers
+        )
+
+        # Verify ThreadPoolExecutor was called with max_workers=2
+        assert executor_max_workers == max_workers
+
+        # Verify both tables were fetched
+        assert "table1" in call_order
+        assert "table2" in call_order
+        assert wx_sql_database._meta_all_tables is not None
+        assert len(wx_sql_database._meta_all_tables) == 2
+
+
+@pytest.mark.parametrize("max_workers", [1, None, 4])
+def test_parallel_fetching_sample_rows(
+    schema: str,
+    monkeypatch: pytest.MonkeyPatch,
+    max_workers: int | None,
+) -> None:
+    """Test that sample rows are fetched in parallel using ThreadPoolExecutor."""
+
+    mock_api_client = Mock()
+    mock_api_client.default_project_id = PROJECT_ID
+
+    # Track calls to get_n_first_rows
+    sample_rows_calls = []
+    executor_calls = []
+
+    class MockFlightSQLClientParallelRows(MockFlightSQLClient):
+        def get_n_first_rows(self, *_args: Any, **kwargs: Any) -> pd.DataFrame:
+            sample_rows_calls.append(kwargs.get("table_name"))
+            return super().get_n_first_rows(*_args, **kwargs)
+
+    # Create a wrapper that captures max_workers but uses real ThreadPoolExecutor
+    original_executor = RealThreadPoolExecutor
+
+    def executor_wrapper(*args: Any, **kwargs: Any) -> RealThreadPoolExecutor:
+        executor_calls.append(kwargs.get("max_workers"))
+        return original_executor(*args, **kwargs)
+
+    with (
+        mock.patch.dict(os.environ, clear=True),
+        patch(
+            "langchain_ibm.utilities.sql_database.APIClient",
+            autospec=True,
+            return_value=mock_api_client,
+        ),
+        patch(
+            "langchain_ibm.utilities.sql_database.FlightSQLClient",
+            autospec=True,
+            return_value=MockFlightSQLClientParallelRows(),
+        ),
+        patch(
+            "langchain_ibm.utilities.sql_database.ThreadPoolExecutor",
+            side_effect=executor_wrapper,
+        ),
+    ):
+        envvars = {
+            "WATSONX_APIKEY": "test_apikey",
+            "WATSONX_URL": "https://us-south.ml.cloud.ibm.com",
+        }
+        for k, v in envvars.items():
+            monkeypatch.setenv(k, v)
+
+        # Create database with max_workers
+        wx_sql_database = WatsonxSQLDatabase(
+            connection_id=CONNECTION_ID, schema=schema, max_workers=max_workers
+        )
+
+        # Clear tracking for get_table_info call
+        executor_calls.clear()
+        sample_rows_calls.clear()
+
+        # Call get_table_info which should fetch sample rows in parallel
+        wx_sql_database.get_table_info(["table1", "table2"])
+
+        # Verify ThreadPoolExecutor was called with max_workers for sample rows
+        assert max_workers in executor_calls
+
+        # Verify sample rows were fetched for both tables
+        assert "table1" in sample_rows_calls
+        assert "table2" in sample_rows_calls

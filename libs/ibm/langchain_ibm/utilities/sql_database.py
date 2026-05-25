@@ -2,6 +2,7 @@
 
 import urllib.parse
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 
 try:
@@ -194,6 +195,7 @@ class WatsonxSQLDatabase:
         include_tables: list of tables that should be included
         sample_rows_in_table_info: number of first rows to be added to the table info
         max_string_length: max length of string
+        max_workers: max number of threads. None will base it on the number of CPUs
 
 
     ???+ info "Setup"
@@ -253,6 +255,7 @@ class WatsonxSQLDatabase:
         include_tables: list[str] | None = None,
         sample_rows_in_table_info: int = 3,
         max_string_length: int = 300,
+        max_workers: int | None = 1,
     ) -> None:
         """WatsonxSQLDatabase class."""
         if include_tables and ignore_tables:
@@ -265,6 +268,7 @@ class WatsonxSQLDatabase:
         self._sample_rows_in_table_info = sample_rows_in_table_info
 
         self._max_string_length = max_string_length
+        self._max_workers = max_workers
 
         if watsonx_client is None:
             url = url or _from_env("WATSONX_URL")
@@ -395,17 +399,35 @@ class WatsonxSQLDatabase:
                     error_msg = f"ignore_tables {missing_tables} not found in database"
                     raise ValueError(error_msg)
 
-            self._meta_all_tables = {
-                table_name: flight_sql_client.get_table_info(
-                    table_name=table_name,
-                    schema=self.schema,
-                    extended_metadata=True,
-                    interaction_properties=True,
-                )
+            tables_to_fetch = {
+                table_name
                 for table_name in self._all_tables
                 if table_name in (self._include_tables or self._all_tables)
                 and table_name not in (self._ignore_tables or {})
             }
+
+            def fetch_table_metadata(table_name: str) -> tuple[str, dict[str, Any]]:
+                """Fetch metadata for a single table."""
+                return (
+                    table_name,
+                    flight_sql_client.get_table_info(
+                        table_name=table_name,
+                        schema=self.schema,
+                        extended_metadata=True,
+                        interaction_properties=True,
+                    ),
+                )
+
+            self._meta_all_tables = {}
+            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                future_to_table = {
+                    executor.submit(fetch_table_metadata, table_name): table_name
+                    for table_name in tables_to_fetch
+                }
+
+                for future in as_completed(future_to_table):
+                    table_name, metadata = future.result()
+                    self._meta_all_tables[table_name] = metadata
 
     def get_usable_table_names(self) -> Iterable[str]:
         """Get names of tables available."""
@@ -491,7 +513,8 @@ class WatsonxSQLDatabase:
             if table_names is None:
                 table_names = self._all_tables
 
-            def convert_rows(table_name: str) -> str:
+            def fetch_sample_rows(table_name: str) -> tuple[str, str]:
+                """Fetch sample rows for a single table."""
                 rows = flight_sql_client.get_n_first_rows(
                     schema=self.schema,
                     table_name=table_name,
@@ -499,14 +522,27 @@ class WatsonxSQLDatabase:
                 )
                 match fmt:
                     case "ddl":
-                        return str(rows.to_string(index=False) or "")
+                        rows_str = str(rows.to_string(index=False) or "")
                     case "markdown":
-                        return str(
+                        rows_str = str(
                             rows.to_markdown(index=False, tablefmt="github") or ""
                         )
+                    case _:
+                        err_msg = f"Format '{fmt}' is not supported"  # type: ignore[unreachable]
+                        raise ValueError(err_msg)
 
-                err_msg = f"Format '{fmt}' is not supported"  # type: ignore[unreachable]
-                raise ValueError(err_msg)
+                return table_name, rows_str
+
+            table_rows = {}
+            with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                future_to_table = {
+                    executor.submit(fetch_sample_rows, table_name): table_name
+                    for table_name in table_names
+                }
+
+                for future in as_completed(future_to_table):
+                    table_name, rows_str = future.result()
+                    table_rows[table_name] = rows_str
 
             return "\n\n".join(
                 [
@@ -519,7 +555,7 @@ class WatsonxSQLDatabase:
                         ),
                         rows_number=self._sample_rows_in_table_info,
                         table_name=table_name,
-                        rows=convert_rows(table_name=table_name),
+                        rows=table_rows[table_name],
                     )
                     for table_name in table_names
                 ],
