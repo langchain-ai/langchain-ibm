@@ -17,7 +17,7 @@ from langchain_ibm import WatsonxLLM
 
 WX_APIKEY = os.environ.get("WATSONX_APIKEY", "")
 WX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
-MODEL_ID = "ibm/granite-3-3-8b-instruct"
+MODEL_ID = "meta-llama/llama-3-3-70b-instruct"
 
 
 def test_watsonxllm_invoke() -> None:
