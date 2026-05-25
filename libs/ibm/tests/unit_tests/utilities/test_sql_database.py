@@ -57,6 +57,73 @@ def table_info() -> dict:
 
 
 @pytest.fixture
+def table_info_with_column_descriptions() -> dict[str, Any]:
+    return {
+        "fields": [
+            {
+                "name": "id",
+                "type": {"native_type": "INT", "nullable": False},
+                "description": "Primary identifier",
+            },
+            {
+                "name": "user_id",
+                "type": {"native_type": "INT", "nullable": False},
+                "description": "Foreign key to users table",
+            },
+            {
+                "name": "name",
+                "type": {"native_type": "VARCHAR(255)", "nullable": True},
+                "description": "User's full name",
+            },
+            {
+                "name": "age",
+                "type": {"native_type": "INT", "nullable": True},
+                "description": "User's age in years",
+            },
+        ],
+        "extended_metadata": [
+            {"name": "primary_key", "value": {"key_columns": ["id"]}},
+        ],
+    }
+
+
+@pytest.fixture
+def table_info_with_table_description() -> dict[str, Any]:
+    return {
+        "fields": [
+            {"name": "id", "type": {"native_type": "INT", "nullable": False}},
+            {"name": "name", "type": {"native_type": "VARCHAR(255)", "nullable": True}},
+        ],
+        "extended_metadata": [
+            {"name": "primary_key", "value": {"key_columns": ["id"]}},
+        ],
+        "description": "User information table",
+    }
+
+
+@pytest.fixture
+def table_info_with_all_descriptions() -> dict[str, Any]:
+    return {
+        "fields": [
+            {
+                "name": "id",
+                "type": {"native_type": "INT", "nullable": False},
+                "description": "Primary identifier",
+            },
+            {
+                "name": "name",
+                "type": {"native_type": "VARCHAR(255)", "nullable": True},
+                "description": "User's full name",
+            },
+        ],
+        "extended_metadata": [
+            {"name": "primary_key", "value": {"key_columns": ["id"]}},
+        ],
+        "description": "User information table",
+    }
+
+
+@pytest.fixture
 def clear_env() -> Generator[None, None, None]:
     with mock.patch.dict(os.environ, clear=True):
         yield
@@ -177,6 +244,111 @@ def test_pretty_print_table_info_wrong_format(
         pretty_print_table_info(schema, table_name, table_info, fmt)  # type: ignore[arg-type]
 
 
+def test_pretty_print_table_info_with_column_descriptions_ddl(
+    schema: str, table_name: str, table_info_with_column_descriptions: dict[str, Any]
+) -> None:
+    expected_output = """
+CREATE TABLE "test_schema"."test_table" (
+\t"id" INT NOT NULL, -- Primary identifier
+\t"user_id" INT NOT NULL, -- Foreign key to users table
+\t"name" VARCHAR(255), -- User's full name
+\t"age" INT, -- User's age in years
+\tCONSTRAINT primary_key PRIMARY KEY (id)
+\t)"""
+    assert (
+        pretty_print_table_info(schema, table_name, table_info_with_column_descriptions)
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_column_descriptions_markdown(
+    schema: str, table_name: str, table_info_with_column_descriptions: dict[str, Any]
+) -> None:
+    expected_output = """
+## TABLE: test_schema.test_table
+- id (INT): Primary identifier
+- user_id (INT): Foreign key to users table
+- name (VARCHAR(255)): User's full name
+- age (INT): User's age in years
+
+### Keys
+- PK (id)"""
+    assert (
+        pretty_print_table_info(
+            schema, table_name, table_info_with_column_descriptions, "markdown"
+        )
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_table_description_ddl(
+    schema: str, table_name: str, table_info_with_table_description: dict[str, Any]
+) -> None:
+    expected_output = """
+CREATE TABLE "test_schema"."test_table" ( -- User information table
+\t"id" INT NOT NULL,
+\t"name" VARCHAR(255),
+\tCONSTRAINT primary_key PRIMARY KEY (id)
+\t)"""
+    assert (
+        pretty_print_table_info(schema, table_name, table_info_with_table_description)
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_table_description_markdown(
+    schema: str, table_name: str, table_info_with_table_description: dict[str, Any]
+) -> None:
+    expected_output = """
+## TABLE: test_schema.test_table
+> User information table
+- id (INT)
+- name (VARCHAR(255))
+
+### Keys
+- PK (id)"""
+    assert (
+        pretty_print_table_info(
+            schema, table_name, table_info_with_table_description, "markdown"
+        )
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_all_descriptions_ddl(
+    schema: str, table_name: str, table_info_with_all_descriptions: dict[str, Any]
+) -> None:
+    expected_output = """
+CREATE TABLE "test_schema"."test_table" ( -- User information table
+\t"id" INT NOT NULL, -- Primary identifier
+\t"name" VARCHAR(255), -- User's full name
+\tCONSTRAINT primary_key PRIMARY KEY (id)
+\t)"""
+    assert (
+        pretty_print_table_info(schema, table_name, table_info_with_all_descriptions)
+        == expected_output
+    )
+
+
+def test_pretty_print_table_info_with_all_descriptions_markdown(
+    schema: str, table_name: str, table_info_with_all_descriptions: dict[str, Any]
+) -> None:
+    expected_output = """
+## TABLE: test_schema.test_table
+> User information table
+- id (INT): Primary identifier
+- name (VARCHAR(255)): User's full name
+
+### Keys
+- PK (id)"""
+    assert (
+        pretty_print_table_info(
+            schema, table_name, table_info_with_all_descriptions, "markdown"
+        )
+        == expected_output
+    )
+
+
 def test_pretty_print_table_info_markdown(
     schema: str, table_name: str, table_info: dict[str, Any]
 ) -> None:
@@ -256,6 +428,70 @@ def test_pretty_print_table_info_without_primary_key(
                 "type": {"native_type": "VARCHAR(255)", "nullable": True},
             },
         ]
+    }
+    assert (
+        pretty_print_table_info(schema, table_name, table_info, fmt) == expected_output
+    )
+
+
+@pytest.mark.parametrize(
+    ("fmt", "expected_output"),
+    [
+        (
+            "ddl",
+            """
+CREATE TABLE "fk_schema"."fk_table" (
+\t"order_id" INT NOT NULL,
+\t"user_id" INT NOT NULL,
+\t"product_id" INT,
+\tCONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id),
+\tCONSTRAINT fk_product FOREIGN KEY (product_id) REFERENCES products(id)
+\t)""",
+        ),
+        (
+            "markdown",
+            """
+## TABLE: fk_schema.fk_table
+- order_id (INT)
+- user_id (INT)
+- product_id (INT)
+
+### Keys
+- FK (user_id) -> users.id
+- FK (product_id) -> products.id""",
+        ),
+    ],
+)
+def test_pretty_print_table_info_with_foreign_key_without_primary_key(
+    fmt: MetaDataFormat, expected_output: str
+) -> None:
+    schema = "fk_schema"
+    table_name = "fk_table"
+    table_info = {
+        "fields": [
+            {"name": "order_id", "type": {"native_type": "INT", "nullable": False}},
+            {"name": "user_id", "type": {"native_type": "INT", "nullable": False}},
+            {"name": "product_id", "type": {"native_type": "INT", "nullable": True}},
+        ],
+        "extended_metadata": [
+            {
+                "name": "foreign_keys",
+                "value": [
+                    {
+                        "name": "fk_user",
+                        "join_condition": (
+                            "fk_schema.fk_table.user_id = fk_schema.users.id"
+                        ),
+                    },
+                    {
+                        "name": "fk_product",
+                        "join_condition": (
+                            "fk_schema.fk_table.product_id = fk_schema.products.id"
+                        ),
+                    },
+                ],
+            },
+        ],
     }
     assert (
         pretty_print_table_info(schema, table_name, table_info, fmt) == expected_output

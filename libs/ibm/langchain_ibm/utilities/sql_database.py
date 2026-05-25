@@ -62,10 +62,10 @@ def pretty_print_table_info(
     templates: dict[str, Any] = {
         "ddl": {
             "table": """
-CREATE TABLE "{schema}"."{table_name}" (
+CREATE TABLE "{schema}"."{table_name}" ({table_comment}
 \t{column_definitions}{primary_key}{foreign_keys}
 \t)""",
-            "column": '"{name}" {native_type}{nullable}',
+            "column": '"{name}" {native_type}{nullable}{sep}{column_comment}',
             "sep": ",",
             "new_line": "\n\t",
             "pk": "CONSTRAINT {pk_name} PRIMARY KEY ({key_columns})",
@@ -77,9 +77,9 @@ CREATE TABLE "{schema}"."{table_name}" (
         },
         "markdown": {
             "table": """
-## TABLE: {schema}.{table_name}
+## TABLE: {schema}.{table_name}{table_comment}
 {column_definitions}{keys_prefix}{primary_key}{foreign_keys}""",
-            "column": "- {name} ({native_type})",
+            "column": "- {name} ({native_type}){column_comment}{sep}",
             "sep": "",
             "new_line": "\n",
             "pk": "- PK ({key_columns})",
@@ -97,15 +97,32 @@ CREATE TABLE "{schema}"."{table_name}" (
         )
         raise ValueError(err_msg)
 
-    def convert_column_data(field_metadata: dict) -> str:
+    def convert_column_data(
+        field_metadata: dict[str, Any],
+        fmt: MetaDataFormat = "ddl",
+        sep: str | None = None,
+    ) -> str:
         name = field_metadata.get("name")
 
         field_metadata_type = field_metadata.get("type", {})
         native_type = field_metadata_type.get("native_type")
         nullable = "" if field_metadata_type.get("nullable") else " NOT NULL"
+        description = field_metadata.get("description")
+        column_comment = (
+            ""
+            if not description
+            else {
+                "ddl": f" -- {description}",
+                "markdown": f": {description}",
+            }.get(fmt)
+        )
 
         return template["column"].format(
-            name=name, native_type=native_type, nullable=nullable
+            name=name,
+            native_type=native_type,
+            nullable=nullable,
+            column_comment=column_comment,
+            sep=sep or "",
         )
 
     extended_metadata = table_info.get("extended_metadata", [{}])
@@ -123,22 +140,19 @@ CREATE TABLE "{schema}"."{table_name}" (
     primary_key: dict = _retrieve_field_data("primary_key")
     if primary_key:
         key_columns = ", ".join(primary_key.get("value", {}).get("key_columns", []))
-        primary_key_text = (
-            template["sep"]
-            + template["new_line"]
-            + template["pk"].format(
-                pk_name=primary_key["name"], key_columns=key_columns
-            )
+        primary_key_text = template["new_line"] + template["pk"].format(
+            pk_name=primary_key["name"], key_columns=key_columns
         )
     else:
         primary_key_text = ""
 
     # Foreign keys
     foreign_keys: dict = _retrieve_field_data("foreign_keys")
+    foreign_keys_text = ""
     if foreign_keys:
-        foreign_keys_text = ""
-        for foreign_key in foreign_keys.get("value", []):
-            foreign_keys_text += template["sep"] + template["new_line"]
+        foreign_keys_values = foreign_keys.get("value", [])
+        for index, foreign_key in enumerate(foreign_keys_values):
+            foreign_keys_text += template["new_line"]
             join_condition = foreign_key["join_condition"].split("=")
             foreign_keys_text += template["fk"].format(
                 fk_name=foreign_key["name"],
@@ -146,8 +160,22 @@ CREATE TABLE "{schema}"."{table_name}" (
                 external_table_name=join_condition[1].strip().split(".")[1],
                 external_col_name=join_condition[1].strip().split(".")[2],
             )
-    else:
-        foreign_keys_text = ""
+            foreign_keys_text += (
+                template["sep"] if index < len(foreign_keys_values) - 1 else ""
+            )
+
+    if primary_key_text and foreign_keys_text:
+        primary_key_text += template["sep"]
+
+    description = table_info.get("description")
+    table_comment = (
+        ""
+        if not description
+        else {
+            "ddl": f" -- {description}",
+            "markdown": f"\n> {description}",
+        }.get(fmt)
+    )
 
     return template["table"].format(
         schema=schema,
@@ -156,10 +184,18 @@ CREATE TABLE "{schema}"."{table_name}" (
             [
                 # Do not add separator for the last column
                 (
-                    convert_column_data(field_metadata=field_metadata)
-                    + template["sep"]  # separator
-                    if index < len(table_info["fields"])
-                    else convert_column_data(field_metadata=field_metadata)
+                    convert_column_data(
+                        field_metadata=field_metadata,
+                        fmt=fmt,
+                        sep=(
+                            template["sep"]
+                            if index < len(table_info["fields"])
+                            or bool(
+                                primary_key_text or foreign_keys_text
+                            )  # if there are keys add the last separator
+                            else None
+                        ),
+                    )
                 )
                 for index, field_metadata in enumerate(table_info["fields"], start=1)
             ],
@@ -169,6 +205,7 @@ CREATE TABLE "{schema}"."{table_name}" (
         ),
         primary_key=primary_key_text,
         foreign_keys=foreign_keys_text,
+        table_comment=table_comment,
     )
 
 
@@ -383,6 +420,11 @@ class WatsonxSQLDatabase:
             if _tables is not None:
                 self._all_tables = {
                     table.get("name") for table in _tables if table.get("name")
+                }
+                _table_descriptions = {
+                    table.get("name"): table.get("description")
+                    for table in _tables
+                    if table.get("name")
                 }
             else:
                 error_msg = f"No tables found in the schema: {schema}"
