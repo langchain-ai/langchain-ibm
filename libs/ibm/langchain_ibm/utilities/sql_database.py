@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 
 try:
-    from pyarrow import flight  # type: ignore[import-untyped]
+    from pyarrow import flight
 except ModuleNotFoundError as e:
     error_msg = (
         "To use WatsonxSQLDatabase one need to install langchain-ibm with extras "
