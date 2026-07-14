@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 
 try:
-    from pyarrow import flight
+    from pyarrow import flight  # type: ignore[import-untyped]
 except ModuleNotFoundError as e:
     error_msg = (
         "To use WatsonxSQLDatabase one need to install langchain-ibm with extras "
@@ -562,7 +562,7 @@ class WatsonxSQLDatabase:
                 command,
                 include_columns=include_columns,
             )
-        except flight.FlightError as e:  # type: ignore[attr-defined]
+        except flight.FlightError as e:
             """Format the error message"""
             return f"Error: {e}"
 
@@ -650,7 +650,7 @@ class WatsonxSQLDatabase:
         """Get information about specified tables."""
         try:
             return self.get_table_info(table_names=table_names)
-        except (flight.FlightError, ValueError) as e:  # type: ignore[attr-defined]
+        except (flight.FlightError, ValueError) as e:
             """Format the error message"""
             return f"Error: {e}"
 
