@@ -62,7 +62,7 @@ security = [
     "vcrpy>=8.2.1",
     "urllib3>=2.7.0",
     "aiohttp>=3.13.4",
-    "pillow>=12.2.0",
+    "pillow>=12.3.0",
     "requests>=2.33.0",
 ]
 
@@ -75,7 +75,7 @@ security = [
 constraint-dependencies = [
     "urllib3>=2.7.0",
     "aiohttp>=3.13.4",
-    "pillow>=12.2.0",
+    "pillow>=12.3.0",
     "requests>=2.33.0",
     "torch>=2.8.0",
 ]
