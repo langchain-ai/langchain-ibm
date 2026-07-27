@@ -27,7 +27,7 @@ repository = "https://github.com/langchain-ai/langchain-ibm"
 
 [dependency-groups]
 lint = [
-    "ruff>=0.13.1,<0.16.0",
+    "ruff>=0.13.1,<0.17.0",
     "pyarrow>=23.0.1",
 ]
 typing = [
