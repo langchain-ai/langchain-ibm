@@ -23,10 +23,26 @@ def ibm_db_dbi_connection() -> Generator[ibm_db_dbi.Connection, None, None]:
     db2_user = os.environ.get("DB2_USER", "")
     db2_password = os.environ.get("DB2_PASSWORD", "")
 
+    # DB2_SSL controls whether SSL is appended to the DSN.
+    # Set DB2_SSL=true in .env for cloud/SSL instances; omit or set to anything
+    # else for plain-TCP servers (e.g. on-prem Fyre boxes).
+    db2_ssl = os.environ.get("DB2_SSL", "false").strip().lower() == "true"
+
+    # DB2_SSL_CERT is the local filesystem path to the server's SSL certificate
+    # (the .arm or .pem file downloaded from the IBM Cloud / Db2 console).
+    # Only used when DB2_SSL=true. Leave blank if the cert is already trusted
+    # by the system truststore.
+    db2_ssl_cert = os.environ.get("DB2_SSL_CERT", "").strip()
+
     dsn = (
-        f"DATABASE={db2_name};hostname={db2_host};port={db2_port};uid={db2_user};pwd={db2_password};"
-        f"SECURITY=SSL;"
+        f"DATABASE={db2_name};hostname={db2_host};port={db2_port};"
+        f"uid={db2_user};pwd={db2_password};"
     )
+    if db2_ssl:
+        dsn += "SECURITY=SSL;"
+        if db2_ssl_cert:
+            dsn += f"SSLServerCertificate={db2_ssl_cert};"
+
     db2_connect_user = os.environ.get("DB2_CONNECT_USER", "")
     db2_connect_password = os.environ.get("DB2_CONNECT_PASSWORD", "")
 
