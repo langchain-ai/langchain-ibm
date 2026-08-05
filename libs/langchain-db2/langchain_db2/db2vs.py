@@ -111,12 +111,15 @@ def _create_table(
     table_name: str,
     embedding_dim: int,
     text_field: str = "text",
+    id_field: str = "id",
+    metadata_field: str = "metadata",
+    embedding_field: str = "embedding",
 ) -> None:
     cols_dict = {
-        "id": "CHAR(16) PRIMARY KEY NOT NULL",
+        id_field: "CHAR(16) PRIMARY KEY NOT NULL",
         text_field: "CLOB",
-        "metadata": "BLOB",
-        "embedding": f"vector({embedding_dim}, FLOAT32)",
+        metadata_field: "BLOB",
+        embedding_field: f"vector({embedding_dim}, FLOAT32)",
     }
 
     if not _table_exists(client, table_name):
@@ -173,6 +176,45 @@ def drop_table(client: Connection, table_name: str) -> None:
     else:
         info_msg = f"Table {table_name} not found..."
         logger.info(info_msg)
+
+
+@_handle_exceptions
+def drop_index(client: Connection, index_name: str) -> None:
+    """Drop a vector index from the database if it exists.
+
+    Args:
+        client: The `ibm_db_dbi` connection object
+        index_name: The name of the index to drop
+
+    Raises:
+        RuntimeError: If an error occurs while dropping the index
+
+    ??? example "Example"
+
+        ```python
+        from langchain_db2.db2vs import drop_index
+
+        drop_index(
+            client=db_client,  # ibm_db_dbi.Connection
+            index_name="HNSW_IDX1",
+        )
+        ```
+
+    """
+    cursor = client.cursor()
+    try:
+        cursor.execute(f"DROP INDEX {index_name}")
+        cursor.execute("COMMIT")
+        info_msg = f"Index {index_name} dropped successfully..."
+        logger.info(info_msg)
+    except Exception as ex:
+        if "SQL0204N" in str(ex):
+            info_msg = f"Index {index_name} not found..."
+            logger.info(info_msg)
+        else:
+            raise
+    finally:
+        cursor.close()
 
 
 @_handle_exceptions
@@ -290,6 +332,9 @@ class DB2VS(VectorStore):
         params: dict[str, Any] | None = None,
         connection_args: dict[str, Any] | None = None,
         text_field: str = "text",
+        id_field: str = "id",
+        metadata_field: str = "metadata",
+        embedding_field: str = "embedding",
     ):
         """`DB2VS` vector store."""
         if client is None:
@@ -308,6 +353,11 @@ class DB2VS(VectorStore):
                 if "security" in connection_args:
                     security = connection_args.get("security")
                     conn_str += f"security={security};"
+                    # ssl_cert: path to the server certificate file (.arm/.pem).
+                    # Only appended when security is also enabled.
+                    ssl_cert = connection_args.get("ssl_cert", "")
+                    if ssl_cert:
+                        conn_str += f"SSLServerCertificate={ssl_cert};"
 
                 self.client = ibm_db_dbi.connect(conn_str, "", "")
             else:
@@ -332,11 +382,17 @@ class DB2VS(VectorStore):
             self.distance_strategy = distance_strategy
             self.params = params
             self._text_field = text_field
+            self._id_field = id_field
+            self._metadata_field = metadata_field
+            self._embedding_field = embedding_field
             _create_table(
                 self.client,
                 self.table_name,
                 embedding_dim,
                 text_field=self._text_field,
+                id_field=self._id_field,
+                metadata_field=self._metadata_field,
+                embedding_field=self._embedding_field,
             )
         except ibm_db_dbi.DatabaseError as db_err:
             exception_msg = f"Database error occurred while create table: {db_err}"
@@ -470,7 +526,9 @@ class DB2VS(VectorStore):
         if not metadatas:
             metadatas = [{} for _ in texts]
 
-        embedding_len = self.get_embedding_dimension()
+        # Derive dimension directly from the already-computed embeddings — no
+        # second round-trip to the embedding model.
+        embedding_len = len(embeddings[0]) if embeddings else self.get_embedding_dimension()
         docs: list[tuple[Any, Any, Any, Any]]
         docs = [
             (id_, f"{embedding}", json.dumps(metadata), text)
@@ -485,7 +543,8 @@ class DB2VS(VectorStore):
 
         sql_insert = (
             f"INSERT INTO "  # noqa: S608
-            f"{self.table_name} (id, embedding, metadata, {self._text_field}) "
+            f"{self.table_name} ({self._id_field}, {self._embedding_field}, "
+            f"{self._metadata_field}, {self._text_field}) "
             f"VALUES (?, VECTOR(cast(? as CLOB(100000)), {embedding_len}, FLOAT32), "
             f"SYSTOOLS.JSON2BSON(?), ?)"
         )
@@ -516,8 +575,7 @@ class DB2VS(VectorStore):
         Returns:
             Documents most similar to a query
         """
-        if isinstance(self.embedding_function, EmbeddingsSchema):
-            embedding = self.embedding_function.embed_query(query)
+        embedding = self._embed_query(query)
         return self.similarity_search_by_vector(
             embedding=embedding,
             k=k,
@@ -571,8 +629,7 @@ class DB2VS(VectorStore):
                 The score is the vector **distance**; lower values indicate
                 closer matches.
         """
-        if isinstance(self.embedding_function, EmbeddingsSchema):
-            embedding = self.embedding_function.embed_query(query)
+        embedding = self._embed_query(query)
         return self.similarity_search_by_vector_with_relevance_scores(
             embedding=embedding,
             k=k,
@@ -601,11 +658,11 @@ class DB2VS(VectorStore):
         docs_and_scores = []
         embedding_len = self.get_embedding_dimension()
 
-        query = f"""
-        SELECT id,
+        sql = f"""
+        SELECT {self._id_field},
           {self._text_field},
-          SYSTOOLS.BSON2JSON(metadata),
-          vector_distance(embedding, VECTOR('{embedding}', {embedding_len}, FLOAT32),
+          SYSTOOLS.BSON2JSON({self._metadata_field}),
+          vector_distance({self._embedding_field}, VECTOR('{embedding}', {embedding_len}, FLOAT32),
           {_get_distance_function(self.distance_strategy)}) as distance
         FROM {self.table_name}
         ORDER BY distance
@@ -617,16 +674,21 @@ class DB2VS(VectorStore):
         # Execute the query
         cursor = self.client.cursor()
         try:
-            cursor.execute(query)
+            cursor.execute(sql)
             results = cursor.fetchall()
 
-            # Filter results if filter is provided
+            # Filter results if filter is provided.
+            # filter values must be lists, e.g. {"source": ["wiki", "news"]}.
             for result in results:
                 metadata = json.loads(result[2] if result[2] is not None else "{}")
 
                 # Apply filtering based on the 'filter' dictionary
                 if filter:
-                    if all(metadata.get(key) in value for key, value in filter.items()):
+                    if all(
+                        metadata.get(key) in value
+                        for key, value in filter.items()
+                        if isinstance(value, list)
+                    ):
                         doc = Document(
                             page_content=(result[1] if result[1] is not None else ""),
                             metadata=metadata,
@@ -665,13 +727,13 @@ class DB2VS(VectorStore):
         documents = []
         embedding_len = self.get_embedding_dimension()
 
-        query = f"""
-        SELECT id,
+        sql = f"""
+        SELECT {self._id_field},
           {self._text_field},
-          SYSTOOLS.BSON2JSON(metadata),
-          vector_distance(embedding, VECTOR('{embedding}', {embedding_len}, FLOAT32),
+          SYSTOOLS.BSON2JSON({self._metadata_field}),
+          vector_distance({self._embedding_field}, VECTOR('{embedding}', {embedding_len}, FLOAT32),
           {_get_distance_function(self.distance_strategy)}) as distance,
-          embedding
+          {self._embedding_field}
         FROM {self.table_name}
         ORDER BY distance
         FETCH FIRST {k} ROWS ONLY
@@ -682,32 +744,35 @@ class DB2VS(VectorStore):
         # Execute the query
         cursor = self.client.cursor()
         try:
-            cursor.execute(query)
+            cursor.execute(sql)
             results = cursor.fetchall()
 
             for result in results:
+                # Skip rows whose embedding column is NULL — passing a zero-
+                # length array into maximal_marginal_relevance causes a NumPy
+                # shape mismatch crash.
+                if result[4] is None:
+                    continue
+
                 page_content_str = result[1] if result[1] is not None else ""
                 metadata = json.loads(result[2] if result[2] is not None else "{}")
 
                 # Apply filter if provided and matches; otherwise, add all
-                # documents
+                # documents.
+                # filter values must be lists, e.g. {"source": ["wiki"]}.
                 if not filter or all(
-                    metadata.get(key) in value for key, value in filter.items()
+                    metadata.get(key) in value
+                    for key, value in filter.items()
+                    if isinstance(value, list)
                 ):
                     document = Document(
                         page_content=page_content_str,
                         metadata=metadata,
                     )
                     distance = result[3]
-
-                    # Assuming result[4] is already in the correct format;
-                    # adjust if necessary
-                    current_embedding = (
-                        np.array(json.loads(result[4]), dtype=np.float32)
-                        if result[4]
-                        else np.empty(0, dtype=np.float32)
+                    current_embedding = np.array(
+                        json.loads(result[4]), dtype=np.float32
                     )
-
                     documents.append((document, distance, current_embedding))
         finally:
             cursor.close()
@@ -878,7 +943,7 @@ class DB2VS(VectorStore):
         # Constructing the SQL statement with individual placeholders
         placeholders = ", ".join("?" for _ in hashed_ids)
 
-        ddl = f"DELETE FROM {self.table_name} WHERE id IN ({placeholders})"  # noqa: S608
+        ddl = f"DELETE FROM {self.table_name} WHERE {self._id_field} IN ({placeholders})"  # noqa: S608
         cursor = self.client.cursor()
         try:
             cursor.execute(ddl, hashed_ids)
@@ -914,10 +979,14 @@ class DB2VS(VectorStore):
 
         table_name = str(kwargs.get("table_name", "langchain"))
 
-        distance_strategy = cast("DistanceStrategy", kwargs.get("distance_strategy"))
+        # Default to EUCLIDEAN_DISTANCE when not supplied, matching __init__.
+        # Previously this raised TypeError for any caller that omitted the arg.
+        distance_strategy = kwargs.get(
+            "distance_strategy", DistanceStrategy.EUCLIDEAN_DISTANCE
+        )
         if not isinstance(distance_strategy, DistanceStrategy):
-            error_msg = (  # type: ignore[unreachable]
-                f"Expected DistanceStrategy got {type(distance_strategy).__name__} "
+            error_msg = (
+                f"Expected DistanceStrategy, got {type(distance_strategy).__name__}"
             )
             raise TypeError(error_msg)
 
@@ -948,7 +1017,7 @@ class DB2VS(VectorStore):
         Returns:
             List of matching primary-key values.
         """
-        sql = f"SELECT id FROM {self.table_name}"  # noqa: S608
+        sql = f"SELECT {self._id_field} FROM {self.table_name}"  # noqa: S608
 
         if expr:
             sql += f" WHERE {expr}"
@@ -961,3 +1030,121 @@ class DB2VS(VectorStore):
             cursor.close()
 
         return [row[0] for row in rows]
+
+    @_handle_exceptions
+    def create_index(
+        self,
+        index_name: str,
+        index_type: str = "HNSW",
+        accuracy: int | None = None,
+        parallel: int | None = None,
+        neighbors: int | None = None,
+        ef_construction: int | None = None,
+    ) -> None:
+        """Create a vector index on the embedding column for ANN search.
+
+        Only ``HNSW`` (Hierarchical Navigable Small World) indexes are
+        supported by Db2 AI Vector Search at this time.  The index uses the
+        distance function that was chosen when this ``DB2VS`` instance was
+        created (``distance_strategy``).
+
+        Args:
+            index_name: Name for the new index (e.g. ``"HNSW_IDX1"``).
+            index_type: Index algorithm.  Currently only ``"HNSW"`` is
+                supported.  Defaults to ``"HNSW"``.
+            accuracy: Target accuracy specification (integer 1-100).
+                Mutually exclusive with ``neighbors`` / ``ef_construction``.
+                If omitted, Db2 uses its default accuracy.
+            parallel: Number of parallel workers to use during index build.
+                If omitted, Db2 uses its default (8).
+            neighbors: HNSW power-user parameter ``NEIGHBORS``.  Controls the
+                maximum number of bi-directional links per node.  Must be
+                provided together with ``ef_construction`` when used.
+            ef_construction: HNSW power-user parameter ``EFCONSTRUCTION``.
+                Controls the size of the dynamic candidate list during index
+                construction.  Must be provided together with ``neighbors``
+                when used.
+
+        Raises:
+            ValueError: If ``index_type`` is not ``"HNSW"``, or if
+                ``accuracy`` is combined with
+                ``neighbors``/``ef_construction``, or if only one of
+                ``neighbors``/``ef_construction`` is given.
+            RuntimeError: If a DB2 error occurs while creating the index.
+
+        ??? example "Example - default HNSW index"
+
+            ```python
+            db2vs.create_index("HNSW_IDX1")
+            ```
+
+        ??? example "Example - with target accuracy and parallel workers"
+
+            ```python
+            db2vs.create_index(
+                "HNSW_IDX2",
+                accuracy=97,
+                parallel=16,
+            )
+            ```
+
+        ??? example "Example - with HNSW power-user parameters"
+
+            ```python
+            db2vs.create_index(
+                "HNSW_IDX3",
+                neighbors=64,
+                ef_construction=100,
+            )
+            ```
+
+        """
+        if index_type.upper() != "HNSW":
+            error_msg = (
+                f"Unsupported index type '{index_type}'. Only 'HNSW' is supported."
+            )
+            raise ValueError(error_msg)
+
+        has_accuracy = accuracy is not None
+        has_power = neighbors is not None or ef_construction is not None
+
+        if has_accuracy and has_power:
+            error_msg = (
+                "'accuracy' cannot be combined with 'neighbors' / 'ef_construction'. "
+                "Use either target accuracy or power-user parameters, not both."
+            )
+            raise ValueError(error_msg)
+
+        if (neighbors is None) != (ef_construction is None):
+            error_msg = (
+                "'neighbors' and 'ef_construction' must be specified together."
+            )
+            raise ValueError(error_msg)
+
+        distance_func = _get_distance_function(self.distance_strategy)
+        ddl = (
+            f"CREATE INDEX {index_name} ON {self.table_name} ({self._embedding_field}) "
+            f"USING {index_type.upper()} "
+            f"DISTANCE {distance_func}"
+        )
+
+        if has_accuracy:
+            ddl += f" WITH TARGET ACCURACY {accuracy}"
+
+        if parallel is not None:
+            ddl += f" PARALLEL {parallel}"
+
+        if has_power:
+            ddl += (
+                f" PARAMETERS (NEIGHBORS {neighbors}"
+                f" EFCONSTRUCTION {ef_construction})"
+            )
+
+        cursor = self.client.cursor()
+        try:
+            cursor.execute(ddl)
+            cursor.execute("COMMIT")
+            info_msg = f"Index {index_name} created successfully on {self.table_name}."
+            logger.info(info_msg)
+        finally:
+            cursor.close()
