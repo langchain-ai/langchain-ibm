@@ -19,7 +19,7 @@ def test_init() -> None:
 
 
 # ---------------------------------------------------------------------------
-# create_index - DDL generation
+# create_index - DDL generation (DiskANN, Db2 12.1)
 # ---------------------------------------------------------------------------
 
 
@@ -34,18 +34,17 @@ def _make_db2vs(
     return db2vs, client
 
 
-def test_create_index_default_hnsw() -> None:
-    """create_index with no optional params issues the minimal DDL."""
+def test_create_index_default_diskann() -> None:
+    """create_index with no optional params issues the minimal DiskANN DDL."""
     db2vs, client = _make_db2vs()
     cursor = client.cursor.return_value
 
-    db2vs.create_index("HNSW_IDX1")
+    db2vs.create_index("VIDX1")
 
     executed = cursor.execute.call_args_list
     ddl = executed[0][0][0]
-    assert "CREATE INDEX HNSW_IDX1 ON test_table (embedding)" in ddl
-    assert "USING HNSW" in ddl
-    assert "DISTANCE EUCLIDEAN" in ddl
+    assert "CREATE VECTOR INDEX VIDX1 ON test_table (embedding)" in ddl
+    assert "WITH DISTANCE EUCLIDEAN" in ddl
     # Optional clauses must NOT appear
     assert "ACCURACY" not in ddl
     assert "PARALLEL" not in ddl
@@ -56,13 +55,13 @@ def test_create_index_default_hnsw() -> None:
 
 def test_create_index_with_accuracy_and_parallel() -> None:
     """create_index with accuracy + parallel appends the correct clauses."""
-    db2vs, client = _make_db2vs(DistanceStrategy.COSINE)
+    db2vs, client = _make_db2vs(DistanceStrategy.EUCLIDEAN_DISTANCE)
     cursor = client.cursor.return_value
 
-    db2vs.create_index("HNSW_IDX2", accuracy=97, parallel=16)
+    db2vs.create_index("VIDX2", accuracy=97, parallel=16)
 
     ddl = cursor.execute.call_args_list[0][0][0]
-    assert "DISTANCE COSINE" in ddl
+    assert "WITH DISTANCE EUCLIDEAN" in ddl
     assert "WITH TARGET ACCURACY 97" in ddl
     assert "PARALLEL 16" in ddl
     assert "PARAMETERS" not in ddl
@@ -70,22 +69,29 @@ def test_create_index_with_accuracy_and_parallel() -> None:
 
 def test_create_index_with_power_user_params() -> None:
     """create_index with neighbors + ef_construction appends PARAMETERS clause."""
-    db2vs, client = _make_db2vs(DistanceStrategy.DOT_PRODUCT)
+    db2vs, client = _make_db2vs(DistanceStrategy.EUCLIDEAN_DISTANCE)
     cursor = client.cursor.return_value
 
-    db2vs.create_index("HNSW_IDX3", neighbors=64, ef_construction=100)
+    db2vs.create_index("VIDX3", neighbors=64, ef_construction=100)
 
     ddl = cursor.execute.call_args_list[0][0][0]
-    assert "DISTANCE DOT" in ddl
+    assert "WITH DISTANCE EUCLIDEAN" in ddl
     assert "PARAMETERS (NEIGHBORS 64 EFCONSTRUCTION 100)" in ddl
     assert "ACCURACY" not in ddl
 
 
-def test_create_index_invalid_type_raises() -> None:
-    """create_index raises ValueError for unsupported index types."""
-    db2vs, _ = _make_db2vs()
+def test_create_index_cosine_raises() -> None:
+    """create_index raises ValueError for COSINE (not indexable in DiskANN)."""
+    db2vs, _ = _make_db2vs(DistanceStrategy.COSINE)
     with pytest.raises((ValueError, RuntimeError)):
-        db2vs.create_index("BAD_IDX", index_type="IVF")
+        db2vs.create_index("BAD_IDX")
+
+
+def test_create_index_dot_product_raises() -> None:
+    """create_index raises ValueError for DOT_PRODUCT (not indexable in DiskANN)."""
+    db2vs, _ = _make_db2vs(DistanceStrategy.DOT_PRODUCT)
+    with pytest.raises((ValueError, RuntimeError)):
+        db2vs.create_index("BAD_IDX")
 
 
 def test_create_index_accuracy_and_power_params_raises() -> None:

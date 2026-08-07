@@ -110,6 +110,7 @@ def _create_table(
     client: Connection,
     table_name: str,
     embedding_dim: int,
+    tablespace: str | None = None,
     text_field: str = "text",
     id_field: str = "id",
     metadata_field: str = "metadata",
@@ -127,7 +128,11 @@ def _create_table(
         ddl_body = ", ".join(
             f"{col_name} {col_type}" for col_name, col_type in cols_dict.items()
         )
+        # VECTOR columns require a large-enough page-size tablespace.
+        # Append IN <tablespace> only when the caller supplies one explicitly.
         ddl = f"CREATE TABLE {table_name} ({ddl_body})"
+        if tablespace:
+            ddl += f" IN {tablespace}"
         try:
             cursor.execute(ddl)
             cursor.execute("COMMIT")
@@ -335,8 +340,18 @@ class DB2VS(VectorStore):
         id_field: str = "id",
         metadata_field: str = "metadata",
         embedding_field: str = "embedding",
+        tablespace: str | None = None,
     ):
-        """`DB2VS` vector store."""
+        """`DB2VS` vector store.
+
+        Args:
+            tablespace: Name of an existing 32 K page-size Db2 tablespace to
+                use when creating the vector table.  When ``None`` (default),
+                the library auto-discovers a tablespace the current user is
+                authorised to USE; if none is found it attempts to create
+                ``TS32K``.  Specify this explicitly when your DBA has assigned
+                a particular tablespace (e.g. ``tablespace="TS_SM4K_TC16"``).
+        """
         if client is None:
             if connection_args is not None:
                 database = connection_args.get("database")
@@ -385,10 +400,12 @@ class DB2VS(VectorStore):
             self._id_field = id_field
             self._metadata_field = metadata_field
             self._embedding_field = embedding_field
+            self._tablespace = tablespace
             _create_table(
                 self.client,
                 self.table_name,
                 embedding_dim,
+                tablespace=self._tablespace,
                 text_field=self._text_field,
                 id_field=self._id_field,
                 metadata_field=self._metadata_field,
@@ -1035,73 +1052,79 @@ class DB2VS(VectorStore):
     def create_index(
         self,
         index_name: str,
-        index_type: str = "HNSW",
         accuracy: int | None = None,
         parallel: int | None = None,
         neighbors: int | None = None,
         ef_construction: int | None = None,
     ) -> None:
-        """Create a vector index on the embedding column for ANN search.
+        """Create a DiskANN vector index on the embedding column for ANN search.
 
-        Only ``HNSW`` (Hierarchical Navigable Small World) indexes are
-        supported by Db2 AI Vector Search at this time.  The index uses the
-        distance function that was chosen when this ``DB2VS`` instance was
-        created (``distance_strategy``).
+        Db2 12.1 AI Vector Search uses the ``CREATE VECTOR INDEX`` DDL backed
+        by the DiskANN algorithm.  Only ``EUCLIDEAN`` and
+        ``EUCLIDEAN_SQUARED`` distance metrics are supported for indexing;
+        ``COSINE`` and ``DOT_PRODUCT`` work for ``VECTOR_DISTANCE`` queries
+        but cannot be used to build an index.
 
         Args:
-            index_name: Name for the new index (e.g. ``"HNSW_IDX1"``).
-            index_type: Index algorithm.  Currently only ``"HNSW"`` is
-                supported.  Defaults to ``"HNSW"``.
+            index_name: Name for the new index (e.g. ``"VIDX1"``).
             accuracy: Target accuracy specification (integer 1-100).
                 Mutually exclusive with ``neighbors`` / ``ef_construction``.
                 If omitted, Db2 uses its default accuracy.
             parallel: Number of parallel workers to use during index build.
-                If omitted, Db2 uses its default (8).
-            neighbors: HNSW power-user parameter ``NEIGHBORS``.  Controls the
-                maximum number of bi-directional links per node.  Must be
+                If omitted, Db2 uses its default.
+            neighbors: DiskANN power-user parameter ``NEIGHBORS``.  Controls
+                the maximum number of bi-directional links per node.  Must be
                 provided together with ``ef_construction`` when used.
-            ef_construction: HNSW power-user parameter ``EFCONSTRUCTION``.
+            ef_construction: DiskANN power-user parameter ``EFCONSTRUCTION``.
                 Controls the size of the dynamic candidate list during index
                 construction.  Must be provided together with ``neighbors``
                 when used.
 
         Raises:
-            ValueError: If ``index_type`` is not ``"HNSW"``, or if
+            ValueError: If ``distance_strategy`` is not ``EUCLIDEAN_DISTANCE``
+                or ``MAX_INNER_PRODUCT`` (i.e. not indexable), or if
                 ``accuracy`` is combined with
                 ``neighbors``/``ef_construction``, or if only one of
                 ``neighbors``/``ef_construction`` is given.
             RuntimeError: If a DB2 error occurs while creating the index.
 
-        ??? example "Example - default HNSW index"
+        ??? example "Example - default DiskANN index"
 
             ```python
-            db2vs.create_index("HNSW_IDX1")
+            db2vs.create_index("VIDX1")
             ```
 
         ??? example "Example - with target accuracy and parallel workers"
 
             ```python
             db2vs.create_index(
-                "HNSW_IDX2",
+                "VIDX2",
                 accuracy=97,
                 parallel=16,
             )
             ```
 
-        ??? example "Example - with HNSW power-user parameters"
+        ??? example "Example - with DiskANN power-user parameters"
 
             ```python
             db2vs.create_index(
-                "HNSW_IDX3",
+                "VIDX3",
                 neighbors=64,
                 ef_construction=100,
             )
             ```
 
         """
-        if index_type.upper() != "HNSW":
+        # DiskANN only supports EUCLIDEAN / EUCLIDEAN_SQUARED
+        _INDEXABLE = {
+            DistanceStrategy.EUCLIDEAN_DISTANCE,
+            DistanceStrategy.MAX_INNER_PRODUCT,
+        }
+        if self.distance_strategy not in _INDEXABLE:
             error_msg = (
-                f"Unsupported index type '{index_type}'. Only 'HNSW' is supported."
+                f"distance_strategy '{self.distance_strategy}' cannot be used to "
+                "build a DiskANN vector index. Only EUCLIDEAN_DISTANCE and "
+                "MAX_INNER_PRODUCT (EUCLIDEAN_SQUARED) are supported."
             )
             raise ValueError(error_msg)
 
@@ -1123,9 +1146,8 @@ class DB2VS(VectorStore):
 
         distance_func = _get_distance_function(self.distance_strategy)
         ddl = (
-            f"CREATE INDEX {index_name} ON {self.table_name} ({self._embedding_field}) "
-            f"USING {index_type.upper()} "
-            f"DISTANCE {distance_func}"
+            f"CREATE VECTOR INDEX {index_name} ON {self.table_name} "
+            f"({self._embedding_field}) WITH DISTANCE {distance_func}"
         )
 
         if has_accuracy:
