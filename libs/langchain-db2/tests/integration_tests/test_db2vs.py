@@ -2,7 +2,9 @@
 
 import threading
 import uuid
+from typing import Optional
 
+import ibm_db_dbi  # type: ignore[import-untyped]
 import pytest
 from ibm_db_dbi import Connection  # type: ignore[import-untyped]
 from langchain_community.vectorstores.utils import DistanceStrategy
@@ -988,6 +990,143 @@ def test_similarity_search_after_create_index(
         results = db2vs.similarity_search(query="YashB", k=3)
         assert isinstance(results, list)
         assert len(results) >= 1
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+# ---------------------------------------------------------------------------
+# CREATE VECTOR INDEX privilege boundary — DBADM required (Db2 12.1 EA)
+# ---------------------------------------------------------------------------
+# Confirmed by live testing on 9.60.234.51 / TESTDB (2025-08)
+# --------------------------------------------------------------
+# CREATE VECTOR INDEX requires DBADM because Db2 internally writes a
+# control object (SYSIBM.AGT<timestamp>) into the SYSIBM system schema
+# during DiskANN index construction.
+#
+# Observed directly:
+#   DB2TEST (DBADMAUTH=N, CREATETABAUTH=Y, IMPLSCHEMAAUTH=Y) attempting
+#   CREATE VECTOR INDEX on a table in TS_SM4K_TC16 (32K page, DB2TEST has
+#   USE) receives:
+#
+#     SQL0551N  Authorization ID: "DB2TEST".
+#               Operation: "CREATE TABLE".
+#               Object: "SYSIBM.AGT260807044807780219".
+#
+#   SYSIBM is an internal system schema, not governed by SYSCAT.SCHEMAAUTH.
+#   CREATETAB / IMPLICIT_SCHEMA only cover user schemas; they do not grant
+#   write access to SYSIBM.  DBADM is the minimum authority that does.
+#
+# Live catalog:
+#   GEETIKA  — DBADMAUTH=Y  (SYSIBM grantor)  → CREATE VECTOR INDEX: OK
+#   DB2TEST  — DBADMAUTH=N, CREATETABAUTH=Y   → CREATE VECTOR INDEX: SQL0551N
+#
+# These two tests pin that real-world behaviour:
+#   1. limited-privilege user (no DBADM) → SQL0551N
+#   2. DBADM user                        → SUCCESS
+#
+# Both tests require the server to be reachable.  The limited-privilege test
+# additionally requires DB2_LIMITED_USER / DB2_LIMITED_PASSWORD in .env; if
+# those vars are absent the test is automatically skipped.
+
+
+def test_create_vector_index_requires_dbadm_limited_user_gets_sql0551n(
+    ibm_db_dbi_connection: Connection,
+    limited_privilege_connection: "Optional[ibm_db_dbi.Connection]",
+    hf_embeddings: HuggingFaceEmbeddings,
+) -> None:
+    """A user with NO DBADM gets SQL0551N when running CREATE VECTOR INDEX.
+
+    Db2 internally tries to CREATE TABLE SYSIBM.AGT<timestamp> during DiskANN
+    index construction.  SYSIBM is an internal schema not governed by
+    SYSCAT.SCHEMAAUTH; CREATETAB / IMPLICIT_SCHEMA do not cover it.
+    DBADM is the minimum authority that grants write access to SYSIBM.
+
+    Live proof (TESTDB @ 9.60.234.51, 2025-08):
+      DB2TEST (DBADMAUTH=N, CREATETABAUTH=Y) on a table in TS_SM4K_TC16
+      (32K pages, DB2TEST has USE) → SQL0551N on SYSIBM.AGT... in 1.8s.
+
+    The table is created by the DBADM user (Geetika) in TS_SM4K_TC16 so that
+    the page-size blocker (SQL0614N) is eliminated — the only remaining
+    blocker is the SYSIBM write privilege, which is what we are testing.
+
+    If DB2_LIMITED_USER is not configured the test is skipped.
+    """
+    if limited_privilege_connection is None:
+        pytest.skip("DB2_LIMITED_USER / DB2_LIMITED_PASSWORD not set — skipping privilege boundary test")
+
+    # Use a schema-qualified name so both connections reference the same table.
+    # Geetika's CURRENT SCHEMA is GEETIKA; db2test's is DB2TEST — without an
+    # explicit schema the two connections would resolve to different tables.
+    short = uuid.uuid4().hex[:8]
+    table = f"GEETIKA.priv_{short}"
+    index = f"PRIV_{short.upper()}"
+    try:
+        # DBADM user creates and populates the table in the 32K tablespace
+        # (eliminates SQL0614N so only the SYSIBM privilege is tested).
+        admin_vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=DistanceStrategy.EUCLIDEAN_DISTANCE,
+            tablespace="TS_SM4K_TC16",
+        )
+        admin_vs.add_texts(texts=["hello", "world"])
+        ibm_db_dbi_connection.commit()
+
+        # Grant SELECT + CONTROL so DB2VS.__init__ (_table_exists) and the
+        # index DDL itself can proceed past table-level checks — the engine
+        # will still block on the SYSIBM.AGT write.
+        cur = ibm_db_dbi_connection.cursor()
+        try:
+            cur.execute(f"GRANT SELECT, CONTROL ON TABLE {table} TO USER db2test")
+            cur.execute("COMMIT")
+        finally:
+            cur.close()
+
+        # Limited-privilege user (no DBADM) attempts CREATE VECTOR INDEX.
+        # Must raise SQL0551N on SYSIBM.AGT... — not SQL0614N (page size)
+        # and not any other error.
+        limited_vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=limited_privilege_connection,
+            distance_strategy=DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        with pytest.raises(Exception, match=r"SQL0551N"):
+            limited_vs.create_index(index)
+
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+def test_create_vector_index_succeeds_for_dbadm_user(
+    ibm_db_dbi_connection: Connection,
+    hf_embeddings: HuggingFaceEmbeddings,
+) -> None:
+    """A user with DBADM can CREATE VECTOR INDEX without error.
+
+    This is the positive counterpart to
+    ``test_create_vector_index_requires_dbadm_limited_user_gets_sql0551n``.
+    It confirms that the primary (DBADM) connection succeeds where the
+    limited user fails, grounding the DBADM requirement as an observed fact
+    rather than a documentation assumption.
+    """
+    table = f"priv_{uuid.uuid4().hex[:8]}"
+    index = f"PRIV_{uuid.uuid4().hex[:8].upper()}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs.add_texts(texts=["hello", "world"])
+        # DBADM user — must not raise
+        db2vs.create_index(index)
     finally:
         drop_index(ibm_db_dbi_connection, index)
         drop_table(ibm_db_dbi_connection, table)
