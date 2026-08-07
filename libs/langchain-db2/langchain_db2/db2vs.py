@@ -577,7 +577,6 @@ class DB2VS(VectorStore):
                 embeddings,
                 metadatas,
                 texts,
-                strict=False,
             )
         ]
 
@@ -860,7 +859,7 @@ class DB2VS(VectorStore):
         # If you need to split documents and scores for processing (e.g.,
         # for MMR calculation)
         documents, scores, embeddings = (
-            zip(*docs_scores_embeddings, strict=False)
+            zip(*docs_scores_embeddings)
             if docs_scores_embeddings
             else ([], [], [])
         )
