@@ -345,12 +345,15 @@ class DB2VS(VectorStore):
         """`DB2VS` vector store.
 
         Args:
-            tablespace: Name of an existing 32 K page-size Db2 tablespace to
-                use when creating the vector table.  When ``None`` (default),
-                the library auto-discovers a tablespace the current user is
-                authorised to USE; if none is found it attempts to create
-                ``TS32K``.  Specify this explicitly when your DBA has assigned
-                a particular tablespace (e.g. ``tablespace="TS_SM4K_TC16"``).
+            tablespace: Name of a Db2 tablespace to use when creating the
+                vector table.  The tablespace must have a page size large
+                enough to hold a full row containing the VECTOR column
+                (e.g. a 768-dim FLOAT32 vector occupies 3072 bytes, so any
+                page size ≥ 8K works).  When ``None`` (default) no ``IN``
+                clause is added and Db2 uses the user's default tablespace.
+                Specify this when the default tablespace has a 4K page size
+                and would reject the VECTOR column
+                (e.g. ``tablespace="TS32K"``).
         """
         if client is None:
             if connection_args is not None:
@@ -379,10 +382,8 @@ class DB2VS(VectorStore):
                 error_msg = "No valid connection or connection_args is passed"
                 raise ValueError(error_msg)
         else:
-            """Initialize with ibm_db_dbi client."""
             self.client = client
         try:
-            """Initialize with necessary components."""
             if not isinstance(embedding_function, EmbeddingsSchema):
                 logger.warning(
                     "`embedding_function` is expected to be an Embeddings "
