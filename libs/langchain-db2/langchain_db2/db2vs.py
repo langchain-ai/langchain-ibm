@@ -710,12 +710,6 @@ class DB2VS(VectorStore):
             results = cursor.fetchall()
 
             for result in results:
-                # Skip rows whose embedding column is NULL — passing a zero-
-                # length array into maximal_marginal_relevance causes a NumPy
-                # shape mismatch crash.
-                if result[4] is None:
-                    continue
-
                 page_content_str = result[1] if result[1] is not None else ""
                 metadata = json.loads(result[2] if result[2] is not None else "{}")
 
@@ -732,8 +726,12 @@ class DB2VS(VectorStore):
                         metadata=metadata,
                     )
                     distance = result[3]
-                    current_embedding = np.array(
-                        json.loads(result[4]), dtype=np.float32
+                    # Assuming result[4] is already in the correct format;
+                    # adjust if necessary
+                    current_embedding = (
+                        np.array(json.loads(result[4]), dtype=np.float32)
+                        if result[4]
+                        else np.empty(0, dtype=np.float32)
                     )
                     documents.append((document, distance, current_embedding))
         finally:
