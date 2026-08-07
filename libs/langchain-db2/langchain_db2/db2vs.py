@@ -1076,7 +1076,6 @@ class DB2VS(VectorStore):
         self,
         index_name: str,
         if_exists: str = "error",
-        accuracy: int | None = None,
         parallel: int | None = None,
         neighbors: int | None = None,
         ef_construction: int | None = None,
@@ -1101,23 +1100,19 @@ class DB2VS(VectorStore):
                 * ``"skip"`` — return silently without rebuilding.
                 * ``"replace"`` — drop the existing index and recreate it.
 
-            accuracy: Target accuracy specification (integer 1–100).
-                Mutually exclusive with ``neighbors`` / ``ef_construction``.
-                If omitted, Db2 uses its default accuracy.
             parallel: Number of parallel workers for index build
                 (``BUILD_PARALLELISM``).  If omitted, Db2 uses its default.
-            neighbors: DiskANN ``MAX_NODE_DEGREE``.  Controls the maximum
-                number of bi-directional links per graph node.  Must be
-                provided together with ``ef_construction``.
-            ef_construction: DiskANN ``BUILD_LIST_SIZE``.  Controls the
-                dynamic candidate-list size during construction.  Must be
-                provided together with ``neighbors``.
+            neighbors: Maximum number of bi-directional links per graph node
+                (``MAX_NODE_DEGREE``).  If omitted, Db2 uses its default.
+                Must be provided together with ``ef_construction``.
+            ef_construction: Dynamic candidate-list size during construction
+                (``BUILD_LIST_SIZE``).  If omitted, Db2 uses its default.
+                Must be provided together with ``neighbors``.
 
         Raises:
             ValueError: If ``distance_strategy`` is ``DOT_PRODUCT``, if
-                ``if_exists`` is not one of the three accepted values, if
-                ``accuracy`` is combined with ``neighbors``/``ef_construction``,
-                or if only one of ``neighbors``/``ef_construction`` is given.
+                ``if_exists`` is not one of the three accepted values, or if
+                only one of ``neighbors``/``ef_construction`` is given.
             RuntimeError: If a Db2 error occurs while creating the index.
 
         ??? example "Example - default DiskANN index"
@@ -1132,17 +1127,13 @@ class DB2VS(VectorStore):
             db2vs.create_index("VIDX1", if_exists="replace")
             ```
 
-        ??? example "Example - with target accuracy and parallel workers"
+        ??? example "Example - with parallel workers"
 
             ```python
-            db2vs.create_index(
-                "VIDX2",
-                accuracy=97,
-                parallel=16,
-            )
+            db2vs.create_index("VIDX2", parallel=16)
             ```
 
-        ??? example "Example - with DiskANN power-user parameters"
+        ??? example "Example - with DiskANN tuning parameters"
 
             ```python
             db2vs.create_index(
@@ -1171,17 +1162,7 @@ class DB2VS(VectorStore):
             )
             raise ValueError(error_msg)
 
-        # ── Mutual-exclusion guards ──────────────────────────────────────────
-        has_accuracy = accuracy is not None
-        has_power = neighbors is not None or ef_construction is not None
-
-        if has_accuracy and has_power:
-            error_msg = (
-                "'accuracy' cannot be combined with 'neighbors' / 'ef_construction'. "
-                "Use either target accuracy or power-user parameters, not both."
-            )
-            raise ValueError(error_msg)
-
+        # ── neighbors and ef_construction must both be given or both omitted ─
         if (neighbors is None) != (ef_construction is None):
             error_msg = (
                 "'neighbors' and 'ef_construction' must be specified together."
@@ -1226,17 +1207,14 @@ class DB2VS(VectorStore):
             f"({q_col}) WITH DISTANCE {distance_func}"
         )
 
-        if has_accuracy:
-            ddl += f" WITH TARGET ACCURACY {accuracy}"
-
         if parallel is not None:
             ddl += f" BUILD_PARALLELISM {parallel}"
 
-        if has_power:
-            ddl += (
-                f" PARAMETERS (NEIGHBORS {neighbors}"
-                f" EFCONSTRUCTION {ef_construction})"
-            )
+        if neighbors is not None:
+            ddl += f" MAX_NODE_DEGREE {neighbors}"
+
+        if ef_construction is not None:
+            ddl += f" BUILD_LIST_SIZE {ef_construction}"
 
         # ── Execute DDL ──────────────────────────────────────────────────────
         cursor = self.client.cursor()

@@ -84,28 +84,26 @@ def test_create_index_default_diskann() -> None:
     assert 'CREATE VECTOR INDEX "VIDX1"' in ddl
     assert '"EMBEDDING"' in ddl
     assert "WITH DISTANCE EUCLIDEAN" in ddl
-    # Optional clauses must NOT appear
-    assert "ACCURACY" not in ddl
-    assert "PARALLELISM" not in ddl
-    assert "PARAMETERS" not in ddl
+    # Optional clauses must NOT appear when no params given
+    assert "BUILD_PARALLELISM" not in ddl
+    assert "MAX_NODE_DEGREE" not in ddl
+    assert "BUILD_LIST_SIZE" not in ddl
 
 
-def test_create_index_with_accuracy_and_parallel() -> None:
-    """create_index with accuracy + parallel appends the correct clauses."""
+def test_create_index_with_parallel() -> None:
+    """create_index with parallel appends BUILD_PARALLELISM clause."""
     db2vs, client = _make_db2vs(DistanceStrategy.EUCLIDEAN_DISTANCE)
     cursor = client.cursor.return_value
 
-    db2vs.create_index("VIDX2", accuracy=97, parallel=16)
+    db2vs.create_index("VIDX2", parallel=16)
 
     ddl = _find_ddl(cursor)
     assert "WITH DISTANCE EUCLIDEAN" in ddl
-    assert "WITH TARGET ACCURACY 97" in ddl
     assert "BUILD_PARALLELISM 16" in ddl
-    assert "PARAMETERS" not in ddl
 
 
-def test_create_index_with_power_user_params() -> None:
-    """create_index with neighbors + ef_construction appends PARAMETERS clause."""
+def test_create_index_with_tuning_params() -> None:
+    """create_index with neighbors + ef_construction appends MAX_NODE_DEGREE and BUILD_LIST_SIZE."""
     db2vs, client = _make_db2vs(DistanceStrategy.EUCLIDEAN_DISTANCE)
     cursor = client.cursor.return_value
 
@@ -113,8 +111,8 @@ def test_create_index_with_power_user_params() -> None:
 
     ddl = _find_ddl(cursor)
     assert "WITH DISTANCE EUCLIDEAN" in ddl
-    assert "PARAMETERS (NEIGHBORS 64 EFCONSTRUCTION 100)" in ddl
-    assert "ACCURACY" not in ddl
+    assert "MAX_NODE_DEGREE 64" in ddl
+    assert "BUILD_LIST_SIZE 100" in ddl
 
 
 def test_create_index_cosine_succeeds() -> None:
@@ -134,13 +132,6 @@ def test_create_index_dot_product_raises() -> None:
     db2vs, _ = _make_db2vs(DistanceStrategy.DOT_PRODUCT)
     with pytest.raises((ValueError, RuntimeError)):
         db2vs.create_index("BAD_IDX")
-
-
-def test_create_index_accuracy_and_power_params_raises() -> None:
-    """create_index raises ValueError when accuracy and power params are mixed."""
-    db2vs, _ = _make_db2vs()
-    with pytest.raises((ValueError, RuntimeError)):
-        db2vs.create_index("BAD_IDX", accuracy=90, neighbors=32, ef_construction=64)
 
 
 def test_create_index_partial_power_params_raises() -> None:
