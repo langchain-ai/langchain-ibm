@@ -893,17 +893,40 @@ def test_create_vector_index_euclidean(
 
 
 @pytest.mark.xfail
-def test_create_vector_index_cosine_raises(
+def test_create_vector_index_cosine(
     ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
 ) -> None:
-    """create_index raises ValueError when distance_strategy is COSINE."""
+    """create_index with COSINE builds a DiskANN vector index (COSINE is supported)."""
     table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"VI_{uuid.uuid4().hex[:8].upper()}"
     try:
         db2vs = DB2VS(
             embedding_function=hf_embeddings,
             table_name=table,
             client=ibm_db_dbi_connection,
             distance_strategy=DistanceStrategy.COSINE,
+        )
+        db2vs.add_texts(texts=["hello", "world"])
+        # Should not raise — COSINE is a valid DiskANN index distance
+        db2vs.create_index(index)
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_vector_index_dot_product_raises(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """create_index raises ValueError when distance_strategy is DOT_PRODUCT."""
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=DistanceStrategy.DOT_PRODUCT,
         )
         db2vs.add_texts(texts=["hello"])
         with pytest.raises((ValueError, RuntimeError)):
