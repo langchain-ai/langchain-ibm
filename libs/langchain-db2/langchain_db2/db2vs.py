@@ -1062,10 +1062,11 @@ class DB2VS(VectorStore):
         """Create a DiskANN vector index on the embedding column for ANN search.
 
         Db2 12.1 AI Vector Search uses the ``CREATE VECTOR INDEX`` DDL backed
-        by the DiskANN algorithm.  Only ``EUCLIDEAN`` and
-        ``EUCLIDEAN_SQUARED`` distance metrics are supported for indexing;
-        ``COSINE`` and ``DOT_PRODUCT`` work for ``VECTOR_DISTANCE`` queries
-        but cannot be used to build an index.
+        by the DiskANN algorithm.  The supported distance metrics for indexing
+        are ``EUCLIDEAN``, ``EUCLIDEAN_SQUARED``, and ``COSINE``.
+        ``DOT_PRODUCT`` (``DOT``) is **not** a valid keyword for
+        ``CREATE VECTOR INDEX`` and will be rejected by the engine
+        (``SQL0104N``).
 
         Args:
             index_name: Name for the new index (e.g. ``"VIDX1"``).
@@ -1083,11 +1084,10 @@ class DB2VS(VectorStore):
                 when used.
 
         Raises:
-            ValueError: If ``distance_strategy`` is not ``EUCLIDEAN_DISTANCE``
-                or ``MAX_INNER_PRODUCT`` (i.e. not indexable), or if
-                ``accuracy`` is combined with
-                ``neighbors``/``ef_construction``, or if only one of
-                ``neighbors``/``ef_construction`` is given.
+            ValueError: If ``distance_strategy`` is ``DOT_PRODUCT`` (not a
+                valid index distance in Db2 12.1), or if ``accuracy`` is
+                combined with ``neighbors``/``ef_construction``, or if only
+                one of ``neighbors``/``ef_construction`` is given.
             RuntimeError: If a DB2 error occurs while creating the index.
 
         ??? example "Example - default DiskANN index"
@@ -1117,16 +1117,15 @@ class DB2VS(VectorStore):
             ```
 
         """
-        # DiskANN only supports EUCLIDEAN / EUCLIDEAN_SQUARED
-        _INDEXABLE = {
-            DistanceStrategy.EUCLIDEAN_DISTANCE,
-            DistanceStrategy.MAX_INNER_PRODUCT,
-        }
-        if self.distance_strategy not in _INDEXABLE:
+        # DOT_PRODUCT ("DOT") is not a valid distance keyword for
+        # CREATE VECTOR INDEX — the engine returns SQL0104N syntax error.
+        # EUCLIDEAN, EUCLIDEAN_SQUARED, and COSINE are all supported.
+        if self.distance_strategy == DistanceStrategy.DOT_PRODUCT:
             error_msg = (
-                f"distance_strategy '{self.distance_strategy}' cannot be used to "
-                "build a DiskANN vector index. Only EUCLIDEAN_DISTANCE and "
-                "MAX_INNER_PRODUCT (EUCLIDEAN_SQUARED) are supported."
+                "distance_strategy 'DOT_PRODUCT' cannot be used to build a "
+                "DiskANN vector index. Db2 12.1 does not support DOT as an "
+                "index distance keyword (SQL0104N). Use EUCLIDEAN_DISTANCE, "
+                "MAX_INNER_PRODUCT (EUCLIDEAN_SQUARED), or COSINE instead."
             )
             raise ValueError(error_msg)
 
