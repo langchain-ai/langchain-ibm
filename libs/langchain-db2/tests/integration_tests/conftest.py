@@ -2,7 +2,6 @@ import contextlib
 import os
 from collections.abc import Generator
 from pathlib import Path
-from typing import Optional
 
 import ibm_db_dbi  # type: ignore[import-untyped]
 import pytest
@@ -67,41 +66,6 @@ def ibm_db_dbi_connection() -> Generator[ibm_db_dbi.Connection, None, None]:
         yield conn
     finally:
         # Best-effort cleanup
-        with contextlib.suppress(Exception):
-            conn.commit()
-        with contextlib.suppress(Exception):
-            conn.close()
-
-
-@pytest.fixture(scope="session")
-def limited_privilege_connection() -> Generator[Optional[ibm_db_dbi.Connection], None, None]:
-    """A second connection with NO DBADM — driven by DB2_LIMITED_USER / DB2_LIMITED_PASSWORD.
-
-    Used to verify that ``CREATE VECTOR INDEX`` requires DBADM (SQL0551N) on
-    Db2 12.1 AI Vector Search Early Access.  If the env vars are not set the
-    fixture yields ``None`` and any test that depends on it is automatically
-    skipped.
-    """
-    limited_user = os.environ.get("DB2_LIMITED_USER", "").strip()
-    limited_password = os.environ.get("DB2_LIMITED_PASSWORD", "").strip()
-
-    if not limited_user or not limited_password:
-        yield None
-        return
-
-    db2_name = os.environ.get("DB2_NAME", "")
-    db2_host = os.environ.get("DB2_HOST", "")
-    db2_port = os.environ.get("DB2_PORT", "")
-    db2_ssl = os.environ.get("DB2_SSL", "false").strip().lower() == "true"
-    db2_ssl_cert = os.environ.get("DB2_SSL_CERT", "").strip()
-
-    conn = _make_connection(
-        limited_user, limited_password, db2_name, db2_host, db2_port,
-        db2_ssl, db2_ssl_cert,
-    )
-    try:
-        yield conn
-    finally:
         with contextlib.suppress(Exception):
             conn.commit()
         with contextlib.suppress(Exception):

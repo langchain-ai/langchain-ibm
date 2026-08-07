@@ -105,38 +105,15 @@ def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
     raise ValueError(error_msg)
 
 
-def _quote_ident(name: str) -> str:
-    """Return a safely double-quoted, upper-cased Db2 identifier.
-
-    Converts the identifier to uppercase and wraps it in double quotes,
-    escaping any embedded double-quote characters by doubling them.  This
-    matches Db2's default identifier semantics for DDL statements.
-
-    Args:
-        name: A non-empty identifier string (table, index, column, schema).
-
-    Returns:
-        A double-quoted, uppercase string safe for Db2 DDL/DML.
-
-    Raises:
-        ValueError: If ``name`` is empty or whitespace-only.
-    """
-    if not name or not name.strip():
-        error_msg = "Identifier must be a non-empty string."
-        raise ValueError(error_msg)
-    return '"' + name.upper().replace('"', '""') + '"'
-
-
 @_handle_exceptions
 def _create_table(
     client: Connection,
     table_name: str,
     embedding_dim: int,
-    tablespace: str | None = None,
-    text_field: str = "text",
-    id_field: str = "id",
-    metadata_field: str = "metadata",
-    embedding_field: str = "embedding",
+    text_field: str = "text",      # column name for raw text — override if table uses a different name
+    id_field: str = "id",          # column name for the primary key — override if table uses a different name
+    metadata_field: str = "metadata",   # column name for metadata — override if table uses a different name
+    embedding_field: str = "embedding", # column name for the vector — override if table uses a different name
 ) -> None:
     cols_dict = {
         id_field: "CHAR(16) PRIMARY KEY NOT NULL",
@@ -150,11 +127,7 @@ def _create_table(
         ddl_body = ", ".join(
             f"{col_name} {col_type}" for col_name, col_type in cols_dict.items()
         )
-        # VECTOR columns require a large-enough page-size tablespace.
-        # Append IN <tablespace> only when the caller supplies one explicitly.
         ddl = f"CREATE TABLE {table_name} ({ddl_body})"
-        if tablespace:
-            ddl += f" IN {tablespace}"
         try:
             cursor.execute(ddl)
             cursor.execute("COMMIT")
@@ -204,44 +177,6 @@ def drop_table(client: Connection, table_name: str) -> None:
         info_msg = f"Table {table_name} not found..."
         logger.info(info_msg)
 
-
-@_handle_exceptions
-def drop_index(client: Connection, index_name: str) -> None:
-    """Drop a vector index from the database if it exists.
-
-    Args:
-        client: The `ibm_db_dbi` connection object
-        index_name: The name of the index to drop
-
-    Raises:
-        RuntimeError: If an error occurs while dropping the index
-
-    ??? example "Example"
-
-        ```python
-        from langchain_db2.db2vs import drop_index
-
-        drop_index(
-            client=db_client,  # ibm_db_dbi.Connection
-            index_name="VIDX1",
-        )
-        ```
-
-    """
-    cursor = client.cursor()
-    try:
-        cursor.execute(f"DROP INDEX {index_name}")
-        cursor.execute("COMMIT")
-        info_msg = f"Index {index_name} dropped successfully..."
-        logger.info(info_msg)
-    except Exception as ex:
-        if "SQL0204N" in str(ex):
-            info_msg = f"Index {index_name} not found..."
-            logger.info(info_msg)
-        else:
-            raise
-    finally:
-        cursor.close()
 
 
 @_handle_exceptions
@@ -358,25 +293,15 @@ class DB2VS(VectorStore):
         query: str | None = "What is a Db2 database",
         params: dict[str, Any] | None = None,
         connection_args: dict[str, Any] | None = None,
-        text_field: str = "text",
-        id_field: str = "id",
-        metadata_field: str = "metadata",
-        embedding_field: str = "embedding",
-        tablespace: str | None = None,
+        # Column names default to the schema DB2VS creates by default.
+        # Override these if you are pointing DB2VS at an existing table
+        # that uses different column names.
+        text_field: str = "text",           # raw text column (CLOB)
+        id_field: str = "id",               # primary key column (CHAR 16)
+        metadata_field: str = "metadata",   # metadata column (BLOB)
+        embedding_field: str = "embedding", # vector column (VECTOR)
     ):
-        """`DB2VS` vector store.
-
-        Args:
-            tablespace: Name of a Db2 tablespace to use when creating the
-                vector table.  The tablespace must have a page size large
-                enough to hold a full row containing the VECTOR column
-                (e.g. a 768-dim FLOAT32 vector occupies 3072 bytes, so any
-                page size ≥ 8K works).  When ``None`` (default) no ``IN``
-                clause is added and Db2 uses the user's default tablespace.
-                Specify this when the default tablespace has a 4K page size
-                and would reject the VECTOR column
-                (e.g. ``tablespace="TS32K"``).
-        """
+        """`DB2VS` vector store."""
         if client is None:
             if connection_args is not None:
                 database = connection_args.get("database")
@@ -423,12 +348,10 @@ class DB2VS(VectorStore):
             self._id_field = id_field
             self._metadata_field = metadata_field
             self._embedding_field = embedding_field
-            self._tablespace = tablespace
             _create_table(
                 self.client,
                 self.table_name,
                 embedding_dim,
-                tablespace=self._tablespace,
                 text_field=self._text_field,
                 id_field=self._id_field,
                 metadata_field=self._metadata_field,
@@ -1040,7 +963,6 @@ class DB2VS(VectorStore):
             distance_strategy=distance_strategy,
             query=query,
             params=params,
-            tablespace=kwargs.get("tablespace"),
         )
         vss.add_texts(texts=list(texts), metadatas=metadatas)
         return vss
@@ -1071,176 +993,3 @@ class DB2VS(VectorStore):
 
         return [row[0] for row in rows]
 
-    @_handle_exceptions
-    def create_index(
-        self,
-        index_name: str,
-        if_exists: str = "error",
-        parallel: int | None = None,
-        neighbors: int | None = None,
-        ef_construction: int | None = None,
-    ) -> None:
-        """Create a DiskANN vector index on the embedding column for ANN search.
-
-        Db2 12.1 AI Vector Search uses the ``CREATE VECTOR INDEX`` DDL backed
-        by the DiskANN algorithm.  Supported distance metrics are
-        ``EUCLIDEAN``, ``EUCLIDEAN_SQUARED``, and ``COSINE``.
-        ``DOT_PRODUCT`` is **not** a valid index distance keyword in Db2 12.1
-        and is rejected by the engine with ``SQL0104N``.
-
-        After building the index, ``RUNSTATS`` is run automatically so the
-        Db2 optimizer can immediately take advantage of the new index.
-
-        Args:
-            index_name: Name for the new index (e.g. ``"VIDX1"``).
-            if_exists: Behaviour when an index with ``index_name`` already
-                exists.  One of:
-
-                * ``"error"`` *(default)* — raise ``ValueError``.
-                * ``"skip"`` — return silently without rebuilding.
-                * ``"replace"`` — drop the existing index and recreate it.
-
-            parallel: Number of parallel workers for index build
-                (``BUILD_PARALLELISM``).  If omitted, Db2 uses its default.
-            neighbors: Maximum number of bi-directional links per graph node
-                (``MAX_NODE_DEGREE``).  If omitted, Db2 uses its default.
-                Must be provided together with ``ef_construction``.
-            ef_construction: Dynamic candidate-list size during construction
-                (``BUILD_LIST_SIZE``).  If omitted, Db2 uses its default.
-                Must be provided together with ``neighbors``.
-
-        Raises:
-            ValueError: If ``distance_strategy`` is ``DOT_PRODUCT``, if
-                ``if_exists`` is not one of the three accepted values, or if
-                only one of ``neighbors``/``ef_construction`` is given.
-            RuntimeError: If a Db2 error occurs while creating the index.
-
-        ??? example "Example - default DiskANN index"
-
-            ```python
-            db2vs.create_index("VIDX1")
-            ```
-
-        ??? example "Example - idempotent rebuild"
-
-            ```python
-            db2vs.create_index("VIDX1", if_exists="replace")
-            ```
-
-        ??? example "Example - with parallel workers"
-
-            ```python
-            db2vs.create_index("VIDX2", parallel=16)
-            ```
-
-        ??? example "Example - with DiskANN tuning parameters"
-
-            ```python
-            db2vs.create_index(
-                "VIDX3",
-                neighbors=64,
-                ef_construction=100,
-            )
-            ```
-
-        """
-        # ── Validate if_exists ──────────────────────────────────────────────
-        if if_exists not in ("error", "skip", "replace"):
-            error_msg = (
-                f"if_exists must be one of 'error', 'skip', 'replace'; "
-                f"got '{if_exists}'."
-            )
-            raise ValueError(error_msg)
-
-        # ── DOT_PRODUCT is not a valid index distance keyword (SQL0104N) ────
-        if self.distance_strategy == DistanceStrategy.DOT_PRODUCT:
-            error_msg = (
-                "distance_strategy 'DOT_PRODUCT' cannot be used to build a "
-                "DiskANN vector index. Db2 12.1 does not support DOT as an "
-                "index distance keyword (SQL0104N). Use EUCLIDEAN_DISTANCE, "
-                "MAX_INNER_PRODUCT (EUCLIDEAN_SQUARED), or COSINE instead."
-            )
-            raise ValueError(error_msg)
-
-        # ── neighbors and ef_construction must both be given or both omitted ─
-        if (neighbors is None) != (ef_construction is None):
-            error_msg = (
-                "'neighbors' and 'ef_construction' must be specified together."
-            )
-            raise ValueError(error_msg)
-
-        # ── if_exists: check catalog, then skip/drop as needed ──────────────
-        cursor = self.client.cursor()
-        try:
-            cursor.execute(
-                "SELECT 1 FROM SYSCAT.INDEXES "
-                "WHERE UPPER(INDNAME) = UPPER(?) "
-                "FETCH FIRST 1 ROW ONLY",
-                (index_name,),
-            )
-            already_exists = cursor.fetchone() is not None
-        finally:
-            cursor.close()
-
-        if already_exists:
-            if if_exists == "skip":
-                logger.info("Index %s already exists — skipping.", index_name)
-                return
-            if if_exists == "replace":
-                logger.info("Index %s already exists — dropping for replace.", index_name)
-                drop_index(self.client, index_name)
-            else:  # "error"
-                error_msg = (
-                    f"Index '{index_name}' already exists. "
-                    "Pass if_exists='skip' to ignore or if_exists='replace' to rebuild."
-                )
-                raise ValueError(error_msg)
-
-        # ── Build DDL using safely quoted identifiers ────────────────────────
-        distance_func = _get_distance_function(self.distance_strategy)
-        q_index = _quote_ident(index_name)
-        q_table = self.table_name   # may be schema-qualified; preserve as-is
-        q_col   = _quote_ident(self._embedding_field)
-
-        ddl = (
-            f"CREATE VECTOR INDEX {q_index} ON {q_table} "
-            f"({q_col}) WITH DISTANCE {distance_func}"
-        )
-
-        if parallel is not None:
-            ddl += f" BUILD_PARALLELISM {parallel}"
-
-        if neighbors is not None:
-            ddl += f" MAX_NODE_DEGREE {neighbors}"
-
-        if ef_construction is not None:
-            ddl += f" BUILD_LIST_SIZE {ef_construction}"
-
-        # ── Execute DDL ──────────────────────────────────────────────────────
-        cursor = self.client.cursor()
-        try:
-            cursor.execute(ddl)
-            cursor.execute("COMMIT")
-        finally:
-            cursor.close()
-
-        logger.info("Index %s created on %s.", index_name, self.table_name)
-
-        # ── RUNSTATS so the optimizer can immediately use the new index ───────
-        runstats = (
-            f"CALL SYSPROC.ADMIN_CMD("
-            f"'RUNSTATS ON TABLE {q_table} FOR INDEXES ALL')"
-        )
-        cursor = self.client.cursor()
-        try:
-            cursor.execute(runstats)
-            cursor.execute("COMMIT")
-        except Exception:
-            # RUNSTATS failure is non-fatal — the index was already created.
-            logger.warning(
-                "RUNSTATS failed for table %s. "
-                "Statistics may be stale; consider running RUNSTATS manually.",
-                q_table,
-            )
-        finally:
-            cursor.close()
