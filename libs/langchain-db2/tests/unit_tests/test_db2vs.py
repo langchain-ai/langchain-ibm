@@ -63,7 +63,7 @@ def test_create_index_with_accuracy_and_parallel() -> None:
     ddl = cursor.execute.call_args_list[0][0][0]
     assert "WITH DISTANCE EUCLIDEAN" in ddl
     assert "WITH TARGET ACCURACY 97" in ddl
-    assert "PARALLEL 16" in ddl
+    assert "BUILD_PARALLELISM 16" in ddl
     assert "PARAMETERS" not in ddl
 
 

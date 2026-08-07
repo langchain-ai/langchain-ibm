@@ -1155,7 +1155,8 @@ class DB2VS(VectorStore):
             ddl += f" WITH TARGET ACCURACY {accuracy}"
 
         if parallel is not None:
-            ddl += f" PARALLEL {parallel}"
+            # The Db2 DDL keyword is BUILD_PARALLELISM, not PARALLEL.
+            ddl += f" BUILD_PARALLELISM {parallel}"
 
         if has_power:
             ddl += (
