@@ -1,10 +1,9 @@
 from unittest.mock import MagicMock, call
 
 import pytest
-from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_core.embeddings.fake import DeterministicFakeEmbedding
 
-from langchain_db2.db2vs import DB2VS, _quote_ident, drop_index
+from langchain_db2.db2vs import DB2VS, Db2DistanceStrategy, _quote_ident, drop_index
 
 
 def test_init() -> None:
@@ -47,7 +46,7 @@ def test_quote_ident_whitespace_only_raises() -> None:
 
 
 def _make_db2vs(
-    distance_strategy: DistanceStrategy = DistanceStrategy.EUCLIDEAN_DISTANCE,
+    distance_strategy: Db2DistanceStrategy = Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
     table_name: str = "test_table",
 ) -> tuple[DB2VS, MagicMock]:
     client = MagicMock()
@@ -92,7 +91,7 @@ def test_create_index_default_diskann() -> None:
 
 def test_create_index_with_parallel() -> None:
     """create_index with parallel appends BUILD_PARALLELISM clause."""
-    db2vs, client = _make_db2vs(DistanceStrategy.EUCLIDEAN_DISTANCE)
+    db2vs, client = _make_db2vs(Db2DistanceStrategy.EUCLIDEAN_DISTANCE)
     cursor = client.cursor.return_value
 
     db2vs.create_index("VIDX2", parallel=16)
@@ -104,7 +103,7 @@ def test_create_index_with_parallel() -> None:
 
 def test_create_index_with_tuning_params() -> None:
     """create_index with neighbors + ef_construction appends MAX_NODE_DEGREE and BUILD_LIST_SIZE."""
-    db2vs, client = _make_db2vs(DistanceStrategy.EUCLIDEAN_DISTANCE)
+    db2vs, client = _make_db2vs(Db2DistanceStrategy.EUCLIDEAN_DISTANCE)
     cursor = client.cursor.return_value
 
     db2vs.create_index("VIDX3", neighbors=64, ef_construction=100)
@@ -117,7 +116,7 @@ def test_create_index_with_tuning_params() -> None:
 
 def test_create_index_cosine_succeeds() -> None:
     """create_index with COSINE issues the correct DDL (COSINE is supported)."""
-    db2vs, client = _make_db2vs(DistanceStrategy.COSINE)
+    db2vs, client = _make_db2vs(Db2DistanceStrategy.COSINE)
     cursor = client.cursor.return_value
 
     db2vs.create_index("VIDX_COSINE")
@@ -129,9 +128,34 @@ def test_create_index_cosine_succeeds() -> None:
 
 def test_create_index_dot_product_raises() -> None:
     """create_index raises ValueError for DOT_PRODUCT — not a valid index distance."""
-    db2vs, _ = _make_db2vs(DistanceStrategy.DOT_PRODUCT)
+    db2vs, _ = _make_db2vs(Db2DistanceStrategy.DOT_PRODUCT)
     with pytest.raises((ValueError, RuntimeError)):
         db2vs.create_index("BAD_IDX")
+
+
+def test_create_index_hamming_raises() -> None:
+    """create_index raises ValueError for HAMMING — not a valid index distance."""
+    db2vs, _ = _make_db2vs(Db2DistanceStrategy.HAMMING)
+    with pytest.raises((ValueError, RuntimeError)):
+        db2vs.create_index("BAD_IDX")
+
+
+def test_create_index_manhattan_raises() -> None:
+    """create_index raises ValueError for MANHATTAN — not a valid index distance."""
+    db2vs, _ = _make_db2vs(Db2DistanceStrategy.MANHATTAN)
+    with pytest.raises((ValueError, RuntimeError)):
+        db2vs.create_index("BAD_IDX")
+
+
+def test_create_index_max_inner_product_succeeds() -> None:
+    """create_index with MAX_INNER_PRODUCT issues EUCLIDEAN_SQUARED DDL."""
+    db2vs, client = _make_db2vs(Db2DistanceStrategy.MAX_INNER_PRODUCT)
+    cursor = client.cursor.return_value
+
+    db2vs.create_index("VIDX_MIP")
+
+    ddl = _find_ddl(cursor)
+    assert "WITH DISTANCE EUCLIDEAN_SQUARED" in ddl
 
 
 def test_create_index_partial_power_params_raises() -> None:

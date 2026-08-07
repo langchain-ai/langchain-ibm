@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 import functools
 import hashlib
 import json
@@ -19,10 +20,7 @@ from typing import (
 
 import ibm_db_dbi  # type: ignore[import-untyped]
 import numpy as np
-from langchain_community.vectorstores.utils import (
-    DistanceStrategy,
-    maximal_marginal_relevance,
-)
+from langchain_community.vectorstores.utils import maximal_marginal_relevance
 from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStore
 from typing_extensions import override
@@ -34,6 +32,56 @@ if TYPE_CHECKING:
 
     from ibm_db_dbi import Connection
     from langchain_core.embeddings import Embeddings
+
+class Db2DistanceStrategy(str, enum.Enum):
+    """All distance metrics supported by Db2 12.1 ``VECTOR_DISTANCE``.
+
+    Inherits the five strategies already present in LangChain's
+    ``DistanceStrategy`` and adds the two Db2-specific metrics that have no
+    upstream equivalent (``HAMMING`` and ``MANHATTAN``).
+
+    .. list-table:: Metrics and index eligibility
+       :header-rows: 1
+
+       * - Member
+         - Db2 keyword
+         - ``CREATE VECTOR INDEX``
+       * - ``EUCLIDEAN_DISTANCE``
+         - ``EUCLIDEAN``
+         - ✅
+       * - ``MAX_INNER_PRODUCT``
+         - ``EUCLIDEAN_SQUARED``
+         - ✅
+       * - ``COSINE``
+         - ``COSINE``
+         - ✅
+       * - ``DOT_PRODUCT``
+         - ``DOT``
+         - ❌
+       * - ``HAMMING``
+         - ``HAMMING``
+         - ❌
+       * - ``MANHATTAN``
+         - ``MANHATTAN``
+         - ❌
+    """
+
+    EUCLIDEAN_DISTANCE = "EUCLIDEAN_DISTANCE"
+    MAX_INNER_PRODUCT = "MAX_INNER_PRODUCT"
+    DOT_PRODUCT = "DOT_PRODUCT"
+    JACCARD = "JACCARD"
+    COSINE = "COSINE"
+    HAMMING = "HAMMING"
+    MANHATTAN = "MANHATTAN"
+
+
+# Metrics that Db2 12.1 CREATE VECTOR INDEX does NOT support.
+_NON_INDEXABLE = frozenset({
+    Db2DistanceStrategy.DOT_PRODUCT,
+    Db2DistanceStrategy.HAMMING,
+    Db2DistanceStrategy.MANHATTAN,
+})
+
 
 logger = logging.getLogger(__name__)
 log_level = os.getenv("LOG_LEVEL", "ERROR").upper()
@@ -87,20 +135,20 @@ def _table_exists(client: Connection, table_name: str) -> bool:
     return True
 
 
-def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
-    # Dictionary to map distance strategies to their corresponding function
-    # names
+def _get_distance_function(distance_strategy: Db2DistanceStrategy) -> str:
+    """Return the Db2 ``VECTOR_DISTANCE`` keyword for *distance_strategy*."""
     distance_strategy2function = {
-        DistanceStrategy.EUCLIDEAN_DISTANCE: "EUCLIDEAN",
-        DistanceStrategy.DOT_PRODUCT: "DOT",
-        DistanceStrategy.COSINE: "COSINE",
+        Db2DistanceStrategy.EUCLIDEAN_DISTANCE: "EUCLIDEAN",
+        Db2DistanceStrategy.MAX_INNER_PRODUCT: "EUCLIDEAN_SQUARED",
+        Db2DistanceStrategy.DOT_PRODUCT: "DOT",
+        Db2DistanceStrategy.COSINE: "COSINE",
+        Db2DistanceStrategy.HAMMING: "HAMMING",
+        Db2DistanceStrategy.MANHATTAN: "MANHATTAN",
     }
 
-    # Attempt to return the corresponding distance function
     if distance_strategy in distance_strategy2function:
         return distance_strategy2function[distance_strategy]
 
-    # If it's an unsupported distance strategy, raise an error
     error_msg = f"Unsupported distance strategy: {distance_strategy}"
     raise ValueError(error_msg)
 
@@ -354,7 +402,7 @@ class DB2VS(VectorStore):
         embedding_function: Callable[[str], list[float]] | Embeddings,
         table_name: str,
         client: Connection | None = None,
-        distance_strategy: DistanceStrategy = DistanceStrategy.EUCLIDEAN_DISTANCE,
+        distance_strategy: Db2DistanceStrategy = Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
         query: str | None = "What is a Db2 database",
         params: dict[str, Any] | None = None,
         connection_args: dict[str, Any] | None = None,
@@ -1021,11 +1069,11 @@ class DB2VS(VectorStore):
         # Default to EUCLIDEAN_DISTANCE when not supplied, matching __init__.
         # Previously this raised TypeError for any caller that omitted the arg.
         distance_strategy = kwargs.get(
-            "distance_strategy", DistanceStrategy.EUCLIDEAN_DISTANCE
+            "distance_strategy", Db2DistanceStrategy.EUCLIDEAN_DISTANCE
         )
-        if not isinstance(distance_strategy, DistanceStrategy):
+        if not isinstance(distance_strategy, Db2DistanceStrategy):
             error_msg = (
-                f"Expected DistanceStrategy, got {type(distance_strategy).__name__}"
+                f"Expected Db2DistanceStrategy, got {type(distance_strategy).__name__}"
             )
             raise TypeError(error_msg)
 
@@ -1152,13 +1200,15 @@ class DB2VS(VectorStore):
             )
             raise ValueError(error_msg)
 
-        # ── DOT_PRODUCT is not a valid index distance keyword (SQL0104N) ────
-        if self.distance_strategy == DistanceStrategy.DOT_PRODUCT:
+        # ── Guard: only EUCLIDEAN, EUCLIDEAN_SQUARED, COSINE are valid index
+        #    distance keywords in Db2 12.1. DOT, HAMMING, MANHATTAN are
+        #    rejected by the engine with SQL0104N. ────────────────────────────
+        if self.distance_strategy in _NON_INDEXABLE:
             error_msg = (
-                "distance_strategy 'DOT_PRODUCT' cannot be used to build a "
-                "DiskANN vector index. Db2 12.1 does not support DOT as an "
-                "index distance keyword (SQL0104N). Use EUCLIDEAN_DISTANCE, "
-                "MAX_INNER_PRODUCT (EUCLIDEAN_SQUARED), or COSINE instead."
+                f"distance_strategy '{self.distance_strategy.value}' cannot be "
+                "used to build a DiskANN vector index. Db2 12.1 supports only "
+                "EUCLIDEAN_DISTANCE, MAX_INNER_PRODUCT, and COSINE for "
+                "CREATE VECTOR INDEX."
             )
             raise ValueError(error_msg)
 
