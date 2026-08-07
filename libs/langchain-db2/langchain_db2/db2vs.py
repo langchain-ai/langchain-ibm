@@ -201,7 +201,7 @@ def drop_index(client: Connection, index_name: str) -> None:
 
         drop_index(
             client=db_client,  # ibm_db_dbi.Connection
-            index_name="HNSW_IDX1",
+            index_name="VIDX1",
         )
         ```
 
@@ -1019,6 +1019,7 @@ class DB2VS(VectorStore):
             distance_strategy=distance_strategy,
             query=query,
             params=params,
+            tablespace=kwargs.get("tablespace"),
         )
         vss.add_texts(texts=list(texts), metadatas=metadatas)
         return vss
