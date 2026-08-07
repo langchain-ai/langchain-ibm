@@ -80,15 +80,20 @@ def test_create_index_with_power_user_params() -> None:
     assert "ACCURACY" not in ddl
 
 
-def test_create_index_cosine_raises() -> None:
-    """create_index raises ValueError for COSINE (not indexable in DiskANN)."""
-    db2vs, _ = _make_db2vs(DistanceStrategy.COSINE)
-    with pytest.raises((ValueError, RuntimeError)):
-        db2vs.create_index("BAD_IDX")
+def test_create_index_cosine_succeeds() -> None:
+    """create_index with COSINE issues the correct DDL (COSINE is supported)."""
+    db2vs, client = _make_db2vs(DistanceStrategy.COSINE)
+    cursor = client.cursor.return_value
+
+    db2vs.create_index("VIDX_COSINE")
+
+    ddl = cursor.execute.call_args_list[0][0][0]
+    assert "CREATE VECTOR INDEX VIDX_COSINE" in ddl
+    assert "WITH DISTANCE COSINE" in ddl
 
 
 def test_create_index_dot_product_raises() -> None:
-    """create_index raises ValueError for DOT_PRODUCT (not indexable in DiskANN)."""
+    """create_index raises ValueError for DOT_PRODUCT — not a valid index distance."""
     db2vs, _ = _make_db2vs(DistanceStrategy.DOT_PRODUCT)
     with pytest.raises((ValueError, RuntimeError)):
         db2vs.create_index("BAD_IDX")
