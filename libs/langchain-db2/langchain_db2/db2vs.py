@@ -105,6 +105,28 @@ def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
     raise ValueError(error_msg)
 
 
+def _quote_ident(name: str) -> str:
+    """Return a safely double-quoted, upper-cased Db2 identifier.
+
+    Converts the identifier to uppercase and wraps it in double quotes,
+    escaping any embedded double-quote characters by doubling them.  This
+    matches Db2's default identifier semantics for DDL statements.
+
+    Args:
+        name: A non-empty identifier string (table, index, column, schema).
+
+    Returns:
+        A double-quoted, uppercase string safe for Db2 DDL/DML.
+
+    Raises:
+        ValueError: If ``name`` is empty or whitespace-only.
+    """
+    if not name or not name.strip():
+        error_msg = "Identifier must be a non-empty string."
+        raise ValueError(error_msg)
+    return '"' + name.upper().replace('"', '""') + '"'
+
+
 @_handle_exceptions
 def _create_table(
     client: Connection,
@@ -1054,6 +1076,7 @@ class DB2VS(VectorStore):
     def create_index(
         self,
         index_name: str,
+        if_exists: str = "error",
         accuracy: int | None = None,
         parallel: int | None = None,
         neighbors: int | None = None,
@@ -1062,38 +1085,52 @@ class DB2VS(VectorStore):
         """Create a DiskANN vector index on the embedding column for ANN search.
 
         Db2 12.1 AI Vector Search uses the ``CREATE VECTOR INDEX`` DDL backed
-        by the DiskANN algorithm.  The supported distance metrics for indexing
-        are ``EUCLIDEAN``, ``EUCLIDEAN_SQUARED``, and ``COSINE``.
-        ``DOT_PRODUCT`` (``DOT``) is **not** a valid keyword for
-        ``CREATE VECTOR INDEX`` and will be rejected by the engine
-        (``SQL0104N``).
+        by the DiskANN algorithm.  Supported distance metrics are
+        ``EUCLIDEAN``, ``EUCLIDEAN_SQUARED``, and ``COSINE``.
+        ``DOT_PRODUCT`` is **not** a valid index distance keyword in Db2 12.1
+        and is rejected by the engine with ``SQL0104N``.
+
+        After building the index, ``RUNSTATS`` is run automatically so the
+        Db2 optimizer can immediately take advantage of the new index.
 
         Args:
             index_name: Name for the new index (e.g. ``"VIDX1"``).
-            accuracy: Target accuracy specification (integer 1-100).
+            if_exists: Behaviour when an index with ``index_name`` already
+                exists.  One of:
+
+                * ``"error"`` *(default)* — raise ``ValueError``.
+                * ``"skip"`` — return silently without rebuilding.
+                * ``"replace"`` — drop the existing index and recreate it.
+
+            accuracy: Target accuracy specification (integer 1–100).
                 Mutually exclusive with ``neighbors`` / ``ef_construction``.
                 If omitted, Db2 uses its default accuracy.
-            parallel: Number of parallel workers to use during index build.
-                If omitted, Db2 uses its default.
-            neighbors: DiskANN power-user parameter ``NEIGHBORS``.  Controls
-                the maximum number of bi-directional links per node.  Must be
-                provided together with ``ef_construction`` when used.
-            ef_construction: DiskANN power-user parameter ``EFCONSTRUCTION``.
-                Controls the size of the dynamic candidate list during index
-                construction.  Must be provided together with ``neighbors``
-                when used.
+            parallel: Number of parallel workers for index build
+                (``BUILD_PARALLELISM``).  If omitted, Db2 uses its default.
+            neighbors: DiskANN ``MAX_NODE_DEGREE``.  Controls the maximum
+                number of bi-directional links per graph node.  Must be
+                provided together with ``ef_construction``.
+            ef_construction: DiskANN ``BUILD_LIST_SIZE``.  Controls the
+                dynamic candidate-list size during construction.  Must be
+                provided together with ``neighbors``.
 
         Raises:
-            ValueError: If ``distance_strategy`` is ``DOT_PRODUCT`` (not a
-                valid index distance in Db2 12.1), or if ``accuracy`` is
-                combined with ``neighbors``/``ef_construction``, or if only
-                one of ``neighbors``/``ef_construction`` is given.
-            RuntimeError: If a DB2 error occurs while creating the index.
+            ValueError: If ``distance_strategy`` is ``DOT_PRODUCT``, if
+                ``if_exists`` is not one of the three accepted values, if
+                ``accuracy`` is combined with ``neighbors``/``ef_construction``,
+                or if only one of ``neighbors``/``ef_construction`` is given.
+            RuntimeError: If a Db2 error occurs while creating the index.
 
         ??? example "Example - default DiskANN index"
 
             ```python
             db2vs.create_index("VIDX1")
+            ```
+
+        ??? example "Example - idempotent rebuild"
+
+            ```python
+            db2vs.create_index("VIDX1", if_exists="replace")
             ```
 
         ??? example "Example - with target accuracy and parallel workers"
@@ -1117,9 +1154,15 @@ class DB2VS(VectorStore):
             ```
 
         """
-        # DOT_PRODUCT ("DOT") is not a valid distance keyword for
-        # CREATE VECTOR INDEX — the engine returns SQL0104N syntax error.
-        # EUCLIDEAN, EUCLIDEAN_SQUARED, and COSINE are all supported.
+        # ── Validate if_exists ──────────────────────────────────────────────
+        if if_exists not in ("error", "skip", "replace"):
+            error_msg = (
+                f"if_exists must be one of 'error', 'skip', 'replace'; "
+                f"got '{if_exists}'."
+            )
+            raise ValueError(error_msg)
+
+        # ── DOT_PRODUCT is not a valid index distance keyword (SQL0104N) ────
         if self.distance_strategy == DistanceStrategy.DOT_PRODUCT:
             error_msg = (
                 "distance_strategy 'DOT_PRODUCT' cannot be used to build a "
@@ -1129,6 +1172,7 @@ class DB2VS(VectorStore):
             )
             raise ValueError(error_msg)
 
+        # ── Mutual-exclusion guards ──────────────────────────────────────────
         has_accuracy = accuracy is not None
         has_power = neighbors is not None or ef_construction is not None
 
@@ -1145,17 +1189,48 @@ class DB2VS(VectorStore):
             )
             raise ValueError(error_msg)
 
+        # ── if_exists: check catalog, then skip/drop as needed ──────────────
+        cursor = self.client.cursor()
+        try:
+            cursor.execute(
+                "SELECT 1 FROM SYSCAT.INDEXES "
+                "WHERE UPPER(INDNAME) = UPPER(?) "
+                "FETCH FIRST 1 ROW ONLY",
+                (index_name,),
+            )
+            already_exists = cursor.fetchone() is not None
+        finally:
+            cursor.close()
+
+        if already_exists:
+            if if_exists == "skip":
+                logger.info("Index %s already exists — skipping.", index_name)
+                return
+            if if_exists == "replace":
+                logger.info("Index %s already exists — dropping for replace.", index_name)
+                drop_index(self.client, index_name)
+            else:  # "error"
+                error_msg = (
+                    f"Index '{index_name}' already exists. "
+                    "Pass if_exists='skip' to ignore or if_exists='replace' to rebuild."
+                )
+                raise ValueError(error_msg)
+
+        # ── Build DDL using safely quoted identifiers ────────────────────────
         distance_func = _get_distance_function(self.distance_strategy)
+        q_index = _quote_ident(index_name)
+        q_table = self.table_name   # may be schema-qualified; preserve as-is
+        q_col   = _quote_ident(self._embedding_field)
+
         ddl = (
-            f"CREATE VECTOR INDEX {index_name} ON {self.table_name} "
-            f"({self._embedding_field}) WITH DISTANCE {distance_func}"
+            f"CREATE VECTOR INDEX {q_index} ON {q_table} "
+            f"({q_col}) WITH DISTANCE {distance_func}"
         )
 
         if has_accuracy:
             ddl += f" WITH TARGET ACCURACY {accuracy}"
 
         if parallel is not None:
-            # The Db2 DDL keyword is BUILD_PARALLELISM, not PARALLEL.
             ddl += f" BUILD_PARALLELISM {parallel}"
 
         if has_power:
@@ -1164,11 +1239,31 @@ class DB2VS(VectorStore):
                 f" EFCONSTRUCTION {ef_construction})"
             )
 
+        # ── Execute DDL ──────────────────────────────────────────────────────
         cursor = self.client.cursor()
         try:
             cursor.execute(ddl)
             cursor.execute("COMMIT")
-            info_msg = f"Index {index_name} created successfully on {self.table_name}."
-            logger.info(info_msg)
+        finally:
+            cursor.close()
+
+        logger.info("Index %s created on %s.", index_name, self.table_name)
+
+        # ── RUNSTATS so the optimizer can immediately use the new index ───────
+        runstats = (
+            f"CALL SYSPROC.ADMIN_CMD("
+            f"'RUNSTATS ON TABLE {q_table} FOR INDEXES ALL')"
+        )
+        cursor = self.client.cursor()
+        try:
+            cursor.execute(runstats)
+            cursor.execute("COMMIT")
+        except Exception:
+            # RUNSTATS failure is non-fatal — the index was already created.
+            logger.warning(
+                "RUNSTATS failed for table %s. "
+                "Statistics may be stale; consider running RUNSTATS manually.",
+                q_table,
+            )
         finally:
             cursor.close()
