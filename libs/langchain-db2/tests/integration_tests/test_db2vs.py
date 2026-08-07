@@ -13,6 +13,7 @@ from langchain_db2.db2vs import (
     _create_table,
     _table_exists,
     clear_table,
+    drop_index,
     drop_table,
 )
 
@@ -859,5 +860,112 @@ def test_default_instance_fails_when_table_uses_custom_text_field(
         with pytest.raises(Exception, match="SQL0206N"):
             db2vs_default.similarity_search(query="Mary", k=2)
     finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+# ---------------------------------------------------------------------------
+# create_index / drop_index - DiskANN (Db2 12.1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.xfail
+def test_create_vector_index_euclidean(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """create_index with EUCLIDEAN_DISTANCE builds a DiskANN vector index."""
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"VI_{uuid.uuid4().hex[:8].upper()}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs.add_texts(texts=["hello", "world"])
+        # Should not raise
+        db2vs.create_index(index)
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_vector_index_cosine_raises(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """create_index raises ValueError when distance_strategy is COSINE."""
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=DistanceStrategy.COSINE,
+        )
+        db2vs.add_texts(texts=["hello"])
+        with pytest.raises((ValueError, RuntimeError)):
+            db2vs.create_index("SHOULD_NOT_EXIST")
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_drop_index_removes_existing_index(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """drop_index removes an existing DiskANN vector index without error."""
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"VI_{uuid.uuid4().hex[:8].upper()}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs.add_texts(texts=["hello", "world"])
+        db2vs.create_index(index)
+        # Now drop it — should not raise
+        drop_index(ibm_db_dbi_connection, index)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_drop_index_silently_ignores_nonexistent(
+    ibm_db_dbi_connection: Connection,
+) -> None:
+    """drop_index does not raise when the index does not exist."""
+    drop_index(ibm_db_dbi_connection, "NONEXISTENT_VIDX_XYZ")
+
+
+@pytest.mark.xfail
+def test_similarity_search_after_create_index(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """similarity_search still returns correct results after a vector index is built."""
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"VI_{uuid.uuid4().hex[:8].upper()}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        texts = ["Yash", "Varanasi", "Yashaswi", "Mumbai", "BengaluruYash"]
+        db2vs.add_texts(texts=texts)
+        db2vs.create_index(index)
+
+        results = db2vs.similarity_search(query="YashB", k=3)
+        assert isinstance(results, list)
+        assert len(results) >= 1
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
         drop_table(ibm_db_dbi_connection, table)
         ibm_db_dbi_connection.commit()
