@@ -51,6 +51,8 @@ dev = []
 # CVE-2026-34525, CVE-2026-34520, CVE-2026-34519, CVE-2026-34518, CVE-2026-34517,
 # CVE-2026-34516, CVE-2026-34515, CVE-2026-34514, CVE-2026-34513, CVE-2026-22815:
 # aiohttp <= 3.13.3 multiple vulnerabilities (header injection, SSRF, DoS, etc.).
+# CVE-2026-59881/CVE-2026-69243/CVE-2026-69244: aiohttp <= 3.14.2 WebSocket
+# compression/request-smuggling/parser vulnerabilities.
 # CVE-2026-25990: pillow < 12.1.1 out-of-bounds write loading PSD images.
 # CVE-2026-40192: pillow < 12.2.0 FITS GZIP decompression bomb.
 # CVE-2026-25645: requests < 2.33.0 insecure temp file reuse.
@@ -61,7 +63,7 @@ security = [
     "transformers>=5.5.0",
     "vcrpy>=8.2.1",
     "urllib3>=2.7.0",
-    "aiohttp>=3.13.4",
+    "aiohttp>=3.14.3",
     "pillow>=12.3.0",
     "requests>=2.33.0",
 ]
@@ -74,7 +76,7 @@ security = [
 # constraint conflicting with this project's requires-python <4.0 upper bound.
 constraint-dependencies = [
     "urllib3>=2.7.0",
-    "aiohttp>=3.13.4",
+    "aiohttp>=3.14.3",
     "pillow>=12.3.0",
     "requests>=2.33.0",
     "torch>=2.8.0",
