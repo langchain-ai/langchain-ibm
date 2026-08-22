@@ -503,3 +503,56 @@ def test_initialize_chat_watsonx_model_id_without_project_or_space_id(
             url="https://us-south.ml.cloud.ibm.com",
             apikey="test_apikey",
         )
+
+
+# ── bind_tools should not force tool use when tool_choice is unset (#152) ───────
+
+_WEATHER_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get the weather for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+        },
+    },
+}
+
+
+def test_bind_tools_without_tool_choice_has_no_effect() -> None:
+    """No tool_choice given should not force tool_choice_option at all.
+
+    Previously this branch defaulted to `tool_choice_option="auto"`, which
+    caused WatsonX models to always attempt a tool call even when no tool was
+    relevant to the user's query. The documented contract for `tool_choice`
+    is that `None`/`False` should have "no effect, default OpenAI behavior".
+    """
+    chat = ChatWatsonx(watsonx_model=model_inference_mock)
+    bound = chat.bind_tools([_WEATHER_TOOL])
+    assert "tool_choice_option" not in bound.kwargs
+    assert "tool_choice" not in bound.kwargs
+
+
+def test_bind_tools_with_explicit_auto_sets_tool_choice_option() -> None:
+    """Explicitly passing tool_choice='auto' should still set tool_choice_option."""
+    chat = ChatWatsonx(watsonx_model=model_inference_mock)
+    bound = chat.bind_tools([_WEATHER_TOOL], tool_choice="auto")
+    assert bound.kwargs["tool_choice_option"] == "auto"
+
+
+def test_bind_tools_with_required_forces_tool_choice() -> None:
+    """tool_choice=True (or 'required'/'any') should force tool_choice_option."""
+    chat = ChatWatsonx(watsonx_model=model_inference_mock)
+    bound = chat.bind_tools([_WEATHER_TOOL], tool_choice=True)
+    assert bound.kwargs["tool_choice_option"] == "required"
+
+
+def test_bind_tools_with_specific_tool_name() -> None:
+    """tool_choice=<tool name> should force that specific tool via a dict."""
+    chat = ChatWatsonx(watsonx_model=model_inference_mock)
+    bound = chat.bind_tools([_WEATHER_TOOL], tool_choice="get_weather")
+    assert bound.kwargs["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "get_weather"},
+    }
