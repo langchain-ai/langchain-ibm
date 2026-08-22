@@ -12,7 +12,7 @@ try:
 except ModuleNotFoundError as e:
     error_msg = (
         "To use WatsonxSQLDatabase one need to install langchain-ibm with extras "
-        "`sql_toolkit`: `pip install langchain-ibm[sql_toolkit]`",
+        "`sql_toolkit`: `pip install langchain-ibm[sql_toolkit]`"
     )
     raise ModuleNotFoundError(error_msg) from e
 
