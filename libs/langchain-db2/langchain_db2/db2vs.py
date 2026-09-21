@@ -34,48 +34,37 @@ if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
 
 class Db2DistanceStrategy(str, enum.Enum):
-    """All distance metrics supported by Db2 12.1 ``VECTOR_DISTANCE``.
+    """Distance metrics you can use with the Db2 vector store.
 
-    Inherits the five strategies already present in LangChain's
-    ``DistanceStrategy`` and adds the two Db2-specific metrics that have no
-    upstream equivalent (``HAMMING`` and ``MANHATTAN``).
+    Pick the metric that matches how your embedding model measures similarity.
+    Most models work best with ``EUCLIDEAN_DISTANCE`` or ``COSINE``.
 
-    .. list-table:: Metrics and index eligibility
-       :header-rows: 1
+    Not every metric can be used with ``create_index()``.  Db2 12.1 only
+    supports vector indexes on EUCLIDEAN, EUCLIDEAN_SQUARED, and COSINE —
+    the others (DOT_PRODUCT, HAMMING, MANHATTAN) will raise an error if you
+    try to index them.
 
-       * - Member
-         - Db2 keyword
-         - ``CREATE VECTOR INDEX``
-       * - ``EUCLIDEAN_DISTANCE``
-         - ``EUCLIDEAN``
-         - ✅
-       * - ``MAX_INNER_PRODUCT``
-         - ``EUCLIDEAN_SQUARED``
-         - ✅
-       * - ``COSINE``
-         - ``COSINE``
-         - ✅
-       * - ``DOT_PRODUCT``
-         - ``DOT``
-         - ❌
-       * - ``HAMMING``
-         - ``HAMMING``
-         - ❌
-       * - ``MANHATTAN``
-         - ``MANHATTAN``
-         - ❌
+    Quick reference::
+
+        EUCLIDEAN_DISTANCE  → straight-line distance          ✅ indexable
+        MAX_INNER_PRODUCT   → inner product (euclidean²)      ✅ indexable
+        COSINE              → angle between vectors            ✅ indexable
+        DOT_PRODUCT         → dot product                      ❌ not indexable
+        HAMMING             → bit-level distance (binary)      ❌ not indexable
+        MANHATTAN           → city-block distance              ❌ not indexable
     """
 
     EUCLIDEAN_DISTANCE = "EUCLIDEAN_DISTANCE"
     MAX_INNER_PRODUCT = "MAX_INNER_PRODUCT"
     DOT_PRODUCT = "DOT_PRODUCT"
-    JACCARD = "JACCARD"
     COSINE = "COSINE"
     HAMMING = "HAMMING"
     MANHATTAN = "MANHATTAN"
 
 
-# Metrics that Db2 12.1 CREATE VECTOR INDEX does NOT support.
+# DOT_PRODUCT, HAMMING, and MANHATTAN cannot be used with CREATE VECTOR INDEX
+# in Db2 12.1 — the engine rejects them with SQL0104N.
+# Checked in create_index() before any DDL is sent to the server.
 _NON_INDEXABLE = frozenset({
     Db2DistanceStrategy.DOT_PRODUCT,
     Db2DistanceStrategy.HAMMING,
