@@ -55,6 +55,6 @@ class TestWatsonxToolsStandard(ToolsIntegrationTests):
         have {"name", "id", "args"} keys.
         """
         return {
-            "location": "London",
+            "location": "Cracow",
             "country": "Poland",
         }
