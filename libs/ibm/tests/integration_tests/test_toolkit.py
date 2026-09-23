@@ -79,6 +79,7 @@ def test_03_get_tool_with_input_schema() -> None:
     assert tool.tool_input_schema
 
 
+@pytest.mark.skip(reason="API key required for GoogleSearch")
 def test_04_invoke_tool_with_config_schema() -> None:
     watsonx_toolkit = WatsonxToolkit(
         url=URL,
@@ -124,6 +125,7 @@ def test_05_invoke_tool_with_input_schema() -> None:
     assert "temperature" in output.lower()
 
 
+@pytest.mark.skip(reason="API key required for GoogleSearch")
 def test_06_invoke_tool_with_simple_input() -> None:
     watsonx_toolkit = WatsonxToolkit(
         url=URL,
