@@ -313,6 +313,7 @@ def test_chat_stream() -> None:
         assert isinstance(chunk.content, str)
 
 
+@pytest.mark.xfail(reason="Streaming API does not return reasoning for now.")
 def test_chat_stream_with_reasoning_content() -> None:
     chat = ChatWatsonx(
         model_id=MODEL_ID_REASONING_CONTENT,
