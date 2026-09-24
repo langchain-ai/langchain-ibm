@@ -120,12 +120,15 @@ def test_chat_invoke_with_reasoning_content() -> None:
     response = chat.invoke(messages)
     assert response
     assert response.content
-    assert response.additional_kwargs.get("reasoning_content")
+    assert response.additional_kwargs.get(
+        "reasoning_content"
+    ) or response.additional_kwargs.get("reasoning")
 
     response_2 = chat.invoke(messages, params={"include_reasoning": False})
     assert response_2
     assert response_2.content
     assert not response_2.additional_kwargs.get("reasoning_content")
+    assert not response_2.additional_kwargs.get("reasoning")
 
 
 def test_chat_invoke_with_params_as_dict_in_invoke() -> None:
@@ -237,8 +240,14 @@ def test_chat_generate_with_reasoning_content() -> None:
     for generation in response.generations:
         assert generation[0].text
         assert generation[0].message  # type: ignore[attr-defined]
-        assert "reasoning_content" in generation[0].message.additional_kwargs  # type: ignore[attr-defined]
-        assert generation[0].message.additional_kwargs["reasoning_content"]  # type: ignore[attr-defined]
+        assert any(
+            k in generation[0].message.additional_kwargs  # type: ignore[attr-defined]
+            for k in ("reasoning_content", "reasoning")
+        )
+        assert (
+            generation[0].message.additional_kwargs.get("reasoning_content")  # type: ignore[attr-defined]
+            or generation[0].message.additional_kwargs.get("reasoning")  # type: ignore[attr-defined]
+        )
 
     response_2 = chat.generate(
         [[message], [message]], params={"include_reasoning": False}
@@ -247,7 +256,10 @@ def test_chat_generate_with_reasoning_content() -> None:
     for generation in response_2.generations:
         assert generation[0].text
         assert generation[0].message  # type: ignore[attr-defined]
-        assert "reasoning_content" not in generation[0].message.additional_kwargs  # type: ignore[attr-defined]
+        assert not any(
+            k in generation[0].message.additional_kwargs  # type: ignore[attr-defined]
+            for k in ("reasoning_content", "reasoning")
+        )
 
 
 async def test_chat_agenerate() -> None:
@@ -317,7 +329,9 @@ def test_chat_stream_with_reasoning_content() -> None:
 
     for chunk in response:
         assert isinstance(chunk.content, str)
-        reasoning_content += chunk.additional_kwargs.get("reasoning_content", "")
+        reasoning_content += chunk.additional_kwargs.get(
+            "reasoning_content", ""
+        ) or chunk.additional_kwargs.get("reasoning", "")
 
     assert reasoning_content
 

@@ -23,33 +23,22 @@ class TestWatsonxToolsStandard(ToolsIntegrationTests):
     @property
     def tool_constructor_params(self) -> dict[str, Any]:
         return {
-            "name": "GoogleSearch",
-            "description": "Search for online trends, news, current events, "
-            "real-time information, or research topics.",
-            "agent_description": "Search for online trends, news, current events, "
-            "real-time information, or research topics.",
-            "tool_config_schema": {
-                "title": "config schema for GoogleSearch tool",
-                "type": "object",
-                "properties": {
-                    "maxResults": {
-                        "title": "Max number of results to return",
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 20,
-                    }
-                },
-            },
+            "name": "Weather",
+            "description": "Find the weather for a location.",
+            "agent_description": "Find the weather for a location.",
             "tool_input_schema": {
                 "type": "object",
                 "properties": {
-                    "q": {
-                        "title": "Query",
-                        "description": "GoogleSearch query",
+                    "location": {
+                        "description": "Name of the location",
                         "type": "string",
-                    }
+                    },
+                    "country": {
+                        "description": "Name of the state or country",
+                        "type": "string",
+                    },
                 },
-                "required": ["q"],
+                "required": ["location"],
             },
             "watsonx_client": APIClient(
                 credentials=wx_credentials,
@@ -66,5 +55,6 @@ class TestWatsonxToolsStandard(ToolsIntegrationTests):
         have {"name", "id", "args"} keys.
         """
         return {
-            "q": "Search IBM",
+            "location": "Cracow",
+            "country": "Poland",
         }

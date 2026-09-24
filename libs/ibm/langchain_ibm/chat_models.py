@@ -149,6 +149,8 @@ def _convert_dict_to_message(_dict: Mapping[str, Any], call_id: str) -> BaseMess
             additional_kwargs["audio"] = audio
         if reasoning_content := _dict.get("reasoning_content"):
             additional_kwargs["reasoning_content"] = reasoning_content
+        if reasoning := _dict.get("reasoning"):
+            additional_kwargs["reasoning"] = reasoning
         return AIMessage(
             content=content,
             additional_kwargs=additional_kwargs,
@@ -188,7 +190,8 @@ def _format_message_content(content: Any) -> Any:
             if (
                 isinstance(block, dict)
                 and "type" in block
-                and block["type"] in {"tool_use", "thinking", "reasoning_content"}
+                and block["type"]
+                in {"tool_use", "thinking", "reasoning_content", "reasoning"}
             ):
                 continue
 
@@ -328,6 +331,8 @@ def _convert_delta_to_message_chunk(
 
     if reasoning_content := _dict.get("reasoning_content"):
         additional_kwargs["reasoning_content"] = reasoning_content
+    if reasoning := _dict.get("reasoning"):
+        additional_kwargs["reasoning"] = reasoning
 
     if role == "user" or default_class == HumanMessageChunk:
         return HumanMessageChunk(content=content, id=id_)
@@ -673,7 +678,10 @@ class ChatWatsonx(BaseChatModel):
         print(f"Output: {response.content}")
 
         # Reasoning summaries
-        print(f"Reasoning: {response.additional_kwargs['reasoning_content']}")
+        reasoning = response.additional_kwargs.get(
+            "reasoning_content"
+        ) or response.additional_kwargs.get("reasoning")
+        print(f"Reasoning: {reasoning}")
         ```
 
         ```txt
@@ -1001,11 +1009,11 @@ class ChatWatsonx(BaseChatModel):
 
     reasoning_effort: Literal["low", "medium", "high"] | None = None
     """A lower reasoning effort can result in faster responses, fewer tokens used,
-    and shorter reasoning_content in the responses.
+    and shorter reasoning content in the responses.
     Supported values are: low, medium, and high."""
 
     include_reasoning: bool | None = None
-    """Whether to include `reasoning_content` in the response."""
+    """Whether to include `reasoning_content` or `reasoning` in the response."""
 
     repetition_penalty: float | None = None
     """Represents the penalty for penalizing tokens that have already been generated
