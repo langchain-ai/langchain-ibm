@@ -224,7 +224,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
         if self.watsonx_embed_gateway is not None:
             error_msg = (
                 "Passing the 'watsonx_embed_gateway' parameter to the "
-                "WatsonxEmbeddings constructor is not supported yet.",
+                "WatsonxEmbeddings constructor is not supported yet."
             )
             raise NotImplementedError(error_msg)
 
@@ -240,7 +240,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 error_msg = (
                     "The parameters 'model' and 'model_id' are mutually exclusive. "
                     "Please specify exactly one of these parameters when "
-                    "initializing WatsonxEmbeddings.",
+                    "initializing WatsonxEmbeddings."
                 )
                 raise ValueError(error_msg)
             if self.model is not None:
@@ -265,7 +265,7 @@ class WatsonxEmbeddings(BaseModel, LangChainEmbeddings):
                 error_msg = (
                     "The parameters 'model' and 'model_id' are mutually exclusive. "
                     "Please specify exactly one of these parameters when "
-                    "initializing WatsonxEmbeddings.",
+                    "initializing WatsonxEmbeddings."
                 )
                 raise ValueError(error_msg)
             credentials = resolve_watsonx_credentials(
