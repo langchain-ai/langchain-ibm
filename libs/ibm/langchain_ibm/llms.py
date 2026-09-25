@@ -28,6 +28,7 @@ from langchain_ibm.utils import (
     normalize_api_key,
     resolve_watsonx_credentials,
     secret_from_env_multi,
+    validate_model_kwargs,
     validate_scope_with_model_id,
 )
 
@@ -293,13 +294,12 @@ class WatsonxLLM(BaseLLM):
             )
 
         elif isinstance(self.watsonx_client, APIClient):
-            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
-                error_msg = (
-                    "The parameters 'model', 'model_id' and 'deployment_id' are "
-                    "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing WatsonxLLM.",
-                )
-                raise ValueError(error_msg)
+            validate_model_kwargs(
+                self.model,
+                self.model_id,
+                self.deployment_id,
+                "WatsonxLLM",
+            )
             if self.model is not None:
                 watsonx_model_gateway = Gateway(
                     api_client=self.watsonx_client,
@@ -319,13 +319,12 @@ class WatsonxLLM(BaseLLM):
                 self.watsonx_model = watsonx_model
 
         else:
-            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
-                error_msg = (
-                    "The parameters 'model', 'model_id' and 'deployment_id' are "
-                    "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing WatsonxLLM.",
-                )
-                raise ValueError(error_msg)
+            validate_model_kwargs(
+                self.model,
+                self.model_id,
+                self.deployment_id,
+                "WatsonxLLM",
+            )
 
             credentials = resolve_watsonx_credentials(
                 url=self.url,
