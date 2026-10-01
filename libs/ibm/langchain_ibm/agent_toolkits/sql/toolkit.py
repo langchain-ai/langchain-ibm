@@ -22,7 +22,7 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
     db: WatsonxSQLDatabase = Field(exclude=True)
     """Instance of the watsonx SQL database."""
 
-    llm: BaseLanguageModel = Field(exclude=True)
+    llm: BaseLanguageModel = Field(exclude=True)  # type: ignore[type-arg]
     """Instance of the LLM."""
 
     model_config = ConfigDict(
