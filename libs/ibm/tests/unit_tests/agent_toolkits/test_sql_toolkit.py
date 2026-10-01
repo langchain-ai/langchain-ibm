@@ -34,9 +34,7 @@ def test_watsonx_sql_database_toolkit_initialization(
     assert toolkit.llm == mock_llm
 
 
-def test_watsonx_sql_database_toolkit_get_tools(
-    mock_db: Mock, mock_llm: Mock
-) -> None:
+def test_watsonx_sql_database_toolkit_get_tools(mock_db: Mock, mock_llm: Mock) -> None:
     """Test get_tools returns all four expected tools with correct configuration."""
     toolkit = WatsonxSQLDatabaseToolkit(db=mock_db, llm=mock_llm)
     tools = toolkit.get_tools()
