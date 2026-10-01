@@ -154,7 +154,7 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
                 template=QUERY_CHECKER,
                 input_variables=["query", "schema"],
             )
-            llm = cast("BaseLanguageModel", values.get("llm"))
+            llm = cast("BaseLanguageModel", values.get("llm"))  # type: ignore[type-arg]
 
             values["llm_chain"] = prompt | llm
 
