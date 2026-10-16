@@ -861,3 +861,4 @@ def test_default_instance_fails_when_table_uses_custom_text_field(
     finally:
         drop_table(ibm_db_dbi_connection, table)
         ibm_db_dbi_connection.commit()
+
