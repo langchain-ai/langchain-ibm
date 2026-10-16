@@ -173,8 +173,8 @@ def test_initialize_watsonxllm_with_three_exclusive_parameters() -> None:
 
 def test_initialize_watsonxllm_with_api_client_only() -> None:
     pattern = re.escape(
-        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
-        " Please specify exactly one of these parameters when initializing WatsonxLLM."
+        "One of 'model', 'model_id' or 'deployment_id' must be specified"
+        " when initializing WatsonxLLM."
     )
     with pytest.raises(ValueError, match=pattern):
         WatsonxLLM(watsonx_client=api_client_mock)
@@ -192,8 +192,8 @@ def test_initialize_watsonxllm_with_watsonx_model_gateway() -> None:
 
 def test_initialize_watsonxllm_without_any_params() -> None:
     pattern = re.escape(
-        "The parameters 'model', 'model_id' and 'deployment_id' are mutually exclusive."
-        " Please specify exactly one of these parameters when initializing WatsonxLLM."
+        "One of 'model', 'model_id' or 'deployment_id' must be specified"
+        " when initializing WatsonxLLM."
     )
 
     with pytest.raises(ValueError, match=pattern):

@@ -95,6 +95,7 @@ from langchain_ibm.utils import (
     normalize_tool_arguments,
     resolve_watsonx_credentials,
     secret_from_env_multi,
+    validate_model_kwargs,
     validate_scope_with_model_id,
 )
 
@@ -1138,13 +1139,12 @@ class ChatWatsonx(BaseChatModel):
             self.watsonx_client = self.watsonx_model._client  # noqa: SLF001
 
         elif isinstance(self.watsonx_client, APIClient):
-            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
-                error_msg = (
-                    "The parameters 'model', 'model_id' and 'deployment_id' are "
-                    "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx.",
-                )
-                raise ValueError(error_msg)
+            validate_model_kwargs(
+                self.model,
+                self.model_id,
+                self.deployment_id,
+                "ChatWatsonx",
+            )
 
             if self.model is not None:
                 watsonx_model_gateway = Gateway(
@@ -1165,13 +1165,12 @@ class ChatWatsonx(BaseChatModel):
                 )
                 self.watsonx_model = watsonx_model
         else:
-            if sum(map(bool, (self.model, self.model_id, self.deployment_id))) != 1:
-                error_msg = (
-                    "The parameters 'model', 'model_id' and 'deployment_id' are "
-                    "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx.",
-                )
-                raise ValueError(error_msg)
+            validate_model_kwargs(
+                self.model,
+                self.model_id,
+                self.deployment_id,
+                "ChatWatsonx",
+            )
 
             credentials = resolve_watsonx_credentials(
                 url=self.url,

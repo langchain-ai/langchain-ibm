@@ -24,6 +24,34 @@ from pydantic import SecretStr
 logger = logging.getLogger(__name__)
 
 
+def validate_model_kwargs(
+    model: str | None,
+    model_id: str | None,
+    deployment_id: str | None,
+    class_name: str,
+) -> None:
+    """Validate that exactly one of `model`, `model_id`, `deployment_id` is set.
+
+    Raises a `ValueError` with a message tailored to whether none of the
+    parameters were provided or more than one was provided, instead of a
+    single generic "mutually exclusive" message for both cases.
+    """
+    provided = sum(map(bool, (model, model_id, deployment_id)))
+    if provided == 0:
+        error_msg = (
+            "One of 'model', 'model_id' or 'deployment_id' must be specified "
+            f"when initializing {class_name}."
+        )
+        raise ValueError(error_msg)
+    if provided > 1:
+        error_msg = (
+            "The parameters 'model', 'model_id' and 'deployment_id' are "
+            "mutually exclusive. Please specify exactly one of these "
+            f"parameters when initializing {class_name}."
+        )
+        raise ValueError(error_msg)
+
+
 def check_for_attribute(value: SecretStr | None, key: str, env_key: str) -> None:
     """Check for attribute."""
     if not value or not value.get_secret_value():
