@@ -10,9 +10,11 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 from langchain_db2.db2vs import (
     DB2VS,
+    Db2DistanceStrategy,
     _create_table,
     _table_exists,
     clear_table,
+    drop_index,
     drop_table,
 )
 
@@ -859,5 +861,349 @@ def test_default_instance_fails_when_table_uses_custom_text_field(
         with pytest.raises(Exception, match="SQL0206N"):
             db2vs_default.similarity_search(query="Mary", k=2)
     finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+# ---------------------------------------------------------------------------
+# Vector index integration tests (require Db2 12.1.5.0 / Mod Pack 5+)
+# ---------------------------------------------------------------------------
+# All tests below create a uniquely named table, ingest documents, exercise
+# the indexing API, run a similarity search to prove the index is live, and
+# clean up in a finally block.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.xfail
+def test_create_index_and_similarity_search_euclidean(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """Ingest documents, create a EUCLIDEAN_DISTANCE vector index, then run
+    similarity search and verify the result is coherent.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"ix_{table}"
+    texts = [
+        "Db2 is IBM's relational database management system.",
+        "Vector search enables semantic similarity queries.",
+        "Machine learning models produce embedding vectors.",
+        "Db2 12.1 Mod Pack 5 introduced vector index support.",
+        "The sky is clear and blue today.",
+    ]
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs.add_texts(texts=texts)
+
+        # Create the index — must not raise.
+        db2vs.create_index(index)
+
+        # Similarity search should return the most relevant document.
+        results = db2vs.similarity_search(query="IBM database system", k=2)
+        assert len(results) >= 1
+        contents = [r.page_content for r in results]
+        assert any("Db2" in c or "database" in c.lower() for c in contents)
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_index_and_similarity_search_cosine(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """Ingest documents, create a COSINE vector index, then retrieve with
+    similarity search and confirm results are returned.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"ix_{table}"
+    texts = [
+        "Paris is the capital of France.",
+        "Berlin is the capital of Germany.",
+        "Tokyo is the capital of Japan.",
+        "The Eiffel Tower stands in Paris.",
+        "Football is a popular sport worldwide.",
+    ]
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.COSINE,
+        )
+        db2vs.add_texts(texts=texts)
+        db2vs.create_index(index)
+
+        results = db2vs.similarity_search(query="French capital Eiffel", k=2)
+        assert len(results) >= 1
+        contents = [r.page_content for r in results]
+        assert any("Paris" in c or "France" in c or "Eiffel" in c for c in contents)
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_index_max_inner_product(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """Ingest documents, create a MAX_INNER_PRODUCT (EUCLIDEAN_SQUARED) index,
+    and confirm similarity search returns results.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"ix_{table}"
+    texts = [
+        "Python is a high-level programming language.",
+        "Java is widely used in enterprise applications.",
+        "Rust guarantees memory safety without garbage collection.",
+        "Go was designed for simplicity and concurrency.",
+        "The weather in Bangalore is pleasant in winter.",
+    ]
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.MAX_INNER_PRODUCT,
+        )
+        db2vs.add_texts(texts=texts)
+        db2vs.create_index(index)
+
+        results = db2vs.similarity_search(query="programming language", k=2)
+        assert len(results) >= 1
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_index_with_tuning_params(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """Create a vector index with explicit MAX_NODE_DEGREE and BUILD_LIST_SIZE
+    tuning parameters and verify that similarity search still works.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"ix_{table}"
+    texts = [
+        "Retrieval-augmented generation combines search with LLMs.",
+        "Embeddings map text into a continuous vector space.",
+        "k-nearest neighbour search finds the closest vectors.",
+        "ANN indexes trade recall for query speed.",
+        "Db2 DiskANN builds a graph-based approximate index.",
+    ]
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs.add_texts(texts=texts)
+
+        # Explicit tuning params — must not raise.
+        db2vs.create_index(index, neighbors=32, ef_construction=64)
+
+        results = db2vs.similarity_search(query="vector approximate search", k=2)
+        assert len(results) >= 1
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_drop_index_removes_index(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """Create a vector index, drop it via drop_index(), then confirm it is gone
+    by verifying that a second drop_index() call (with if_exists handling) does
+    not raise.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"ix_{table}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs.add_texts(texts=["hello world"])
+        db2vs.create_index(index)
+
+        # Drop it — must not raise.
+        drop_index(ibm_db_dbi_connection, index)
+
+        # Dropping again should silently succeed (SQL0204N is suppressed).
+        drop_index(ibm_db_dbi_connection, index)
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_index_if_exists_skip(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """Calling create_index() twice with if_exists='skip' must not raise on the
+    second call.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"ix_{table}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs.add_texts(texts=["skip test"])
+        db2vs.create_index(index)
+        # Second call with skip — must silently do nothing.
+        db2vs.create_index(index, if_exists="skip")
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_index_if_exists_replace(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """Calling create_index() twice with if_exists='replace' drops and recreates
+    the index without error.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"ix_{table}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs.add_texts(texts=["replace test"])
+        db2vs.create_index(index)
+        # Second call with replace — must drop old and create new.
+        db2vs.create_index(index, if_exists="replace")
+
+        results = db2vs.similarity_search(query="replace test", k=1)
+        assert len(results) >= 1
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_index_if_exists_error_raises(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """Calling create_index() twice with the default if_exists='error' must raise
+    ValueError on the second call.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"ix_{table}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs.add_texts(texts=["error test"])
+        db2vs.create_index(index)
+        with pytest.raises(ValueError, match="already exists"):
+            db2vs.create_index(index)  # if_exists='error' is the default
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_index_non_indexable_metric_raises(
+    ibm_db_dbi_connection: Connection, hf_embeddings: HuggingFaceEmbeddings
+) -> None:
+    """Attempting to create a vector index with DOT_PRODUCT must raise ValueError
+    before any DDL is sent to Db2.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    try:
+        db2vs = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.DOT_PRODUCT,
+        )
+        db2vs.add_texts(texts=["dot product test"])
+        with pytest.raises(ValueError, match="cannot be used"):
+            db2vs.create_index("will_not_be_created")
+    finally:
+        drop_table(ibm_db_dbi_connection, table)
+        ibm_db_dbi_connection.commit()
+
+
+@pytest.mark.xfail
+def test_create_vector_index_succeeds_for_non_dbadm_user(
+    ibm_db_dbi_connection: Connection,
+    limited_privilege_connection: Connection,
+    hf_embeddings: HuggingFaceEmbeddings,
+) -> None:
+    """Privilege boundary test: a non-DBADM user can CREATE VECTOR INDEX in
+    Db2 12.1.5.0 (Mod Pack 5). The DBADM requirement was removed in Mod Pack 5.
+
+    The admin connection (ibm_db_dbi_connection) creates and populates the table
+    and grants SELECT + INSERT to the limited user. The limited user then calls
+    create_index() — this must succeed without SQL0551N.
+    """
+    table = f"vidx_{uuid.uuid4().hex[:8]}"
+    index = f"ix_{table}"
+    limited_user = pytest.importorskip("os").environ.get("DB2_LIMITED_USER", "").upper()
+    try:
+        # Admin: create table and ingest data.
+        db2vs_admin = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=ibm_db_dbi_connection,
+            distance_strategy=Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs_admin.add_texts(texts=["privilege boundary test"])
+
+        # Admin: grant the limited user access to the table.
+        cur = ibm_db_dbi_connection.cursor()
+        cur.execute(f'GRANT SELECT, INSERT ON TABLE "{table.upper()}" TO USER {limited_user}')
+        ibm_db_dbi_connection.commit()
+        cur.close()
+
+        # Limited user: create the vector index — must succeed in Mod Pack 5+.
+        db2vs_limited = DB2VS(
+            embedding_function=hf_embeddings,
+            table_name=table,
+            client=limited_privilege_connection,
+            distance_strategy=Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
+        )
+        db2vs_limited.create_index(index)  # must not raise SQL0551N
+
+        # Confirm the index exists by checking the catalog.
+        cur = ibm_db_dbi_connection.cursor()
+        cur.execute(
+            "SELECT 1 FROM SYSCAT.INDEXES WHERE UPPER(INDNAME) = UPPER(?)",
+            (index,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        assert row is not None, f"Index {index} not found in SYSCAT.INDEXES after creation."
+    finally:
+        drop_index(ibm_db_dbi_connection, index)
         drop_table(ibm_db_dbi_connection, table)
         ibm_db_dbi_connection.commit()
