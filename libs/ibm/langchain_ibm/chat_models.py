@@ -1121,7 +1121,7 @@ class ChatWatsonx(BaseChatModel):
         if self.watsonx_model_gateway is not None:
             error_msg = (
                 "Passing the 'watsonx_model_gateway' parameter to the ChatWatsonx "
-                "constructor is not supported yet.",
+                "constructor is not supported yet."
             )
             raise NotImplementedError(error_msg)
 
@@ -1142,7 +1142,7 @@ class ChatWatsonx(BaseChatModel):
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx.",
+                    "parameters when initializing ChatWatsonx."
                 )
                 raise ValueError(error_msg)
 
@@ -1169,7 +1169,7 @@ class ChatWatsonx(BaseChatModel):
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing ChatWatsonx.",
+                    "parameters when initializing ChatWatsonx."
                 )
                 raise ValueError(error_msg)
 

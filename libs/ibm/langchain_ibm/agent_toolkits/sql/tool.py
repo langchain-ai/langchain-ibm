@@ -161,7 +161,7 @@ class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
         if values["llm_chain"].first.input_variables != ["query", "schema"]:
             error_msg = (
                 "LLM chain for QueryCheckerTool must have input variables "
-                "['query', 'schema']",
+                "['query', 'schema']"
             )
             raise ValueError(error_msg)
 

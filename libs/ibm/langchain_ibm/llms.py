@@ -277,7 +277,7 @@ class WatsonxLLM(BaseLLM):
         if self.watsonx_model_gateway is not None:
             error_msg = (
                 "Passing the 'watsonx_model_gateway' parameter to the WatsonxLLM "
-                "constructor is not supported yet.",
+                "constructor is not supported yet."
             )
             raise NotImplementedError(error_msg)
 
@@ -297,7 +297,7 @@ class WatsonxLLM(BaseLLM):
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing WatsonxLLM.",
+                    "parameters when initializing WatsonxLLM."
                 )
                 raise ValueError(error_msg)
             if self.model is not None:
@@ -323,7 +323,7 @@ class WatsonxLLM(BaseLLM):
                 error_msg = (
                     "The parameters 'model', 'model_id' and 'deployment_id' are "
                     "mutually exclusive. Please specify exactly one of these "
-                    "parameters when initializing WatsonxLLM.",
+                    "parameters when initializing WatsonxLLM."
                 )
                 raise ValueError(error_msg)
 
