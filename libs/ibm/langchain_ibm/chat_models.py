@@ -1760,8 +1760,12 @@ class ChatWatsonx(BaseChatModel):
                 kwargs["tool_choice_option"] = tool_choice
             else:
                 kwargs["tool_choice"] = tool_choice
-        else:
-            kwargs["tool_choice_option"] = "auto"
+        # When tool_choice is not specified (None/False), leave tool_choice_option
+        # unset so the request has no effect on tool selection, matching the
+        # documented default OpenAI-style behavior (see `tool_choice` docstring
+        # above). Previously this branch forced tool_choice_option="auto",
+        # which caused WatsonX models to always attempt a tool call even when
+        # no tools were relevant to the user's query.
 
         return super().bind(tools=formatted_tools, **kwargs)
 
