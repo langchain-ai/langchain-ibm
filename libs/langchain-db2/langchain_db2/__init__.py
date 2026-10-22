@@ -2,7 +2,7 @@
 
 from importlib import metadata
 
-from langchain_db2.db2vs import DB2VS
+from langchain_db2.db2vs import DB2VS, Db2DistanceStrategy, drop_index
 
 try:
     __version__ = metadata.version(__package__)
@@ -13,5 +13,7 @@ del metadata  # optional, avoids polluting the results of dir(__package__)
 
 __all__ = [
     "DB2VS",
+    "Db2DistanceStrategy",
+    "drop_index",
     "__version__",
 ]
