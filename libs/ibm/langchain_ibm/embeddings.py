@@ -1,7 +1,7 @@
 """IBM watsonx.ai embeddings wrapper."""
 
 import logging
-from typing import Any
+from typing import Any, Self
 
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.foundation_models.embeddings import (
@@ -18,7 +18,6 @@ from pydantic import (
     SecretStr,
     model_validator,
 )
-from typing_extensions import Self
 
 from langchain_ibm.utils import (
     async_gateway_error_handler,
