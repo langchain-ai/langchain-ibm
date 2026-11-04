@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 import functools
 import hashlib
 import json
@@ -19,10 +20,7 @@ from typing import (
 
 import ibm_db_dbi  # type: ignore[import-untyped]
 import numpy as np
-from langchain_community.vectorstores.utils import (
-    DistanceStrategy,
-    maximal_marginal_relevance,
-)
+from langchain_community.vectorstores.utils import maximal_marginal_relevance
 from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStore
 from typing_extensions import override
@@ -34,6 +32,42 @@ if TYPE_CHECKING:
 
     from ibm_db_dbi import Connection
     from langchain_core.embeddings import Embeddings
+
+
+class Db2DistanceStrategy(str, enum.Enum):
+    """Distance metrics supported by Db2 12.1 VECTOR_DISTANCE.
+
+    Vector index support was introduced in Db2 12.1.5.0 (Mod Pack 5).
+    Not all metrics can be used with create_index() — Db2 only supports
+    EUCLIDEAN, EUCLIDEAN_SQUARED, and COSINE for CREATE VECTOR INDEX.
+    The remaining three are valid for similarity search but cannot be indexed.
+
+    Supported metrics::
+
+        EUCLIDEAN_DISTANCE  - straight-line distance          - indexable
+        MAX_INNER_PRODUCT   - inner product (euclidean^2)     - indexable
+        COSINE              - angle between vectors            - indexable
+        DOT_PRODUCT         - dot product                     - not indexable
+        HAMMING             - bit-level distance (binary)     - not indexable
+        MANHATTAN           - city-block distance             - not indexable
+    """
+
+    EUCLIDEAN_DISTANCE = "EUCLIDEAN_DISTANCE"
+    MAX_INNER_PRODUCT = "MAX_INNER_PRODUCT"
+    DOT_PRODUCT = "DOT_PRODUCT"
+    COSINE = "COSINE"
+    HAMMING = "HAMMING"
+    MANHATTAN = "MANHATTAN"
+
+
+# DOT_PRODUCT, HAMMING, and MANHATTAN are not supported by CREATE VECTOR INDEX
+# in Db2 12.1 — the engine rejects them with SQL0104N.
+_NON_INDEXABLE = frozenset({
+    Db2DistanceStrategy.DOT_PRODUCT,
+    Db2DistanceStrategy.HAMMING,
+    Db2DistanceStrategy.MANHATTAN,
+})
+
 
 logger = logging.getLogger(__name__)
 log_level = os.getenv("LOG_LEVEL", "ERROR").upper()
@@ -87,22 +121,29 @@ def _table_exists(client: Connection, table_name: str) -> bool:
     return True
 
 
-def _get_distance_function(distance_strategy: DistanceStrategy) -> str:
-    # Dictionary to map distance strategies to their corresponding function
-    # names
+def _get_distance_function(distance_strategy: Db2DistanceStrategy) -> str:
     distance_strategy2function = {
-        DistanceStrategy.EUCLIDEAN_DISTANCE: "EUCLIDEAN",
-        DistanceStrategy.DOT_PRODUCT: "DOT",
-        DistanceStrategy.COSINE: "COSINE",
+        Db2DistanceStrategy.EUCLIDEAN_DISTANCE: "EUCLIDEAN",
+        Db2DistanceStrategy.MAX_INNER_PRODUCT: "EUCLIDEAN_SQUARED",
+        Db2DistanceStrategy.DOT_PRODUCT: "DOT",
+        Db2DistanceStrategy.COSINE: "COSINE",
+        Db2DistanceStrategy.HAMMING: "HAMMING",
+        Db2DistanceStrategy.MANHATTAN: "MANHATTAN",
     }
 
-    # Attempt to return the corresponding distance function
     if distance_strategy in distance_strategy2function:
         return distance_strategy2function[distance_strategy]
 
-    # If it's an unsupported distance strategy, raise an error
     error_msg = f"Unsupported distance strategy: {distance_strategy}"
     raise ValueError(error_msg)
+
+
+def _quote_ident(name: str) -> str:
+    """Return a safely double-quoted, upper-cased Db2 identifier for DDL use."""
+    if not name or not name.strip():
+        error_msg = "Identifier must be a non-empty string."
+        raise ValueError(error_msg)
+    return '"' + name.upper().replace('"', '""') + '"'
 
 
 @_handle_exceptions
@@ -173,6 +214,32 @@ def drop_table(client: Connection, table_name: str) -> None:
     else:
         info_msg = f"Table {table_name} not found..."
         logger.info(info_msg)
+
+
+@_handle_exceptions
+def drop_index(client: Connection, index_name: str) -> None:
+    """Drop a vector index from the database if it exists.
+
+    Args:
+        client: The ibm_db_dbi connection object.
+        index_name: The name of the index to drop.
+
+    Raises:
+        RuntimeError: If an unexpected error occurs.
+    """
+    cursor = client.cursor()
+    try:
+        cursor.execute(f"DROP INDEX {_quote_ident(index_name)}")
+        logger.info("Index %s dropped.", index_name)
+    except Exception as ex:
+        if "SQL0204N" in str(ex):
+            # Index does not exist — nothing to do.
+            logger.info("Index %s not found, nothing to drop.", index_name)
+        else:
+            raise
+    finally:
+        cursor.close()
+    client.commit()
 
 
 @_handle_exceptions
@@ -285,7 +352,7 @@ class DB2VS(VectorStore):
         embedding_function: Callable[[str], list[float]] | Embeddings,
         table_name: str,
         client: Connection | None = None,
-        distance_strategy: DistanceStrategy = DistanceStrategy.EUCLIDEAN_DISTANCE,
+        distance_strategy: Db2DistanceStrategy = Db2DistanceStrategy.EUCLIDEAN_DISTANCE,
         query: str | None = "What is a Db2 database",
         params: dict[str, Any] | None = None,
         connection_args: dict[str, Any] | None = None,
@@ -961,3 +1028,128 @@ class DB2VS(VectorStore):
             cursor.close()
 
         return [row[0] for row in rows]
+
+    def create_index(
+        self,
+        index_name: str,
+        if_exists: str = "error",
+        parallel: int | None = None,
+        neighbors: int | None = None,
+        ef_construction: int | None = None,
+    ) -> None:
+        """Create a DiskANN vector index on the embedding column.
+
+        Vector index support requires Db2 12.1.5.0 (Mod Pack 5) or later.
+        Before Mod Pack 5, CREATE VECTOR INDEX required DBADM authority.
+        From Mod Pack 5 onwards a user with CONNECT + CREATETAB +
+        IMPLICIT_SCHEMA is sufficient.
+
+        Supported distance strategies for indexing: EUCLIDEAN_DISTANCE,
+        MAX_INNER_PRODUCT, COSINE. Calling this method with DOT_PRODUCT,
+        HAMMING, or MANHATTAN raises ValueError — Db2 does not support
+        CREATE VECTOR INDEX for those metrics (SQL0104N).
+
+        Args:
+            index_name: Name for the new index.
+            if_exists: What to do if the index already exists.
+                'error' (default) raises ValueError.
+                'skip' returns without doing anything.
+                'replace' drops the existing index and recreates it.
+            parallel: Number of parallel build workers (BUILD_PARALLELISM).
+            neighbors: Maximum links per graph node (MAX_NODE_DEGREE).
+                Must be provided together with ef_construction.
+            ef_construction: Candidate list size during build (BUILD_LIST_SIZE).
+                Must be provided together with neighbors.
+
+        Raises:
+            ValueError: If the distance strategy is not indexable, if
+                if_exists is invalid, or if only one of neighbors /
+                ef_construction is given.
+            RuntimeError: If a Db2 error occurs during index creation.
+        """
+        if if_exists not in ("error", "skip", "replace"):
+            error_msg = (
+                f"if_exists must be 'error', 'skip', or 'replace'; got '{if_exists}'."
+            )
+            raise ValueError(error_msg)
+
+        if self.distance_strategy in _NON_INDEXABLE:
+            error_msg = (
+                f"distance_strategy '{self.distance_strategy.value}' cannot be used "
+                "with CREATE VECTOR INDEX. Db2 12.1 only supports EUCLIDEAN_DISTANCE, "
+                "MAX_INNER_PRODUCT, and COSINE for vector indexes."
+            )
+            raise ValueError(error_msg)
+
+        if (neighbors is None) != (ef_construction is None):
+            error_msg = "'neighbors' and 'ef_construction' must be given together."
+            raise ValueError(error_msg)
+
+        # Check whether the index already exists in the catalog.
+        cursor = self.client.cursor()
+        try:
+            cursor.execute(
+                "SELECT 1 FROM SYSCAT.INDEXES "
+                "WHERE UPPER(INDNAME) = UPPER(?) "
+                "FETCH FIRST 1 ROW ONLY",
+                (index_name,),
+            )
+            already_exists = cursor.fetchone() is not None
+        finally:
+            cursor.close()
+
+        if already_exists:
+            if if_exists == "skip":
+                logger.info("Index %s already exists, skipping.", index_name)
+                return
+            if if_exists == "replace":
+                drop_index(self.client, index_name)
+            else:
+                error_msg = (
+                    f"Index '{index_name}' already exists. "
+                    "Use if_exists='skip' or if_exists='replace'."
+                )
+                raise ValueError(error_msg)
+
+        # Build the DDL.
+        distance_func = _get_distance_function(self.distance_strategy)
+        q_index = _quote_ident(index_name)
+        q_col = _quote_ident("embedding")
+
+        ddl = (
+            f"CREATE VECTOR INDEX {q_index} ON {self.table_name} "
+            f"({q_col}) WITH DISTANCE {distance_func}"
+        )
+        if parallel is not None:
+            ddl += f" BUILD_PARALLELISM {parallel}"
+        if neighbors is not None:
+            ddl += f" MAX_NODE_DEGREE {neighbors}"
+        if ef_construction is not None:
+            ddl += f" BUILD_LIST_SIZE {ef_construction}"
+
+        cursor = self.client.cursor()
+        try:
+            cursor.execute(ddl)
+        finally:
+            cursor.close()
+        self.client.commit()
+
+        logger.info("Index %s created on %s.", index_name, self.table_name)
+
+        # Run RUNSTATS so the optimizer can use the new index immediately.
+        runstats = (
+            f"CALL SYSPROC.ADMIN_CMD("
+            f"'RUNSTATS ON TABLE {self.table_name} FOR INDEXES ALL')"
+        )
+        cursor = self.client.cursor()
+        try:
+            cursor.execute(runstats)
+        except Exception:
+            logger.warning(
+                "RUNSTATS failed for table %s after index creation. "
+                "Consider running RUNSTATS manually.",
+                self.table_name,
+            )
+        finally:
+            cursor.close()
+        self.client.commit()
