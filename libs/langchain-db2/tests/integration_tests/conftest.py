@@ -15,22 +15,53 @@ ABS_PATH = (Path(__file__)).parent
 PROJECT_DIR = Path(ABS_PATH).parent.parent
 
 
+def _make_connection(
+    user: str,
+    password: str,
+    name: str,
+    host: str,
+    port: str,
+    ssl: bool,
+    ssl_cert: str,
+    connect_user: str = "",
+    connect_password: str = "",
+) -> ibm_db_dbi.Connection:
+    """Build a Db2 DSN and return a connected ibm_db_dbi connection."""
+    dsn = f"DATABASE={name};hostname={host};port={port};uid={user};pwd={password};"
+    if ssl:
+        dsn += "SECURITY=SSL;"
+        if ssl_cert:
+            dsn += f"SSLServerCertificate={ssl_cert};"
+    return ibm_db_dbi.connect(dsn, connect_user, connect_password)
+
+
 @pytest.fixture(scope="session")
 def ibm_db_dbi_connection() -> Generator[ibm_db_dbi.Connection, None, None]:
+    """Primary DBADM connection — driven by DB2_USER / DB2_PASSWORD."""
     db2_name = os.environ.get("DB2_NAME", "")
     db2_host = os.environ.get("DB2_HOST", "")
     db2_port = os.environ.get("DB2_PORT", "")
     db2_user = os.environ.get("DB2_USER", "")
     db2_password = os.environ.get("DB2_PASSWORD", "")
 
-    dsn = (
-        f"DATABASE={db2_name};hostname={db2_host};port={db2_port};uid={db2_user};pwd={db2_password};"
-        f"SECURITY=SSL;"
-    )
+    # DB2_SSL controls whether SSL is appended to the DSN.
+    # Set DB2_SSL=true in .env for cloud/SSL instances; omit or set to anything
+    # else for plain-TCP servers (e.g. on-prem Fyre boxes).
+    db2_ssl = os.environ.get("DB2_SSL", "false").strip().lower() == "true"
+
+    # DB2_SSL_CERT is the local filesystem path to the server's SSL certificate
+    # (the .arm or .pem file downloaded from the IBM Cloud / Db2 console).
+    # Only used when DB2_SSL=true. Leave blank if the cert is already trusted
+    # by the system truststore.
+    db2_ssl_cert = os.environ.get("DB2_SSL_CERT", "").strip()
+
     db2_connect_user = os.environ.get("DB2_CONNECT_USER", "")
     db2_connect_password = os.environ.get("DB2_CONNECT_PASSWORD", "")
 
-    conn = ibm_db_dbi.connect(dsn, db2_connect_user, db2_connect_password)
+    conn = _make_connection(
+        db2_user, db2_password, db2_name, db2_host, db2_port,
+        db2_ssl, db2_ssl_cert, db2_connect_user, db2_connect_password,
+    )
     try:
         yield conn
     finally:
